@@ -1,9 +1,22 @@
 // API CLIENT - Base fetch wrapper with error handling
 // Tüm API çağrıları buradan geçer
 
-const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) 
-  ? import.meta.env.VITE_API_BASE_URL 
-  : 'http://localhost:8000/api';
+// Replit deployment için otomatik URL tespiti
+const getApiBaseUrl = () => {
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  
+  // Replit ortamında window.location.origin kullan
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/api`;
+  }
+  
+  // Fallback (sadece SSR veya test ortamları için)
+  return 'http://localhost:8000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export class ApiError extends Error {
   constructor(
