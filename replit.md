@@ -15,7 +15,8 @@ The system operates as a full-stack web application with a Python FastAPI backen
 - ✅ Updated CariModule with real backend API integration (`/api/cari/`)
 - ✅ Updated MotorbotModule with real backend API integration (`/api/motorbot/`)
 - ✅ Updated SeferModule with real backend API integration (`/api/mb-trip/`)
-- ✅ **NEW:** Activated HizmetModule with complete backend & frontend integration
+- ✅ Activated HizmetModule with complete backend & frontend integration
+- ✅ **NEW:** Activated Exchange Rate (Kurlar) backend API (`/api/exchange-rate/`)
 - ✅ Created PlaceholderModule for inactive features
 - ✅ Streamlined App.tsx routing - now 4 active modules, others show placeholder
 - ✅ All active modules have proper loading/error/empty state management
@@ -25,8 +26,18 @@ The system operates as a full-stack web application with a Python FastAPI backen
 - ✅ Backend returning 200 OK responses for all API calls
 - ✅ PascalCase → snake_case field transformers working correctly across all modules
 
+**Exchange Rate Module (November 20, 2025):**
+- ✅ Backend implementation: `models_kurlar.py`, `schemas_kurlar.py`, `router_kurlar.py`
+- ✅ SQLite table: `ExchangeRate` (CurrencyFrom, CurrencyTo, Rate, RateDate, Source, CreatedAt)
+- ✅ Pagination support: PaginatedResponse structure with page/page_size parameters
+- ✅ CRUD endpoints: List, Create, Update, Delete
+- ✅ Advanced endpoints: /today, /latest/{from}/{to}, /date/{date}, /convert, /bulk
+- ✅ Currency conversion with reverse rate fallback
+- ✅ Test data: USD/TRY, EUR/TRY, GBP/TRY rates for 2025-11-20
+- ⏸️ TCMB API integration (placeholder - returns 501 Not Implemented)
+
 **Development Status:**
-- Active Modules: CariModule, MotorbotModule, SeferModule, **HizmetModule** (fully integrated with backend)
+- Active Backend Modules: CariModule, MotorbotModule, SeferModule, HizmetModule, **ExchangeRateModule** (5 modules)
 - Placeholder Modules: All other features pending API development
 - API Communication: Working correctly with FastAPI backend on port 8000
 
@@ -76,6 +87,8 @@ The active Replit implementation uses:
 - `router_cari.py` - Customer/supplier management
 - `router_motorbot.py` - Boat registry operations
 - `router_mbtrip.py` - Trip/voyage management
+- `router_hizmet.py` - Service card management
+- `router_kurlar.py` - Exchange rate management (NEW)
 - Response models ensure type safety with Pydantic
 
 ### Frontend Architecture

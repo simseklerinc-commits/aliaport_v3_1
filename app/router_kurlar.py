@@ -5,7 +5,12 @@ from datetime import date
 
 from .database import get_db
 from .models_kurlar import ExchangeRate as ExchangeRateModel
-from .schemas_kurlar import ExchangeRate, ExchangeRateCreate, ExchangeRateUpdate
+from .schemas_kurlar import (
+    ExchangeRate, 
+    ExchangeRateCreate, 
+    ExchangeRateUpdate,
+    PaginatedExchangeRateResponse
+)
 
 router = APIRouter()
 
@@ -13,17 +18,17 @@ router = APIRouter()
 # EXCHANGE RATE ENDPOINTS
 # ============================================
 
-@router.get("/", response_model=List[ExchangeRate])
+@router.get("/", response_model=PaginatedExchangeRateResponse)
 def get_exchange_rates(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=500),
     currency_from: Optional[str] = None,
     currency_to: Optional[str] = None,
     rate_date: Optional[date] = None,
     db: Session = Depends(get_db)
 ):
     """
-    Döviz kurlarını listele - filtreleme seçenekleri ile
+    Döviz kurlarını listele - filtreleme ve pagination
     """
     query = db.query(ExchangeRateModel)
     
@@ -36,11 +41,26 @@ def get_exchange_rates(
     if rate_date:
         query = query.filter(ExchangeRateModel.RateDate == rate_date)
     
+    # Toplam kayıt sayısı
+    total = query.count()
+    
     # En yeni tarihler önce gelsin
     query = query.order_by(ExchangeRateModel.RateDate.desc(), ExchangeRateModel.Id.desc())
     
-    rates = query.offset(skip).limit(limit).all()
-    return rates
+    # Pagination
+    skip = (page - 1) * page_size
+    rates = query.offset(skip).limit(page_size).all()
+    
+    # Total pages hesapla
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 0
+    
+    return PaginatedExchangeRateResponse(
+        items=rates,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages
+    )
 
 @router.get("/today", response_model=List[ExchangeRate])
 def get_today_rates(db: Session = Depends(get_db)):
@@ -112,6 +132,72 @@ def get_rate_by_date(
         )
     
     return rate
+
+@router.get("/convert", response_model=dict)
+def convert_currency(
+    amount: float = Query(..., gt=0),
+    from_currency: str = Query(..., alias="from"),
+    to_currency: str = Query(..., alias="to"),
+    date_param: Optional[str] = Query(None, alias="date"),
+    db: Session = Depends(get_db)
+):
+    """
+    Kur dönüşümü yap
+    """
+    from datetime import date as date_type
+    
+    # Tarih parse
+    if date_param:
+        rate_date = date_type.fromisoformat(date_param)
+    else:
+        rate_date = date_type.today()
+    
+    # Aynı para birimi
+    if from_currency == to_currency:
+        return {
+            "amount": amount,
+            "from": from_currency,
+            "to": to_currency,
+            "rate": 1.0,
+            "converted_amount": amount,
+            "rate_date": rate_date.isoformat()
+        }
+    
+    # Kur bul
+    rate_record = db.query(ExchangeRateModel).filter(
+        ExchangeRateModel.CurrencyFrom == from_currency,
+        ExchangeRateModel.CurrencyTo == to_currency,
+        ExchangeRateModel.RateDate == rate_date
+    ).first()
+    
+    # Ters kur dene
+    if not rate_record:
+        reverse_rate = db.query(ExchangeRateModel).filter(
+            ExchangeRateModel.CurrencyFrom == to_currency,
+            ExchangeRateModel.CurrencyTo == from_currency,
+            ExchangeRateModel.RateDate == rate_date
+        ).first()
+        
+        if reverse_rate:
+            rate_value = 1.0 / reverse_rate.Rate
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Kur bulunamadı: {from_currency}/{to_currency} - {rate_date}"
+            )
+    else:
+        rate_value = rate_record.Rate
+    
+    converted_amount = round(amount * rate_value, 2)
+    
+    return {
+        "amount": amount,
+        "from": from_currency,
+        "to": to_currency,
+        "rate": rate_value,
+        "converted_amount": converted_amount,
+        "rate_date": rate_date.isoformat()
+    }
 
 @router.get("/{rate_id}", response_model=ExchangeRate)
 def get_exchange_rate(rate_id: int, db: Session = Depends(get_db)):
@@ -186,3 +272,46 @@ def delete_exchange_rate(rate_id: int, db: Session = Depends(get_db)):
     db.commit()
     
     return {"message": "Kur kaydı silindi", "id": rate_id}
+
+@router.post("/bulk", response_model=List[ExchangeRate])
+def create_bulk_exchange_rates(
+    rates: List[ExchangeRateCreate],
+    db: Session = Depends(get_db)
+):
+    """
+    Toplu kur ekleme (günlük kur güncelleme için)
+    """
+    created_rates = []
+    
+    for rate in rates:
+        # Duplicate check
+        existing = db.query(ExchangeRateModel).filter(
+            ExchangeRateModel.CurrencyFrom == rate.CurrencyFrom,
+            ExchangeRateModel.CurrencyTo == rate.CurrencyTo,
+            ExchangeRateModel.RateDate == rate.RateDate
+        ).first()
+        
+        if not existing:
+            db_rate = ExchangeRateModel(**rate.model_dump())
+            db.add(db_rate)
+            created_rates.append(db_rate)
+    
+    db.commit()
+    
+    for rate in created_rates:
+        db.refresh(rate)
+    
+    return created_rates
+
+@router.post("/fetch-tcmb", response_model=List[ExchangeRate])
+def fetch_from_tcmb(
+    date_param: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    TCMB'den güncel kurları çek (placeholder - gerçek API entegrasyonu gerekli)
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="TCMB entegrasyonu henüz implement edilmedi. Manuel kur girişi yapabilirsiniz."
+    )

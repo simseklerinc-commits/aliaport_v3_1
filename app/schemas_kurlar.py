@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, List, Generic, TypeVar
+
+T = TypeVar('T')
 
 class ExchangeRateBase(BaseModel):
     CurrencyFrom: str = Field(..., max_length=10, description="Para birimi (kaynak)")
@@ -25,3 +27,10 @@ class ExchangeRate(ExchangeRateBase):
 
     class Config:
         from_attributes = True
+
+class PaginatedExchangeRateResponse(BaseModel):
+    items: List[ExchangeRate]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
