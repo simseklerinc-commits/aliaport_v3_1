@@ -10,8 +10,8 @@ import { SeferRaporModule } from "./components/modules/SeferRaporModule";
 import { SeferModule } from "./components/modules/SeferModule";
 import { IsEmriModule } from "./components/modules/IsEmriModule";
 import { MotorbotYonetimi } from "./components/MotorbotYonetimi";
-import { motorbotSeferData } from "./data/motorbotSeferData";
 import { ThemeSelector, Theme, themes } from "./components/ThemeSelector";
+import { Toaster } from "sonner";
 import { Layout } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { TemplatePreview } from "./components/TemplatePreview";
@@ -362,6 +362,7 @@ export default function App() {
 
   return (
     <div className={`min-h-screen ${currentTheme.colors.bg} ${currentTheme.colors.text} flex`}>
+      <Toaster position="top-right" richColors />
       {/* Debug Info */}
       {process.env.NODE_ENV === 'development' && (
         <div className="fixed top-20 right-4 z-50 bg-black/90 text-white p-3 rounded text-xs">
