@@ -1,10 +1,12 @@
 // CARİ EKSTRE & BAKİYE - Cari hesap hareketleri ve bakiye görünümü
 // ESKİ SİSTEMLE UYUMLU: Dashboard + Hareket listesi + Grafikler
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { cariApi } from "../../lib/api/cari";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   Download,
@@ -167,13 +169,53 @@ export function CariEkstre({ cari, onBack, onNavigateHome, onNavigateBack, theme
   const [statusFilter, setStatusFilter] = useState<"all" | "ödendi" | "beklemede" | "gecikmiş">("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [cariSearchTerm, setCariSearchTerm] = useState("");
+  const [cariler, setCariler] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Backend PascalCase → Frontend snake_case transformer
+  const transformCariResponse = (item: any) => ({
+    id: item.Id,
+    code: item.CariKod,
+    title: item.Unvan,
+    type: item.CariTip,
+    tax_id: item.VergiNo || '',
+    risk_limit: item.RiskLimiti || 0,
+    currency: item.ParaBirimi || 'TRY',
+  });
+
+  // Carileri yükle
+  useEffect(() => {
+    const loadCariler = async () => {
+      setLoading(true);
+      try {
+        const response = await cariApi.getAll({
+          page: 1,
+          page_size: 100,
+          is_active: true,
+        });
+        
+        const rawData = Array.isArray(response) ? response : (response.items || []);
+        const mappedData = rawData.map(transformCariResponse);
+        setCariler(mappedData);
+      } catch (err) {
+        console.error('Cari listesi yüklenemedi:', err);
+        toast.error('Cari listesi yüklenemedi');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (!selectedCari) {
+      loadCariler();
+    }
+  }, [selectedCari]);
 
   // Eğer selectedCari yoksa, cari seçim ekranı göster
   if (!selectedCari) {
-    const filteredCariList = cariMasterData.filter((c) =>
+    const filteredCariList = cariler.filter((c) =>
       cariSearchTerm
-        ? c.Code.toLowerCase().includes(cariSearchTerm.toLowerCase()) ||
-          c.Name.toLowerCase().includes(cariSearchTerm.toLowerCase())
+        ? c.code.toLowerCase().includes(cariSearchTerm.toLowerCase()) ||
+          c.title.toLowerCase().includes(cariSearchTerm.toLowerCase())
         : true
     );
 
@@ -231,47 +273,50 @@ export function CariEkstre({ cari, onBack, onNavigateHome, onNavigateBack, theme
                 </tr>
               </thead>
               <tbody>
-                {filteredCariList.map((c) => (
-                  <tr
-                    key={c.Id}
-                    onClick={() =>
-                      setSelectedCari({
-                        id: c.Id,
-                        code: c.Code,
-                        title: c.Name,
-                        type: c.AccountType,
-                        tax_id: c.TaxId,
-                        risk_limit: c.RiskLimit || 0,
-                        currency: c.Currency,
-                      })
-                    }
-                    className="border-b border-gray-800 hover:bg-gray-700/50 cursor-pointer transition-colors"
-                  >
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Building2 className="w-5 h-5 text-blue-400" />
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                      Cariler yükleniyor...
+                    </td>
+                  </tr>
+                ) : filteredCariList.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                      Kayıt bulunamadı
+                    </td>
+                  </tr>
+                ) : (
+                  filteredCariList.map((c) => (
+                    <tr
+                      key={c.id}
+                      onClick={() => setSelectedCari(c)}
+                      className="border-b border-gray-800 hover:bg-gray-700/50 cursor-pointer transition-colors"
+                    >
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Building2 className="w-5 h-5 text-blue-400" />
+                          </div>
+                          <span className="font-mono text-sm text-white">{c.code}</span>
                         </div>
-                        <span className="font-mono text-sm text-white">{c.Code}</span>
-                      </div>
+                      </td>
+                    <td className="px-4 py-4">
+                      <div className="text-white font-medium">{c.title}</div>
                     </td>
                     <td className="px-4 py-4">
-                      <div className="text-white font-medium">{c.Name}</div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className="font-mono text-sm text-gray-400">{c.TaxId}</span>
+                      <span className="font-mono text-sm text-gray-400">{c.tax_id}</span>
                     </td>
                     <td className="px-4 py-4">
                       <Badge
                         className={
-                          c.AccountType === "CUSTOMER"
+                          c.type === "MUSTERI"
                             ? "bg-blue-500/20 text-blue-400 border-blue-500/50"
-                            : c.AccountType === "SUPPLIER"
+                            : c.type === "TEDARIKCI"
                             ? "bg-purple-500/20 text-purple-400 border-purple-500/50"
                             : "bg-green-500/20 text-green-400 border-green-500/50"
                         }
                       >
-                        {c.AccountType === "CUSTOMER" ? "Müşteri" : c.AccountType === "SUPPLIER" ? "Tedarikçi" : "İkisi"}
+                        {c.type === "MUSTERI" ? "Müşteri" : c.type === "TEDARIKCI" ? "Tedarikçi" : "İkisi"}
                       </Badge>
                     </td>
                     <td className="px-4 py-4 text-right">
@@ -285,18 +330,11 @@ export function CariEkstre({ cari, onBack, onNavigateHome, onNavigateBack, theme
                       </Button>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>
-
-          {/* Empty State */}
-          {filteredCariList.length === 0 && (
-            <div className="p-12 text-center">
-              <Building2 className="w-16 h-16 mx-auto mb-4 text-gray-600 opacity-50" />
-              <p className="text-gray-400">Cari hesap bulunamadı</p>
-            </div>
-          )}
         </div>
       </div>
     );

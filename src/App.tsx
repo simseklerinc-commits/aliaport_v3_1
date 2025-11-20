@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { CariModule } from "./components/modules/CariModule";
+import { CariEkstre } from "./components/modules/CariEkstre";
 import { MotorbotModule } from "./components/modules/MotorbotModule";
 import { SeferModule } from "./components/modules/SeferModule";
 import { PlaceholderModule } from "./components/PlaceholderModule";
@@ -375,6 +376,11 @@ export default function App() {
             <CariModule onNavigateHome={handleBackToMenu} onNavigateBack={handleBackToSubmenu} theme={currentTheme} />
           )}
 
+          {/* Cari Ekstre & Bakiye */}
+          {currentPage === "cari-ekstre" && (
+            <CariEkstre onNavigateHome={handleBackToMenu} onNavigateBack={handleBackToSubmenu} theme={currentTheme} />
+          )}
+
           {/* Motorbot Module */}
           {currentPage === "motorbot-module" && (
             <MotorbotModule onNavigateHome={handleBackToMenu} onNavigateBack={handleBackToSubmenu} theme={currentTheme} />
@@ -393,6 +399,7 @@ export default function App() {
           {currentPage !== "menu" && 
            currentPage !== "submenu" && 
            currentPage !== "cari-module" && 
+           currentPage !== "cari-ekstre" && 
            currentPage !== "motorbot-module" && 
            currentPage !== "sefer-module" && (
             <PlaceholderModule 
