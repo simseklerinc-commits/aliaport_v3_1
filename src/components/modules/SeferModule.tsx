@@ -5,6 +5,7 @@
 // Blok 3: Sefer Listesi (Seferde Olan | Döndü | Tümü)
 // ✅ Saha personeli kayıtları buraya yansıyor
 // ✅ Ofis personeli de kayıt yapabiliyor
+// ✅ API entegrasyonu ile gerçek veri yönetimi
 
 import { useState, useEffect, useMemo } from "react";
 import { Theme } from "../ThemeSelector";
@@ -15,36 +16,25 @@ import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { 
   Ship, 
-  Calendar,
-  Filter,
   Search,
   Loader2,
-  AlertCircle,
   CheckCircle,
   Clock,
   Plus,
   Send,
   LogOut,
   LogIn,
-  ArrowRight,
   DollarSign,
-  TrendingUp,
-  Users,
-  Eye,
-  Edit,
-  Trash2,
 } from "lucide-react";
 import { seferApi } from "../../lib/api/sefer";
 import { motorbotApi } from "../../lib/api/motorbot";
-import type { MbTrip } from "../../lib/types/database";
+import type { MbTrip, Motorbot } from "../../lib/types/database";
 import { toast } from "sonner";
 
 interface SeferModuleProps {
   onNavigateHome: () => void;
   onNavigateBack: () => void;
   theme: Theme;
-  seferler?: MotorbotSefer[];
-  onSaveSefer?: (sefer: MotorbotSefer) => void;
 }
 
 type TabType = "SEFERDE" | "DONDU" | "TUMU";
@@ -53,11 +43,11 @@ export function SeferModule({
   onNavigateHome, 
   onNavigateBack, 
   theme,
-  seferler: externalSeferler,
-  onSaveSefer,
 }: SeferModuleProps) {
-  const [seferler, setSeferler] = useState<MotorbotSefer[]>([]);
+  const [seferler, setSeferler] = useState<MbTrip[]>([]);
+  const [motorbotlar, setMotorbotlar] = useState<Motorbot[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>("SEFERDE");
 
   // Form states
@@ -78,144 +68,156 @@ export function SeferModule({
   const [filterDateStart, setFilterDateStart] = useState("");
   const [filterDateEnd, setFilterDateEnd] = useState("");
 
-  // Mock data yükle
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 500));
+  // Seferleri ve motorbotları yükle
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Paralel olarak seferler ve motorbotlar yükle
+      const [tripResponse, motorbotResponse] = await Promise.all([
+        seferApi.getAll({
+          page: 1,
+          page_size: 1000,
+        }),
+        motorbotApi.getAll({
+          page: 1,
+          page_size: 100,
+          is_active: true,
+        })
+      ]);
       
-      // Eğer external seferler varsa onları kullan, yoksa mock data
-      if (externalSeferler && externalSeferler.length > 0) {
-        setSeferler([...externalSeferler].sort((a, b) => 
-          new Date(b.DepartureDate).getTime() - new Date(a.DepartureDate).getTime()
-        ));
-      } else {
-        setSeferler([...motorbotSeferData].sort((a, b) => 
-          new Date(b.DepartureDate).getTime() - new Date(a.DepartureDate).getTime()
-        ));
+      setSeferler(tripResponse.items.sort((a, b) => 
+        new Date(b.departure_date).getTime() - new Date(a.departure_date).getTime()
+      ));
+      setMotorbotlar(motorbotResponse.items);
+      
+      // Empty state kontrolü
+      if (tripResponse.items.length === 0) {
+        toast.info('Kayıt bulunamadı', {
+          description: 'Henüz hiç sefer kaydı bulunmuyor'
+        });
       }
-      
-      // Default tarih: bugün
-      const today = new Date().toISOString().split('T')[0];
-      setDepartureDate(today);
-      setReturnDate(today);
-      
-      // Default saat: şu an
-      const now = new Date();
-      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      setDepartureTime(currentTime);
-      setReturnTime(currentTime);
-      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Veri yüklenemedi';
+      setError(errorMessage);
+      toast.error('Veriler yüklenemedi', {
+        description: errorMessage
+      });
+      console.error('Veri yükleme hatası:', err);
+    } finally {
       setLoading(false);
-    };
+    }
+  };
+
+  // İlk yükleme
+  useEffect(() => {
     loadData();
+    
+    // Default tarih ve saat ayarla
+    const today = new Date().toISOString().split('T')[0];
+    setDepartureDate(today);
+    setReturnDate(today);
+    
+    const now = new Date();
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    setDepartureTime(currentTime);
+    setReturnTime(currentTime);
   }, []);
 
-  // External seferler değiştiğinde sync et
-  useEffect(() => {
-    if (externalSeferler && externalSeferler.length > 0) {
-      setSeferler([...externalSeferler].sort((a, b) => 
-        new Date(b.DepartureDate).getTime() - new Date(a.DepartureDate).getTime()
-      ));
-    }
-  }, [externalSeferler]);
-
   // Sefer Çıkış Kaydı
-  const handleSeferCikis = () => {
+  const handleSeferCikis = async () => {
     if (!selectedMotorbotId || !departureDate || !departureTime) {
-      alert("Lütfen motorbot, tarih ve saat bilgilerini doldurun!");
+      toast.error('Eksik bilgi', {
+        description: 'Lütfen motorbot, tarih ve saat bilgilerini doldurun'
+      });
       return;
     }
 
-    const motorbot = motorbotMasterData.find(m => m.Id === selectedMotorbotId);
-    if (!motorbot) return;
-
-    const newSefer: MotorbotSefer = {
-      Id: Math.max(...seferler.map(s => s.Id), 0) + 1,
-      MotorbotId: motorbot.Id,
-      MotorbotCode: motorbot.Code,
-      MotorbotName: motorbot.Name,
-      MotorbotOwner: motorbot.Owner,
-      CariCode: motorbot.CariCode || motorbot.OwnerCode,
-      
-      DepartureDate: departureDate,
-      DepartureTime: departureTime,
-      DepartureNote: departureNote,
-      
-      Status: "DEPARTED",
-      
-      UnitPrice: 10.00,
-      Currency: "USD",
-      VatRate: 18,
-      VatAmount: 0,
-      TotalPrice: 0,
-      
-      IsInvoiced: false,
-      
-      CreatedAt: new Date().toISOString(),
-      CreatedBy: 101, // Mock user
-    };
-
-    // Parent state'i güncelle (App.tsx)
-    if (onSaveSefer) {
-      onSaveSefer(newSefer);
-    } else {
-      // Fallback: local state güncelle
-      setSeferler([newSefer, ...seferler]);
+    const motorbot = motorbotlar.find(m => m.id === selectedMotorbotId);
+    if (!motorbot) {
+      toast.error('Motorbot bulunamadı', {
+        description: 'Seçilen motorbot listede bulunamadı'
+      });
+      return;
     }
-    
-    // Form temizle
-    setSelectedMotorbotId(null);
-    setDepartureNote("");
-    
-    alert(`✅ Sefer çıkış kaydı başarıyla oluşturuldu!\nMotorbot: ${motorbot.Code} - ${motorbot.Name}`);
+
+    try {
+      const newTrip = await seferApi.createDeparture({
+        motorbot_id: motorbot.id,
+        motorbot_code: motorbot.code,
+        motorbot_name: motorbot.name,
+        motorbot_owner: motorbot.owner,
+        cari_code: motorbot.owner || '',
+        departure_date: departureDate,
+        departure_time: departureTime,
+        departure_note: departureNote,
+        unit_price: 10.00,
+        currency: 'USD',
+        vat_rate: 18,
+      });
+
+      setSeferler([newTrip, ...seferler]);
+      
+      // Form temizle
+      setSelectedMotorbotId(null);
+      setDepartureNote("");
+      
+      toast.success('Sefer çıkış kaydı oluşturuldu', {
+        description: `${motorbot.code} - ${motorbot.name} sefere çıktı`
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Kayıt oluşturulamadı';
+      toast.error('Sefer çıkış kaydedilemedi', {
+        description: errorMessage
+      });
+      console.error('Sefer çıkış hatası:', err);
+    }
   };
 
   // Sefer Dönüş Kaydı
-  const handleSeferDonus = () => {
+  const handleSeferDonus = async () => {
     if (!selectedSeferId || !returnDate || !returnTime) {
-      alert("Lütfen sefer, tarih ve saat bilgilerini doldurun!");
+      toast.error('Eksik bilgi', {
+        description: 'Lütfen sefer, tarih ve saat bilgilerini doldurun'
+      });
       return;
     }
 
-    const sefer = seferler.find(s => s.Id === selectedSeferId);
-    if (!sefer) return;
+    const sefer = seferler.find(s => s.id === selectedSeferId);
+    if (!sefer) {
+      toast.error('Sefer bulunamadı', {
+        description: 'Seçilen sefer listede bulunamadı'
+      });
+      return;
+    }
 
-    const departure = new Date(`${sefer.DepartureDate}T${sefer.DepartureTime}`);
-    const returnDateTime = new Date(`${returnDate}T${returnTime}`);
-    const duration = Math.floor((returnDateTime.getTime() - departure.getTime()) / 1000 / 60); // dakika
+    try {
+      const updatedTrip = await seferApi.recordReturn(selectedSeferId, {
+        return_date: returnDate,
+        return_time: returnTime,
+        return_note: returnNote,
+      });
 
-    const price = duration > 0 ? (duration / 60) * sefer.UnitPrice : 0;
-    const vatAmount = price * (sefer.VatRate / 100);
-    const totalPrice = price + vatAmount;
-
-    const updatedSefer: MotorbotSefer = {
-      ...sefer,
-      ReturnDate: returnDate,
-      ReturnTime: returnTime,
-      ReturnNote: returnNote,
-      Duration: duration,
-      Status: "RETURNED" as const,
-      VatAmount: vatAmount,
-      TotalPrice: totalPrice,
-    };
-
-    // Parent state'i güncelle (App.tsx)
-    if (onSaveSefer) {
-      onSaveSefer(updatedSefer);
-    } else {
-      // Fallback: local state güncelle
       const updatedSeferler = seferler.map(s => 
-        s.Id === selectedSeferId ? updatedSefer : s
+        s.id === selectedSeferId ? updatedTrip : s
       );
       setSeferler(updatedSeferler);
+      
+      // Form temizle
+      setSelectedSeferId(null);
+      setReturnNote("");
+      
+      toast.success('Sefer dönüş kaydı tamamlandı', {
+        description: `${sefer.motorbot_code} - ${sefer.motorbot_name} döndü`
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Dönüş kaydedilemedi';
+      toast.error('Sefer dönüş kaydedilemedi', {
+        description: errorMessage
+      });
+      console.error('Sefer dönüş hatası:', err);
     }
-    
-    // Form temizle
-    setSelectedSeferId(null);
-    setReturnNote("");
-    
-    alert(`✅ Sefer dönüş kaydı başarıyla tamamlandı!`);
   };
 
   // Filtrelenmiş seferler
@@ -224,37 +226,37 @@ export function SeferModule({
 
     // Tab filtresi
     if (activeTab === "SEFERDE") {
-      filtered = filtered.filter(s => s.Status === "DEPARTED");
+      filtered = filtered.filter(s => s.status === "DEPARTED");
     } else if (activeTab === "DONDU") {
-      filtered = filtered.filter(s => s.Status === "RETURNED");
+      filtered = filtered.filter(s => s.status === "RETURNED");
     }
 
     // Arama
     if (searchTerm) {
       filtered = filtered.filter(s =>
-        s.MotorbotCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.MotorbotName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.MotorbotOwner.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.CariCode.toLowerCase().includes(searchTerm.toLowerCase())
+        s.motorbot_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        s.motorbot_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.motorbot_owner && s.motorbot_owner.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (s.cari_code && s.cari_code.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
 
     // Motorbot filtresi
     if (filterMotorbotCode !== "ALL") {
-      filtered = filtered.filter(s => s.MotorbotCode === filterMotorbotCode);
+      filtered = filtered.filter(s => s.motorbot_code === filterMotorbotCode);
     }
 
     // Cari filtresi
     if (filterCariCode !== "ALL") {
-      filtered = filtered.filter(s => s.CariCode === filterCariCode);
+      filtered = filtered.filter(s => s.cari_code === filterCariCode);
     }
 
     // Tarih filtresi
     if (filterDateStart) {
-      filtered = filtered.filter(s => s.DepartureDate >= filterDateStart);
+      filtered = filtered.filter(s => s.departure_date >= filterDateStart);
     }
     if (filterDateEnd) {
-      filtered = filtered.filter(s => s.DepartureDate <= filterDateEnd);
+      filtered = filtered.filter(s => s.departure_date <= filterDateEnd);
     }
 
     return filtered;
@@ -262,12 +264,12 @@ export function SeferModule({
 
   // İstatistikler
   const stats = useMemo(() => {
-    const seferdekiler = seferler.filter(s => s.Status === "DEPARTED").length;
-    const donduler = seferler.filter(s => s.Status === "RETURNED").length;
+    const seferdekiler = seferler.filter(s => s.status === "DEPARTED").length;
+    const donduler = seferler.filter(s => s.status === "RETURNED").length;
     const toplamSefer = seferler.length;
     const toplamGelir = seferler
-      .filter(s => s.Status === "RETURNED")
-      .reduce((sum, s) => sum + (s.TotalPrice || 0), 0);
+      .filter(s => s.status === "RETURNED")
+      .reduce((sum, s) => sum + (s.total_price || 0), 0);
 
     return {
       seferdekiler,
@@ -277,25 +279,27 @@ export function SeferModule({
     };
   }, [seferler]);
 
-  // Seferdeki motorbot listesi
-  const seferdekiMotorbotlar = seferler
-    .filter(s => s.Status === "DEPARTED")
-    .map(s => s.MotorbotCode);
+  // Seferdeki motorbot kodları
+  const seferdekiMotorbotlar = useMemo(() => {
+    return seferler
+      .filter(s => s.status === "DEPARTED")
+      .map(s => s.motorbot_code);
+  }, [seferler]);
 
   // Motorbot dropdown options
   const motorbotOptions = useMemo(() => {
     if (formMode === "CIKIS") {
       // Çıkış: Seferde olmayan motorbotlar
-      return motorbotMasterData.filter(m => !seferdekiMotorbotlar.includes(m.Code));
+      return motorbotlar.filter(m => !seferdekiMotorbotlar.includes(m.code));
     } else {
       // Dönüş: Seferdeki motorbotlar
-      return motorbotMasterData.filter(m => seferdekiMotorbotlar.includes(m.Code));
+      return motorbotlar.filter(m => seferdekiMotorbotlar.includes(m.code));
     }
-  }, [formMode, seferdekiMotorbotlar]);
+  }, [formMode, seferdekiMotorbotlar, motorbotlar]);
 
   // Sefer dropdown options (dönüş için)
   const seferOptions = useMemo(() => {
-    return seferler.filter(s => s.Status === "DEPARTED");
+    return seferler.filter(s => s.status === "DEPARTED");
   }, [seferler]);
 
   if (loading) {
@@ -419,8 +423,8 @@ export function SeferModule({
                     >
                       <option value="">Motorbot seçin...</option>
                       {motorbotOptions.map(m => (
-                        <option key={m.Id} value={m.Id}>
-                          {m.Code} - {m.Name} ({m.Owner})
+                        <option key={m.id} value={m.id}>
+                          {m.code} - {m.name} {m.owner ? `(${m.owner})` : ''}
                         </option>
                       ))}
                     </select>
@@ -485,8 +489,8 @@ export function SeferModule({
                     >
                       <option value="">Sefer seçin...</option>
                       {seferOptions.map(s => (
-                        <option key={s.Id} value={s.Id}>
-                          {s.MotorbotCode} - {s.MotorbotName} | Çıkış: {s.DepartureDate} {s.DepartureTime}
+                        <option key={s.id} value={s.id}>
+                          {s.motorbot_code} - {s.motorbot_name} | Çıkış: {s.departure_date} {s.departure_time}
                         </option>
                       ))}
                     </select>
@@ -554,7 +558,7 @@ export function SeferModule({
                 : "border-gray-600 text-gray-300"}
             >
               <Clock className="w-4 h-4 mr-2" />
-              Seferde Olan ({seferler.filter(s => s.Status === "DEPARTED").length})
+              Seferde Olan ({seferler.filter(s => s.status === "DEPARTED").length})
             </Button>
             <Button
               onClick={() => setActiveTab("DONDU")}
@@ -564,7 +568,7 @@ export function SeferModule({
                 : "border-gray-600 text-gray-300"}
             >
               <CheckCircle className="w-4 h-4 mr-2" />
-              Döndü ({seferler.filter(s => s.Status === "RETURNED").length})
+              Döndü ({seferler.filter(s => s.status === "RETURNED").length})
             </Button>
             <Button
               onClick={() => setActiveTab("TUMU")}
@@ -603,7 +607,7 @@ export function SeferModule({
                   className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white"
                 >
                   <option value="ALL">Tümü</option>
-                  {Array.from(new Set(seferler.map(s => s.MotorbotCode))).sort().map(code => (
+                  {Array.from(new Set(seferler.map(s => s.motorbot_code))).sort().map(code => (
                     <option key={code} value={code}>{code}</option>
                   ))}
                 </select>
@@ -617,7 +621,7 @@ export function SeferModule({
                   className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white"
                 >
                   <option value="ALL">Tümü</option>
-                  {Array.from(new Set(seferler.map(s => s.CariCode))).sort().map(code => (
+                  {Array.from(new Set(seferler.filter(s => s.cari_code).map(s => s.cari_code!))).sort().map(code => (
                     <option key={code} value={code}>{code}</option>
                   ))}
                 </select>
@@ -677,49 +681,54 @@ export function SeferModule({
                   <tr>
                     <td colSpan={9} className="px-4 py-12 text-center text-gray-500">
                       <Ship className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                      <p className="text-sm">Sefer bulunamadı</p>
+                      <p className="text-sm">Kayıt bulunamadı</p>
+                      <p className="text-xs mt-1">Henüz sefer kaydı bulunmuyor</p>
                     </td>
                   </tr>
                 ) : (
                   filteredSeferler.map((sefer) => (
-                    <tr key={sefer.Id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                    <tr key={sefer.id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
                       <td className="px-4 py-3">
-                        <span className="text-sm text-gray-400">#{sefer.Id}</span>
+                        <span className="text-sm text-gray-400">#{sefer.id}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="text-sm font-medium text-white">{sefer.MotorbotCode}</div>
-                        <div className="text-xs text-gray-500">{sefer.MotorbotName}</div>
+                        <div className="text-sm font-medium text-white">{sefer.motorbot_code}</div>
+                        <div className="text-xs text-gray-500">{sefer.motorbot_name}</div>
                       </td>
-                      <td className="px-4 py-3 text-sm">{sefer.MotorbotOwner}</td>
+                      <td className="px-4 py-3 text-sm">{sefer.motorbot_owner || '-'}</td>
                       <td className="px-4 py-3">
-                        <Badge className="bg-blue-500/20 border-blue-500/30 text-blue-400 text-xs">
-                          {sefer.CariCode}
-                        </Badge>
+                        {sefer.cari_code ? (
+                          <Badge className="bg-blue-500/20 border-blue-500/30 text-blue-400 text-xs">
+                            {sefer.cari_code}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-gray-500">-</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="text-sm text-white">{sefer.DepartureDate}</div>
-                        <div className="text-xs text-gray-500">{sefer.DepartureTime}</div>
+                        <div className="text-sm text-white">{sefer.departure_date}</div>
+                        <div className="text-xs text-gray-500">{sefer.departure_time}</div>
                       </td>
                       <td className="px-4 py-3">
-                        {sefer.ReturnDate && sefer.ReturnTime ? (
+                        {sefer.return_date && sefer.return_time ? (
                           <>
-                            <div className="text-sm text-white">{sefer.ReturnDate}</div>
-                            <div className="text-xs text-gray-500">{sefer.ReturnTime}</div>
+                            <div className="text-sm text-white">{sefer.return_date}</div>
+                            <div className="text-xs text-gray-500">{sefer.return_time}</div>
                           </>
                         ) : (
                           <span className="text-xs text-yellow-400">Beklemede</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right text-sm font-mono">
-                        {sefer.Duration 
-                          ? `${Math.floor(sefer.Duration / 60)}s ${sefer.Duration % 60}dk`
+                        {sefer.duration_minutes 
+                          ? `${Math.floor(sefer.duration_minutes / 60)}s ${sefer.duration_minutes % 60}dk`
                           : '-'}
                       </td>
                       <td className="px-4 py-3 text-right text-sm font-mono text-green-400">
-                        ${sefer.TotalPrice?.toFixed(2) || '0.00'}
+                        ${sefer.total_price?.toFixed(2) || '0.00'}
                       </td>
                       <td className="px-4 py-3">
-                        {sefer.Status === "DEPARTED" ? (
+                        {sefer.status === "DEPARTED" ? (
                           <Badge className="bg-yellow-500/20 border-yellow-500/30 text-yellow-400 text-xs">
                             <Clock className="w-3 h-3 mr-1" />
                             Seferde

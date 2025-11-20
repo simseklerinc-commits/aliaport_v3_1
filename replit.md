@@ -6,6 +6,24 @@ Aliaport is a comprehensive port and marina management system designed for harbo
 
 The system operates as a full-stack web application with a Python FastAPI backend and React TypeScript frontend, designed to run on Replit with SQLite database storage.
 
+## Recent Changes (November 20, 2025)
+
+**Mock Data Removal & Real API Integration:**
+- ✅ Completely removed all mock data from `src/data/` directory
+- ✅ Cleaned API service files (cari.ts, motorbot.ts, sefer.ts) - removed mock functions, kept only real API endpoints
+- ✅ Configured Sonner toast notification system for user feedback
+- ✅ Updated CariModule with real backend API integration (`/api/cari`)
+- ✅ Updated MotorbotModule with real backend API integration (`/api/motorbot`)
+- ✅ Updated SeferModule with real backend API integration (`/api/mb-trip`)
+- ✅ Created PlaceholderModule for inactive features
+- ✅ Streamlined App.tsx routing - only 3 active modules, others show placeholder
+- ✅ All active modules have proper loading/error/empty state management
+- ✅ Turkish language error messages and toast notifications
+
+**Development Status:**
+- Active Modules: CariModule, MotorbotModule, SeferModule (fully integrated with backend)
+- Placeholder Modules: All other features pending API development
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -36,7 +54,7 @@ The active Replit implementation uses:
 **Data Models:**
 - SQLAlchemy ORM models in `/app/models.py`
 - Pydantic schemas for validation in `/app/schemas.py`
-- Mock data layers in `/src/data/` for frontend development
+- Frontend connects directly to backend APIs (no mock data)
 - Master data includes parameters, service definitions, and pricing rules
 
 ### API Architecture
@@ -61,20 +79,36 @@ The active Replit implementation uses:
 - Main navigation through sidebar with submenu system
 - Module structure: Dashboard → List View → Detail/Edit Forms
 - Shared UI components from Shadcn/ui library
+- PlaceholderModule for inactive features during development
 
-**Key Feature Modules:**
-1. **Cari Management** - Customer/supplier cards with e-Invoice fields
-2. **Service Cards** - Service definitions without pricing (pricing in tariffs)
-3. **Tariff Management** - Price list management with service items
-4. **Motorboat Registry** - Boat master data and accommodation contracts
-5. **Trip Management** - Voyage tracking with departure/return logging
-6. **Invoicing** - Invoice generation with e-Invoice/e-Archive support
-7. **Reporting** - Analytics dashboards and operational reports
+**Active Feature Modules (Connected to Backend APIs):**
+1. **Cari Management** (CariModule) - Customer/supplier management with real API integration
+   - Endpoint: `/api/cari`
+   - Features: List, search, create, edit, delete customers/suppliers
+   - Toast notifications for user feedback
+   - Loading, error, and empty states handled
+   
+2. **Motorboat Registry** (MotorbotModule) - Boat registry with real API integration
+   - Endpoint: `/api/motorbot`
+   - Features: List, search, create, edit, delete motorboats
+   - Toast notifications for user feedback
+   - Loading, error, and empty states handled
+   
+3. **Trip Management** (SeferModule) - Voyage tracking with real API integration
+   - Endpoint: `/api/mb-trip`
+   - Features: Trip departure/return logging
+   - Toast notifications for user feedback
+   - Loading, error, and empty states handled
+
+**Inactive Modules (Placeholder):**
+- Service Cards, Tariff Management, Invoicing, Reporting, and other features show placeholder message: "Bu modül henüz aktif değil"
 
 **State Management:**
 - Component-level React state with useState
 - No global state management library
-- API calls through mock services (ready for backend integration)
+- Direct API calls to FastAPI backend
+- Sonner library for toast notifications
+- Error handling with try-catch and user-friendly messages
 
 **Form Handling:**
 - React Hook Form for complex forms

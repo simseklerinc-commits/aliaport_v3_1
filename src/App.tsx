@@ -1,15 +1,8 @@
 import React, { useState } from "react";
 import { CariModule } from "./components/modules/CariModule";
-import { CariEkstre } from "./components/modules/CariEkstre";
-import { HizmetModule } from "./components/modules/HizmetModule";
-import { TarifeModule } from "./components/modules/TarifeModule";
 import { MotorbotModule } from "./components/modules/MotorbotModule";
-import { InvoiceModule } from "./components/modules/InvoiceModule";
-import { TopluFaturalamaModule } from "./components/modules/TopluFaturalamaModule";
-import { SeferRaporModule } from "./components/modules/SeferRaporModule";
 import { SeferModule } from "./components/modules/SeferModule";
-import { IsEmriModule } from "./components/modules/IsEmriModule";
-import { MotorbotYonetimi } from "./components/MotorbotYonetimi";
+import { PlaceholderModule } from "./components/PlaceholderModule";
 import { ThemeSelector, Theme, themes } from "./components/ThemeSelector";
 import { Toaster } from "sonner";
 import { Layout } from "lucide-react";
@@ -19,22 +12,6 @@ import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { SidebarMainMenu } from "./components/SidebarMainMenu";
 import { SubMenu } from "./components/SubMenu";
-import { CariKartGiris } from "./components/CariKartGiris";
-import { CariKartlari } from "./components/CariKartlari";
-import { MotorbotKartlari } from "./components/MotorbotKartlari";
-import { MotorbotSeferYonetimi } from "./components/MotorbotSeferYonetimi";
-import { SeferFaturalandirma } from "./components/SeferFaturalandirma";
-import { BarinmaDashboard } from "./components/BarinmaDashboard";
-import { BarinmaSozlesmeleri } from "./components/BarinmaSozlesmeleri";
-import { KontratGiris } from "./components/KontratGiris";
-import { BarinmaRaporlari } from "./components/BarinmaRaporlari";
-import { EFatura } from "./components/EFatura";
-import { HizmetYonetimi } from "./components/HizmetYonetimi";
-import { TarifeKartiGiris } from "./components/TarifeKartiGiris";
-import { Parametreler } from "./components/Parametreler";
-import { Kurlar } from "./components/Kurlar";
-import { SahaPersoneli } from "./components/SahaPersoneli";
-import { Guvenlik } from "./components/Guvenlik";
 
 const subMenus = {
   "is-emri": {
@@ -391,169 +368,11 @@ export default function App() {
             </div>
           )}
 
-          {/* Cari Kart Giriş */}
-          {currentPage === "cari-kart-giris" && (
-            <CariKartGiris 
-              onNavigateHome={handleBackToMenu} 
-              onNavigateBack={handleGoBack} 
-              theme={currentTheme} 
-            />
-          )}
-
-          {/* Cari Hesap Kartları */}
-          {currentPage === "cari-kart-tanimlama" && (
-            <CariKartlari 
-              onNavigateHome={handleBackToMenu} 
-              onNavigateBack={handleBackToSubmenu} 
-              onNavigateToCariGiris={() => setCurrentPage("cari-kart-giris")}
-              theme={currentTheme} 
-            />
-          )}
-
+          {/* ACTIVE MODULES */}
+          
           {/* Cari Module */}
           {currentPage === "cari-module" && (
             <CariModule onNavigateHome={handleBackToMenu} onNavigateBack={handleBackToSubmenu} theme={currentTheme} />
-          )}
-
-          {/* Cari Ekstre */}
-          {currentPage === "cari-ekstre" && (
-            <CariEkstre onNavigateHome={handleBackToMenu} onNavigateBack={handleBackToSubmenu} theme={currentTheme} />
-          )}
-
-          {/* Motorbot Yönetimi Dashboard */}
-          {currentPage === "motorbot-yonetimi" && (
-            <MotorbotYonetimi 
-              onNavigateHome={handleBackToMenu} 
-              onNavigateBack={handleBackToSubmenu} 
-              onNavigateToMotorbotModule={() => setCurrentPage("motorbot-module")}
-              theme={currentTheme} 
-            />
-          )}
-
-          {/* Motorbot Kartları */}
-          {currentPage === "motorbot-liste" && (
-            <MotorbotKartlari 
-              onNavigateHome={handleBackToMenu} 
-              onNavigateBack={() => {
-                // Clear selection when going back
-                if (navigationHistory[navigationHistory.length - 1] === "kontrat-giris") {
-                  setSelectedMotorbotForKontrat(null);
-                }
-                handleGoBack();
-              }} 
-              theme={currentTheme}
-              onNavigateToCariForm={() => {
-                setNavigationHistory([...navigationHistory, currentPage]);
-                setCurrentPage("cari-kart-giris");
-              }}
-              selectionMode={navigationHistory[navigationHistory.length - 1] === "kontrat-giris"}
-              onMotorbotSelect={(motorbot) => {
-                setSelectedMotorbotForKontrat(motorbot);
-              }}
-            />
-          )}
-
-          {/* Motorbot Sefer Yönetimi */}
-          {currentPage === "sefer-yonetimi" && (
-            <MotorbotSeferYonetimi 
-              onNavigateHome={handleBackToMenu} 
-              onNavigateBack={handleBackToSubmenu} 
-              theme={currentTheme}
-              onNavigateToEFatura={(seferData) => {
-                setEFaturaContractData(seferData);
-                setEFaturaSourceModule('sefer');
-                setNavigationHistory([...navigationHistory, currentPage]);
-                setCurrentPage('e-fatura');
-              }}
-              seferler={motorbotSeferler}
-            />
-          )}
-
-          {/* Sefer Faturalandırma */}
-          {currentPage === "sefer-faturalandirma" && (
-            <SeferFaturalandirma 
-              onNavigateHome={handleBackToMenu} 
-              onNavigateBack={handleBackToSubmenu} 
-              theme={currentTheme}
-              seferler={motorbotSeferler}
-            />
-          )}
-
-          {/* Sefer Dashboard & Raporlar */}
-          {currentPage === "sefer-dashboard" && (
-            <div className="p-6">
-              <div className={`${currentTheme.colors.bgCard} rounded-lg border ${currentTheme.colors.border} p-12 text-center`}>
-                <h2 className="text-xl mb-4">Sefer Dashboard & Raporlar</h2>
-                <p className={`${currentTheme.colors.textMuted} mb-6`}>Dashboard ve raporlama modülü geliştirme aşamasında</p>
-              </div>
-            </div>
-          )}
-
-          {/* Barınma Dashboard */}
-          {currentPage === "barinma-dashboard" && (
-            <BarinmaDashboard onNavigateHome={handleBackToMenu} onNavigateBack={handleBackToSubmenu} theme={currentTheme} />
-          )}
-
-          {/* Barınma Sözleşmeleri */}
-          {currentPage === "barinma-motorbot-liste" && (
-            <BarinmaSozlesmeleri 
-              onNavigateHome={handleBackToMenu} 
-              onNavigateBack={handleBackToSubmenu} 
-              theme={currentTheme}
-              onNavigateToMotorbotKartlari={() => handleNavigateWithHistory("motorbot-liste")}
-              onNavigateToCariKartlari={() => handleNavigateWithHistory("cari-kart-tanimlama")}
-              onNavigateToKontratGiris={() => handleNavigateWithHistory("kontrat-giris")}
-              onNavigateToEFatura={handleNavigateToEFatura}
-            />
-          )}
-
-          {/* Kontrat Giriş */}
-          {currentPage === "kontrat-giris" && (
-            <KontratGiris 
-              onNavigateHome={handleBackToMenu} 
-              onNavigateBack={handleBackToSubmenu} 
-              theme={currentTheme}
-              onNavigateToMotorbotKartlari={() => {
-                setNavigationHistory([...navigationHistory, currentPage]);
-                setCurrentPage("motorbot-liste");
-              }}
-              selectedMotorbot={selectedMotorbotForKontrat}
-            />
-          )}
-
-          {/* Barınma Raporları */}
-          {currentPage === "barinma-raporlar" && (
-            <BarinmaRaporlari onNavigateHome={handleBackToMenu} onNavigateBack={handleBackToSubmenu} theme={currentTheme} />
-          )}
-
-          {/* E-Fatura */}
-          {currentPage === "e-fatura" && (
-            <EFatura 
-              onNavigateHome={handleBackToMenu} 
-              onNavigateBack={handleNavigateFromEFatura} 
-              theme={currentTheme}
-              sourceModule={eFaturaSourceModule || undefined}
-              contractData={eFaturaContractData}
-            />
-          )}
-
-          {/* E-Fatura Oluştur */}
-          {currentPage === "e-fatura-olustur" && (
-            <EFatura 
-              onNavigateHome={handleBackToMenu} 
-              onNavigateBack={handleBackToSubmenu} 
-              theme={currentTheme}
-            />
-          )}
-
-          {/* Hizmet Module */}
-          {currentPage === "hizmet-module" && (
-            <HizmetModule onNavigateHome={handleBackToMenu} onNavigateBack={handleBackToSubmenu} theme={currentTheme} />
-          )}
-
-          {/* Tarife Module */}
-          {currentPage === "tarife-module" && (
-            <TarifeModule onNavigateHome={handleBackToMenu} onNavigateBack={handleBackToSubmenu} theme={currentTheme} />
           )}
 
           {/* Motorbot Module */}
@@ -561,174 +380,29 @@ export default function App() {
             <MotorbotModule onNavigateHome={handleBackToMenu} onNavigateBack={handleBackToSubmenu} theme={currentTheme} />
           )}
 
-          {/* Invoice Module */}
-          {currentPage === "invoice-module" && (
-            <InvoiceModule onNavigateHome={handleBackToMenu} onNavigateBack={handleBackToSubmenu} theme={currentTheme} />
-          )}
-
-          {/* Toplu Faturalama Module */}
-          {currentPage === "toplu-faturalama-module" && (
-            <TopluFaturalamaModule 
-              onNavigateHome={handleBackToMenu} 
-              onNavigateBack={handleBackToSubmenu} 
-              onNavigateToInvoice={(faturaData) => {
-                // Fatura verilerini state'e kaydet ve Invoice modülüne geç
-                setNavigationHistory([...navigationHistory, currentPage]);
-                setCurrentPage("invoice-module");
-              }}
-              theme={currentTheme} 
-              seferler={motorbotSeferler}
-            />
-          )}
-
-          {/* Sefer Rapor Module */}
-          {currentPage === "sefer-rapor-module" && (
-            <SeferRaporModule onNavigateHome={handleBackToMenu} onNavigateBack={handleBackToSubmenu} theme={currentTheme} />
-          )}
-
-          {/* Sefer Module - Sefer Çıkış/Dönüş */}
+          {/* Sefer Module */}
           {currentPage === "sefer-module" && (
             <SeferModule 
               onNavigateHome={handleBackToMenu} 
               onNavigateBack={handleBackToSubmenu} 
               theme={currentTheme}
-              seferler={motorbotSeferler}
-              onSaveSefer={(sefer) => {
-                setMotorbotSeferler((prev) => {
-                  const existingIndex = prev.findIndex(s => s.Id === sefer.Id);
-                  if (existingIndex !== -1) {
-                    // Var olan kaydı güncelle (dönüş kaydı)
-                    const updated = [...prev];
-                    updated[existingIndex] = sefer;
-                    console.log('✓ Sefer güncellendi (SeferModule):', sefer.MotorbotName);
-                    return updated;
-                  } else {
-                    // Yeni kayıt ekle (çıkış kaydı)
-                    console.log('✓ Yeni sefer eklendi (SeferModule):', sefer.MotorbotName);
-                    return [sefer, ...prev];
-                  }
-                });
-              }}
             />
           )}
 
-          {/* Hizmet Yönetimi */}
-          {currentPage === "hizmet-yonetimi" && (
-            <HizmetYonetimi 
-              onNavigateHome={handleBackToMenu} 
-              onNavigateBack={handleBackToSubmenu} 
-              onNavigateToHizmetModule={() => setCurrentPage("hizmet-module")}
-              onNavigateTotarifeModule={() => setCurrentPage("tarife-module")}
-              theme={currentTheme} 
-            />
-          )}
-
-          {/* İŞ EMRİ MODULE - Tüm iş emri sayfaları için tek modül */}
-          {(currentPage === "is-emri-talep" || currentPage === "is-emri-onay" || currentPage === "is-emri-liste") && (
-            <IsEmriModule 
-              onNavigateHome={handleBackToMenu} 
-              onNavigateBack={handleBackToSubmenu} 
-              theme={currentTheme}
-              initialPage={currentPage === "is-emri-talep" ? 'create' : 'list'}
-            />
-          )}
-
-          {/* Tarife Kartı Giriş */}
-          {currentPage === "tarife-kart-giris" && (
-            <TarifeKartiGiris onNavigateHome={handleBackToMenu} onNavigateBack={handleBackToSubmenu} theme={currentTheme} />
-          )}
-
-          {/* Kurlar page */}
-          {currentPage === "kurlar" && (
-            <Kurlar onNavigateHome={handleBackToMenu} onNavigateBack={handleBackToSubmenu} theme={currentTheme} />
-          )}
-
-          {/* Parametreler page */}
-          {currentPage === "parametreler" && (
-            <Parametreler 
-              onNavigateHome={handleBackToMenu} 
-              onNavigateBack={handleBackToSubmenu} 
-              theme={currentTheme}
-              currentUser={{ is_admin: true }} // ✨ TODO: Gerçek kullanıcı oturum bilgisi gelecek
-            />
-          )}
-
-          {/* Saha Personeli page */}
-          {currentPage === "saha-personeli" && (
-            <SahaPersoneli 
-              onNavigateHome={handleBackToMenu} 
-              onNavigateBack={handleBackToSubmenu} 
-              theme={currentTheme}
-              seferler={motorbotSeferler}
-              onSaveSefer={(sefer) => {
-                // Yeni sefer kaydı veya güncelleme
-                setMotorbotSeferler((prev) => {
-                  const existingIndex = prev.findIndex(s => s.Id === sefer.Id);
-                  if (existingIndex !== -1) {
-                    // Var olan kaydı güncelle (dönüş kaydı)
-                    const updated = [...prev];
-                    updated[existingIndex] = sefer;
-                    console.log('✓ Sefer güncellendi:', sefer.MotorbotName);
-                    return updated;
-                  } else {
-                    // Yeni kayıt ekle (çıkış kaydı)
-                    console.log('✓ Yeni sefer eklendi:', sefer.MotorbotName);
-                    return [sefer, ...prev];
-                  }
-                });
-              }}
-            />
-          )}
-
-          {/* Güvenlik page */}
-          {currentPage === "guvenlik" && (
-            <Guvenlik onNavigateHome={handleBackToMenu} onNavigateBack={handleBackToSubmenu} theme={currentTheme} />
-          )}
-
-          {/* Default for other pages */}
+          {/* PLACEHOLDER MODULES - All other pages */}
           {currentPage !== "menu" && 
            currentPage !== "submenu" && 
-           currentPage !== "barinma-dashboard" && 
-           currentPage !== "barinma-motorbot-liste" && 
-           currentPage !== "kontrat-giris" && 
-           currentPage !== "barinma-raporlar" && 
-           currentPage !== "e-fatura" && 
-           currentPage !== "e-fatura-olustur" && 
            currentPage !== "cari-module" && 
-           currentPage !== "cari-ekstre" && 
-           currentPage !== "cari-kart-giris" && 
-           currentPage !== "cari-kart-tanimlama" && 
-           currentPage !== "cari-yonetim" && 
-           currentPage !== "motorbot-yonetimi" && 
-           currentPage !== "motorbot-liste" && 
            currentPage !== "motorbot-module" && 
-           currentPage !== "invoice-module" && 
-           currentPage !== "toplu-faturalama-module" && 
-           currentPage !== "sefer-rapor-module" && 
-           currentPage !== "sefer-module" && 
-           currentPage !== "sefer-yonetimi" && 
-           currentPage !== "sefer-faturalandirma" && 
-           currentPage !== "sefer-dashboard" && 
-           currentPage !== "hizmet-module" && 
-           currentPage !== "tarife-module" && 
-           currentPage !== "hizmet-yonetimi" && 
-           currentPage !== "tarife-kart-giris" && 
-           currentPage !== "kurlar" && 
-           currentPage !== "parametreler" && 
-           currentPage !== "saha-personeli" && 
-           currentPage !== "guvenlik" && 
-           currentPage !== "is-emri-talep" && 
-           currentPage !== "is-emri-onay" && 
-           currentPage !== "is-emri-liste" && (
-            <div className="p-6">
-              <div className={`${currentTheme.colors.bgCard} rounded-lg border ${currentTheme.colors.border} p-12 text-center`}>
-                <h2 className="text-xl mb-4">Bu sayfa henüz geliştirilme aşamasında</h2>
-                <p className={`${currentTheme.colors.textMuted}`}>Yakında eklenecek</p>
-              </div>
-            </div>
+           currentPage !== "sefer-module" && (
+            <PlaceholderModule 
+              onNavigateHome={handleBackToMenu}
+              onNavigateBack={handleGoBack}
+              moduleName={getPageTitle()}
+            />
           )}
         </div>
       </div>
     </div>
   );
-}
+} 

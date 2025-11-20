@@ -21,7 +21,6 @@ import {
   PieChart,
   Activity,
 } from "lucide-react";
-import { cariMasterData } from "../../data/cariData";
 import { Theme } from "../ThemeSelector";
 import {
   LineChart,
