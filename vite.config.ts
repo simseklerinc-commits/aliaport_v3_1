@@ -64,19 +64,6 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
-        configure: (proxy, options) => {
-          proxy.on('proxyReq', (proxyReq, req, res) => {
-            // Add trailing slash to API paths if missing
-            if (req.url && !req.url.endsWith('/') && !req.url.includes('?')) {
-              const newUrl = req.url + '/';
-              proxyReq.path = newUrl;
-            } else if (req.url && !req.url.match(/\/\?/)) {
-              // Has query params but no trailing slash before them
-              const newUrl = req.url.replace('?', '/?');
-              proxyReq.path = newUrl;
-            }
-          });
-        },
       },
     },
   },

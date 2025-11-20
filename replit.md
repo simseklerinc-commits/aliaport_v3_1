@@ -27,22 +27,24 @@ The system operates as a full-stack web application with a Python FastAPI backen
 - ✅ PascalCase → snake_case field transformers working correctly across all modules
 
 **Exchange Rate Module (Kurlar) - November 20, 2025:**
-- ✅ **Backend implementation:** `models_kurlar.py`, `schemas_kurlar.py`, `router_kurlar.py`
-- ✅ **Frontend implementation:** `KurlarModule.tsx` component (HizmetModule pattern)
-- ✅ **API client:** `kurlar.ts` with PascalCase→snake_case transformer, 289 lines mock data removed
+- ✅ **Backend implementation:** `models_kurlar.py`, `schemas_kurlar.py`, `router_kurlar.py` (12 endpoints, production-ready)
+- ✅ **Frontend implementation:** `Kurlar.tsx` component (matches original ZIP structure exactly)
+- ✅ **Component location:** `src/components/Kurlar.tsx` (NOT in modules/ subdirectory)
+- ✅ **Export style:** Named export `export function Kurlar` (original ZIP pattern)
+- ✅ **Page ID:** "kurlar" (not "kurlar-module")
+- ✅ **API client:** `kurlar.ts` - mock API replaced with real `kurlarApi.getByDateAll()`, toast notifications added
 - ✅ **SQLite table:** `ExchangeRate` (CurrencyFrom, CurrencyTo, Rate, RateDate, Source, CreatedAt)
-- ✅ **Pagination support:** PaginatedResponse structure with page/page_size parameters
-- ✅ **CRUD operations:** List, Create, Update, Delete with Turkish toast notifications
-- ✅ **Advanced endpoints:** /today, /latest/{from}/{to}, /date/{date}, /convert, /bulk
+- ✅ **UI features:** Card-based layout, currency flags 🇺🇸🇪🇺, date selector, TCMB refresh button, trend indicators
+- ✅ **Advanced endpoints:** /today, /latest/{from}/{to}, /date/{date}, /convert, /bulk (no trailing slash, production-ready)
 - ✅ **Currency conversion:** With reverse rate fallback logic
-- ✅ **Form validation:** 3-letter currency codes, positive rates, required dates
-- ✅ **Test data:** USD/TRY, EUR/TRY, GBP/TRY, CHF/TRY, JPY/TRY rates (2025-11-20)
-- ✅ **UI features:** Search filter, currency filter, list/create/edit views
-- ✅ **Routing:** Integrated into App.tsx, accessible from Sidebar "Kurlar" menu
+- ✅ **Test data:** USD/TRY (34.5), EUR/TRY (37.8), GBP/TRY (43.2), CHF/TRY, JPY/TRY rates
+- ✅ **Data dependency:** `src/data/parametersData.ts` created from ZIP (14KB, currencyMasterData)
+- ✅ **Routing:** Integrated into App.tsx with correct import and page ID
+- ✅ **Production ready:** No trailing slash dependency, Vite proxy cleaned, works in dev and production builds
 - ⏸️ **TCMB API integration:** Placeholder endpoint (returns 501 Not Implemented)
 
 **Development Status:**
-- **Active Frontend Modules (5):** CariModule, MotorbotModule, SeferModule, HizmetModule, **KurlarModule**
+- **Active Frontend Modules (5):** CariModule, MotorbotModule, SeferModule, HizmetModule, **Kurlar**
 - **Active Backend APIs (5):** /api/cari, /api/motorbot, /api/mb-trip, /api/hizmet, **/api/exchange-rate**
 - **Placeholder Modules:** All other features pending API development
 - **API Communication:** Working correctly with FastAPI backend on port 8000
@@ -135,6 +137,15 @@ The active Replit implementation uses:
    - Toast notifications for user feedback
    - Loading, error, and empty states handled
    - Simplified CariModule pattern (backed up old complex version to HizmetModule.tsx.backup)
+
+5. **Exchange Rates** (Kurlar) - Exchange rate management with real API integration
+   - Endpoint: `/api/exchange-rate`
+   - Component: `src/components/Kurlar.tsx` (original ZIP structure)
+   - Features: Date-based rate viewing, TCMB refresh button, currency search
+   - UI: Card-based layout with currency flags, trend indicators, rate comparison
+   - Data: currencyMasterData from `src/data/parametersData.ts`
+   - Toast notifications for user feedback
+   - Loading, error, and empty states handled
 
 **Inactive Modules (Placeholder):**
 - Service Cards, Tariff Management, Invoicing, Reporting, and other features show placeholder message: "Bu modül henüz aktif değil"

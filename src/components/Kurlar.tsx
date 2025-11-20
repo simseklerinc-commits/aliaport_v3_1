@@ -16,8 +16,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Badge } from "./ui/badge";
 import { Theme } from "./ThemeSelector";
-import { kurlarApiMock, type ExchangeRate } from "../lib/api/kurlar";
+import { kurlarApi, type ExchangeRate } from "../lib/api/kurlar";
 import { currencyMasterData } from "../data/parametersData";
+import { toast } from "sonner";
 
 interface KurlarProps {
   onNavigateHome: () => void;
@@ -55,25 +56,32 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
   const loadRates = async (date: string) => {
     setLoading(true);
     try {
-      // TCMB kurları bir gün önceki saat 15:30'da yayınlanır
-      const rateDate = new Date(date);
-      const previousDay = new Date(rateDate);
-      previousDay.setDate(previousDay.getDate() - 1);
-      
-      // Mock API'den kurları çek
-      const response = await kurlarApiMock.getByDateAll(date);
+      // Gerçek API'den kurları çek (tarihe göre tüm kurlar)
+      const response = await kurlarApi.getByDateAll(date);
       
       if (response && response.length > 0) {
         setRates(response);
+        const previousDay = new Date(date);
+        previousDay.setDate(previousDay.getDate() - 1);
         setLastUpdateTime(`${previousDay.toLocaleDateString('tr-TR')} 15:30`);
+        toast.success(`${response.length} kur başarıyla yüklendi`);
       } else {
-        // Eğer o gün için kur yoksa, en son kurları getir
-        const allRates = await kurlarApiMock.getToday();
-        setRates(allRates);
+        // Eğer o gün için kur yoksa, bugünün kurlarını getir
+        const todayRates = await kurlarApi.getToday();
+        setRates(todayRates);
         setLastUpdateTime(new Date().toLocaleDateString('tr-TR') + ' 15:30');
+        if (todayRates.length > 0) {
+          toast.info(`Bugünkü ${todayRates.length} kur gösteriliyor`);
+        } else {
+          toast.warning('Henüz kur bilgisi yok');
+        }
       }
     } catch (error) {
       console.error('Kurlar yüklenemedi:', error);
+      toast.error('Kurlar yüklenemedi', {
+        description: error instanceof Error ? error.message : 'Bilinmeyen hata'
+      });
+      setRates([]);
     } finally {
       setLoading(false);
     }
@@ -94,11 +102,15 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
   const handleRefresh = async () => {
     setLoading(true);
     try {
-      // TCMB API'sinden kurları çek (mock)
-      await kurlarApiMock.fetchFromTCMB(selectedDate);
+      // TCMB API'sinden kurları çek (gerçek endpoint - şu an 501 döndürüyor)
+      await kurlarApi.fetchFromTCMB(selectedDate);
+      toast.success('TCMB kurları güncellendi');
       await loadRates(selectedDate);
     } catch (error) {
       console.error('Kurlar güncellenemedi:', error);
+      toast.error('TCMB güncellemesi başarısız', {
+        description: 'TCMB API entegrasyonu henüz aktif değil'
+      });
     } finally {
       setLoading(false);
     }
