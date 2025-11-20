@@ -51,8 +51,8 @@ localPort = 8000
 externalPort = 8000
 
 [[ports]]
-localPort = 35615
-externalPort = 3001
+localPort = 41477
+externalPort = 3000
 
 [nix]
 packages = ["libxcrypt"]

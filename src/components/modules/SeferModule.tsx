@@ -222,7 +222,7 @@ export function SeferModule({
 
   // Filtrelenmiş seferler
   const filteredSeferler = useMemo(() => {
-    let filtered = seferler;
+    let filtered = seferler || [];
 
     // Tab filtresi
     if (activeTab === "SEFERDE") {

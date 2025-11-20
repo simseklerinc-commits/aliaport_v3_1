@@ -94,10 +94,13 @@ export function MotorbotModule({
         page_size: 100,
         is_active: filterActive === 'ALL' ? undefined : filterActive === 'ACTIVE',
       });
-      setMotorbots(response.items);
+      
+      // Backend direkt array dönüyor, response.items değil
+      const data = Array.isArray(response) ? response : (response.items || []);
+      setMotorbots(data);
       
       // Empty state kontrolü
-      if (response.items.length === 0) {
+      if (data.length === 0) {
         toast.info('Kayıt bulunamadı', {
           description: 'Filtrelere uygun motorbot kaydı bulunamadı'
         });
@@ -278,7 +281,7 @@ export function MotorbotModule({
   };
 
   // Filtrelenmiş motorbotlar
-  const filteredMotorbots = motorbots.filter(motorbot => {
+  const filteredMotorbots = (motorbots || []).filter(motorbot => {
     const matchesSearch = !searchTerm || 
       motorbot.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       motorbot.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -303,11 +306,12 @@ export function MotorbotModule({
   });
 
   // İstatistikler
+  const safeMotorbots = motorbots || [];
   const stats = {
-    total: motorbots.length,
-    active: motorbots.filter(m => m.is_active).length,
-    withContract: motorbots.filter(m => 'has_contract' in m && m.has_contract).length,
-    byType: motorbots.reduce((acc, m) => {
+    total: safeMotorbots.length,
+    active: safeMotorbots.filter(m => m.is_active).length,
+    withContract: safeMotorbots.filter(m => 'has_contract' in m && m.has_contract).length,
+    byType: safeMotorbots.reduce((acc, m) => {
       const type = (m as any).boat_type || 'Unknown';
       acc[type] = (acc[type] || 0) + 1;
       return acc;

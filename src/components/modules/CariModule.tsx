@@ -165,10 +165,13 @@ export function CariModule({
         type: filterType === 'ALL' ? undefined : filterType,
         is_active: filterActive === 'ALL' ? undefined : filterActive === 'ACTIVE',
       });
-      setCariler(response.items as any);
+      
+      // Backend direkt array dönüyor, response.items değil
+      const data = Array.isArray(response) ? response : (response.items || []);
+      setCariler(data as any);
       
       // Empty state kontrolü
-      if (response.items.length === 0) {
+      if (data.length === 0) {
         toast.info('Kayıt bulunamadı', {
           description: 'Filtrelere uygun cari kaydı bulunamadı'
         });
@@ -504,7 +507,7 @@ export function CariModule({
   };
 
   // Filtrelenmiş cariler
-  const filteredCariler = cariler.filter(cari => {
+  const filteredCariler = (cariler || []).filter(cari => {
     const matchesSearch = !searchTerm || 
       (cari.title && cari.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (cari.code && cari.code.toLowerCase().includes(searchTerm.toLowerCase())) ||
