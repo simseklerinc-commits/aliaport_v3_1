@@ -36,37 +36,6 @@ import { Kurlar } from "./components/Kurlar";
 import { SahaPersoneli } from "./components/SahaPersoneli";
 import { Guvenlik } from "./components/Guvenlik";
 
-// Types
-type MotorbotSefer = {
-  Id: number;
-  MotorbotId: number;
-  MotorbotCode: string;
-  MotorbotName: string;
-  MotorbotOwner?: string;
-  CariCode?: string;
-  DepartureDate: string;
-  DepartureTime: string;
-  DepartureNote?: string;
-  ReturnDate?: string;
-  ReturnTime?: string;
-  ReturnNote?: string;
-  Duration?: number;
-  Status: 'DEPARTED' | 'RETURNED';
-  UnitPrice: number;
-  Currency: string;
-  VatRate: number;
-  VatAmount: number;
-  TotalPrice: number;
-  IsInvoiced: boolean;
-  InvoiceId?: number;
-  InvoiceDate?: string;
-  InvoicePeriod?: string;
-  CreatedAt: string;
-  CreatedBy?: number;
-  UpdatedAt?: string;
-  UpdatedBy?: number;
-};
-
 const subMenus = {
   "is-emri": {
     title: "İş Emri Yönetimi",
@@ -254,8 +223,8 @@ export default function App() {
   // Motorbot selection state (for KontratGiris)
   const [selectedMotorbotForKontrat, setSelectedMotorbotForKontrat] = useState<any>(null);
 
-  // Motorbot Sefer state
-  const [motorbotSeferler, setMotorbotSeferler] = useState<MotorbotSefer[]>(motorbotSeferData);
+  // Motorbot Sefer state - will be loaded from API
+  const [motorbotSeferler, setMotorbotSeferler] = useState<any[]>([]);
 
   const handleNavigate = (page: string) => {
     // Check if this is a main module with sub-menu

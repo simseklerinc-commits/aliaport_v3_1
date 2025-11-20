@@ -28,10 +28,9 @@ import {
 import { MotorbotCard } from "../cards/MotorbotCard";
 import { CariSecici } from "../CariSecici";
 import { MotorbotKartiDetay } from "../MotorbotKartiDetay";
-import { motorbotApi, motorbotApiMock, barinmaApi } from "../../lib/api/motorbot";
+import { motorbotApi, barinmaApi } from "../../lib/api/motorbot";
 import type { Motorbot, MotorbotWithContract, MotorbotMaster } from "../../lib/types/database";
-import type { CariKart } from "../../data/cariData";
-import { cariMasterData } from "../../data/cariData";
+import { toast } from "sonner";
 
 interface MotorbotModuleProps {
   onNavigateHome: () => void;
@@ -64,7 +63,7 @@ export function MotorbotModule({
 
   // Form state
   const [showCariSecici, setShowCariSecici] = useState(false);
-  const [selectedCari, setSelectedCari] = useState<CariKart | null>(null);
+  const [selectedCari, setSelectedCari] = useState<any>(null);
   const [formData, setFormData] = useState<Partial<MotorbotMaster>>({
     code: '',
     name: '',
@@ -84,43 +83,31 @@ export function MotorbotModule({
     is_frozen: false,
   });
 
-  // Mock mode
-  const MOCK_MODE = true;
-
   // Motorbotları yükle
   const loadMotorbots = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      if (MOCK_MODE) {
-        const response = await motorbotApiMock.getAll();
-        
-        // Contract bilgilerini de yükle
-        if (showContractInfo) {
-          const withContracts = await Promise.all(
-            response.items.map(async (mb) => {
-              try {
-                return await motorbotApiMock.getWithContract(mb.id);
-              } catch {
-                return mb;
-              }
-            })
-          );
-          setMotorbots(withContracts);
-        } else {
-          setMotorbots(response.items);
-        }
-      } else {
-        const response = await motorbotApi.getAll({
-          page: 1,
-          page_size: 100,
-          is_active: filterActive === 'ALL' ? undefined : filterActive === 'ACTIVE',
+      const response = await motorbotApi.getAll({
+        page: 1,
+        page_size: 100,
+        is_active: filterActive === 'ALL' ? undefined : filterActive === 'ACTIVE',
+      });
+      setMotorbots(response.items);
+      
+      // Empty state kontrolü
+      if (response.items.length === 0) {
+        toast.info('Kayıt bulunamadı', {
+          description: 'Filtrelere uygun motorbot kaydı bulunamadı'
         });
-        setMotorbots(response.items);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Veri yüklenemedi');
+      const errorMessage = err instanceof Error ? err.message : 'Veri yüklenemedi';
+      setError(errorMessage);
+      toast.error('Motorbot listesi yüklenemedi', {
+        description: errorMessage
+      });
       console.error('Motorbot yükleme hatası:', err);
     } finally {
       setLoading(false);
@@ -139,14 +126,16 @@ export function MotorbotModule({
     if (!confirm('Bu motorbotu silmek istediğinizden emin misiniz?')) return;
     
     try {
-      if (MOCK_MODE) {
-        await motorbotApiMock.delete(id);
-      } else {
-        await motorbotApi.delete(id);
-      }
+      await motorbotApi.delete(id);
       setMotorbots(motorbots.filter(m => m.id !== id));
+      toast.success('Motorbot silindi', {
+        description: 'Motorbot kaydı başarıyla silindi'
+      });
     } catch (err) {
-      alert('Silme işlemi başarısız: ' + (err instanceof Error ? err.message : 'Hata'));
+      const errorMessage = err instanceof Error ? err.message : 'Silme işlemi başarısız';
+      toast.error('Motorbot silinemedi', {
+        description: errorMessage
+      });
     }
   };
 
@@ -226,14 +215,15 @@ export function MotorbotModule({
   const handleSave = async () => {
     // Validasyon
     if (!formData.name || !formData.owner_name) {
-      alert('Tekne adı ve cari sahibi zorunludur!');
+      toast.error('Eksik bilgi', {
+        description: 'Tekne adı ve cari sahibi zorunludur'
+      });
       return;
     }
 
     try {
       if (currentView === 'create') {
-        // Yeni kayıt - Mock API'ye ekle
-        const newMotorbot = await motorbotApiMock.create({
+        const newMotorbot = await motorbotApi.create({
           code: formData.code || '',
           name: formData.name || '',
           owner_cari_id: formData.owner_cari_id || 0,
@@ -250,35 +240,41 @@ export function MotorbotModule({
           flag: formData.flag || 'TC',
           is_active: formData.is_active ?? true,
           is_frozen: formData.is_frozen ?? false,
-          // Motorbot interface için diğer alanlar
           length_meters: formData.length || 0,
           width_meters: formData.width || 0,
           draft_meters: formData.draft || 0,
-        });
+        } as any);
         
-        // State'i güncelle
         setMotorbots([newMotorbot, ...motorbots]);
-        alert('Motorbot başarıyla eklendi!');
+        toast.success('Motorbot oluşturuldu', {
+          description: `${formData.code} - ${formData.name} başarıyla kaydedildi`
+        });
       } else {
-        // Güncelleme
         if (selectedMotorbot) {
-          await motorbotApiMock.update(selectedMotorbot.id, formData);
+          await motorbotApi.update(selectedMotorbot.id, formData as any);
           const updated = motorbots.map(m =>
             m.id === selectedMotorbot.id ? { ...m, ...formData } : m
           );
           setMotorbots(updated);
-          alert('Motorbot başarıyla güncellendi!');
+          toast.success('Motorbot güncellendi', {
+            description: `${formData.code} - ${formData.name} başarıyla güncellendi`
+          });
         }
       }
       setCurrentView('list');
     } catch (err) {
-      alert('Kayıt hatası: ' + (err instanceof Error ? err.message : 'Hata'));
+      const errorMessage = err instanceof Error ? err.message : 'Kayıt hatası';
+      toast.error('İşlem başarısız', {
+        description: errorMessage
+      });
     }
   };
 
   // Contract görüntüle (ileride detaylı modal/sayfa açılabilir)
   const handleViewContract = (motorbotId: number) => {
-    alert(`Motorbot ID ${motorbotId} için kontrat detayları gösterilecek (TODO)`);
+    toast.info('Özellik geliştiriliyor', {
+      description: `Motorbot ID ${motorbotId} için kontrat detayları gösterilecek`
+    });
   };
 
   // Filtrelenmiş motorbotlar
@@ -337,7 +333,6 @@ export function MotorbotModule({
               <h1 className="text-3xl font-bold text-white">Motorbot Kartları</h1>
               <p className="text-sm text-gray-400">
                 {stats.total} tekne • {stats.active} aktif • {stats.withContract} kontrat
-                {MOCK_MODE && ' • 🔶 Mock Mode'}
               </p>
             </div>
           </div>

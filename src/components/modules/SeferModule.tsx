@@ -34,11 +34,10 @@ import {
   Edit,
   Trash2,
 } from "lucide-react";
-import { 
-  MotorbotSefer, 
-  motorbotSeferData,
-} from "../../data/motorbotSeferData";
-import { motorbotMasterData } from "../../data/motorbotData";
+import { seferApi } from "../../lib/api/sefer";
+import { motorbotApi } from "../../lib/api/motorbot";
+import type { MbTrip } from "../../lib/types/database";
+import { toast } from "sonner";
 
 interface SeferModuleProps {
   onNavigateHome: () => void;

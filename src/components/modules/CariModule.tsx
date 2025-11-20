@@ -31,10 +31,11 @@ import {
   Users,
   TrendingUp
 } from "lucide-react";
-import { cariApi, cariApiMock } from "../../lib/api/cari";
+import { cariApi } from "../../lib/api/cari";
 import type { Cari } from "../../lib/types/database";
 import { CariEkstre } from "./CariEkstre";
 import { CariKartiDetay } from "../CariKartiDetay";
+import { toast } from "sonner";
 
 interface CariModuleProps {
   onNavigateHome: () => void;
@@ -152,72 +153,32 @@ export function CariModule({
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // Mock mode
-  const MOCK_MODE = true;
-
   // Carileri yükle
   const loadCariler = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      if (MOCK_MODE) {
-        const { cariMasterData } = await import('../../data/cariData');
-        // Mock data'yı CariFull formatına dönüştür (PascalCase -> camelCase)
-        const fullData: CariFull[] = cariMasterData.map(c => ({
-          id: c.Id,
-          code: c.Code,
-          title: c.Name,
-          type: c.AccountType,
-          is_active: c.Active,
-          address: c.Address || '',
-          
-          tax_id_type: c.TaxIdType,
-          tax_id: c.TaxId,
-          tax_office: c.TaxOffice || '',
-          mersis_no: c.MersisNo,
-          kep_address: c.KepAddress,
-          
-          neighborhood: c.Neighborhood,
-          street: c.Street,
-          building_no: c.BuildingNo,
-          door_no: c.DoorNo,
-          district: c.District,
-          city: c.City,
-          postal_code: c.PostalCode,
-          country_code: c.CountryCode,
-          
-          phone: c.Phone,
-          mobile: c.Mobile,
-          email: c.Email,
-          
-          iban: c.IBAN,
-          
-          currency: c.Currency,
-          payment_term_days: c.PaymentTermDays,
-          risk_limit: c.RiskLimit || 0,
-          
-          is_einvoice_customer: c.IsEInvoiceCustomer,
-          send_method: c.SendMethod,
-          accepts_earchive: c.AcceptsEArchive,
-          
-          notes: c.Notes,
-          
-          created_at: c.CreatedAt,
-          updated_at: c.UpdatedAt,
-        }));
-        setCariler(fullData);
-      } else {
-        const response = await cariApi.getAll({
-          page: 1,
-          page_size: 100,
-          type: filterType === 'ALL' ? undefined : filterType,
-          is_active: filterActive === 'ALL' ? undefined : filterActive === 'ACTIVE',
+      const response = await cariApi.getAll({
+        page: 1,
+        page_size: 100,
+        type: filterType === 'ALL' ? undefined : filterType,
+        is_active: filterActive === 'ALL' ? undefined : filterActive === 'ACTIVE',
+      });
+      setCariler(response.items as any);
+      
+      // Empty state kontrolü
+      if (response.items.length === 0) {
+        toast.info('Kayıt bulunamadı', {
+          description: 'Filtrelere uygun cari kaydı bulunamadı'
         });
-        setCariler(response.items as any);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Veri yüklenemedi');
+      const errorMessage = err instanceof Error ? err.message : 'Veri yüklenemedi';
+      setError(errorMessage);
+      toast.error('Cari listesi yüklenemedi', {
+        description: errorMessage
+      });
       console.error('Cari yükleme hatası:', err);
     } finally {
       setLoading(false);
@@ -244,27 +205,34 @@ export function CariModule({
     if (!confirm('Bu cariyi silmek istediğinizden emin misiniz?')) return;
     
     try {
-      if (!MOCK_MODE) {
-        await cariApi.delete(id);
-      }
+      await cariApi.delete(id);
       setCariler(cariler.filter(c => c.id !== id));
-      alert('✅ Cari silindi!');
+      toast.success('Cari silindi', {
+        description: 'Cari kaydı başarıyla silindi'
+      });
     } catch (err) {
-      alert('Silme işlemi başarısız: ' + (err instanceof Error ? err.message : 'Hata'));
+      const errorMessage = err instanceof Error ? err.message : 'Silme işlemi başarısız';
+      toast.error('Cari silinemedi', {
+        description: errorMessage
+      });
     }
   };
 
   // Cari aktif/pasif
   const handleToggleActive = async (id: number) => {
     try {
-      if (!MOCK_MODE) {
-        await cariApi.toggleActive(id);
-      }
+      await cariApi.toggleActive(id);
       setCariler(cariler.map(c => 
         c.id === id ? { ...c, is_active: !c.is_active } : c
       ));
+      toast.success('Durum güncellendi', {
+        description: 'Cari aktiflik durumu değiştirildi'
+      });
     } catch (err) {
-      alert('Güncelleme başarısız: ' + (err instanceof Error ? err.message : 'Hata'));
+      const errorMessage = err instanceof Error ? err.message : 'Güncelleme başarısız';
+      toast.error('Durum güncellenemedi', {
+        description: errorMessage
+      });
     }
   };
 
@@ -355,7 +323,9 @@ export function CariModule({
     e.preventDefault();
     
     if (!validateForm()) {
-      alert('Lütfen tüm zorunlu alanları doldurun.');
+      toast.error('Form hataları', {
+        description: 'Lütfen tüm zorunlu alanları doldurun'
+      });
       return;
     }
 
@@ -405,9 +375,7 @@ export function CariModule({
           updated_at: null,
         };
 
-        if (!MOCK_MODE) {
-          await cariApi.create(newCari as any);
-        }
+        await cariApi.create(newCari as any);
         
         // Yeni cariyi state'e ekle - ÖNCE ekle, SONRA view değiştir
         setCariler([newCari, ...cariler]);
@@ -416,8 +384,9 @@ export function CariModule({
         resetForm();
         setCurrentView('list');
         
-        // Başarı mesajı
-        alert('✅ Cari başarıyla oluşturuldu!');
+        toast.success('Cari oluşturuldu', {
+          description: `${formData.code} - ${formData.title} başarıyla kaydedildi`
+        });
         
       } else if (currentView === 'edit' && selectedCari) {
         const updatedCari: CariFull = {
@@ -462,20 +431,23 @@ export function CariModule({
           updated_at: new Date().toISOString(),
         };
 
-        if (!MOCK_MODE) {
-          await cariApi.update(selectedCari.id, updatedCari as any);
-        }
+        await cariApi.update(selectedCari.id, updatedCari as any);
         
         setCariler(cariler.map(c => c.id === selectedCari.id ? updatedCari : c));
         
         resetForm();
         setCurrentView('list');
         
-        alert('✅ Cari başarıyla güncellendi!');
+        toast.success('Cari güncellendi', {
+          description: `${formData.code} - ${formData.title} başarıyla güncellendi`
+        });
       }
       
     } catch (err) {
-      alert('Kaydetme başarısız: ' + (err instanceof Error ? err.message : 'Hata'));
+      const errorMessage = err instanceof Error ? err.message : 'Kaydetme başarısız';
+      toast.error('İşlem başarısız', {
+        description: errorMessage
+      });
     } finally {
       setLoading(false);
     }
