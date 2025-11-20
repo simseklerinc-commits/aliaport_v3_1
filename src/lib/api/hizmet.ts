@@ -35,23 +35,23 @@ export interface HizmetUpdate {
 
 export const hizmetApi = {
   getAll: async (params?: HizmetListParams) => {
-    return await apiClient.get("/api/hizmet/", { params });
+    return await apiClient.get("/hizmet/", { params });
   },
 
   getById: async (id: number) => {
-    return await apiClient.get(`/api/hizmet/${id}`);
+    return await apiClient.get(`/hizmet/${id}`);
   },
 
   create: async (data: HizmetCreate) => {
-    return await apiClient.post("/api/hizmet/", data);
+    return await apiClient.post("/hizmet/", data);
   },
 
   update: async (id: number, data: HizmetUpdate) => {
-    return await apiClient.put(`/api/hizmet/${id}`, data);
+    return await apiClient.put(`/hizmet/${id}`, data);
   },
 
   delete: async (id: number) => {
-    return await apiClient.delete(`/api/hizmet/${id}`);
+    return await apiClient.delete(`/hizmet/${id}`);
   },
 };
 
