@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime
+import requests
+import xml.etree.ElementTree as ET
 
 from .database import get_db
 from .models_kurlar import ExchangeRate as ExchangeRateModel
@@ -304,15 +306,137 @@ def create_bulk_exchange_rates(
     
     return created_rates
 
+def fetch_tcmb_xml(target_date: Optional[date] = None) -> str:
+    """
+    TCMB XML'ini fetch et
+    """
+    if target_date is None:
+        # Bugünün kurları
+        url = "https://www.tcmb.gov.tr/kurlar/today.xml"
+    else:
+        # Belirli bir tarih için: YYMM/DDMMYYYY.xml
+        year_month = target_date.strftime("%y%m")  # 2411
+        day_month_year = target_date.strftime("%d%m%Y")  # 20112024
+        url = f"https://www.tcmb.gov.tr/kurlar/{year_month}/{day_month_year}.xml"
+    
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        return response.text
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"TCMB'den kur bilgisi alınamadı: {str(e)}"
+        )
+
+def parse_tcmb_xml(xml_content: str, rate_date: date) -> List[ExchangeRateCreate]:
+    """
+    TCMB XML'ini parse et ve ExchangeRateCreate listesi döndür
+    """
+    try:
+        root = ET.fromstring(xml_content)
+    except ET.ParseError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"TCMB XML parse hatası: {str(e)}"
+        )
+    
+    rates = []
+    
+    # Her currency elementi için
+    for currency_elem in root.findall('Currency'):
+        currency_code = currency_elem.get('CurrencyCode')
+        
+        # Sadece major currency'leri al
+        if currency_code not in ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'SAR', 'SEK', 'NOK', 'DKK', 'KWD']:
+            continue
+        
+        # ForexSelling kurunu kullan (döviz satış)
+        forex_selling_elem = currency_elem.find('ForexSelling')
+        
+        if forex_selling_elem is not None and forex_selling_elem.text:
+            try:
+                rate_value = float(forex_selling_elem.text)
+                
+                rates.append(ExchangeRateCreate(
+                    CurrencyFrom=currency_code,
+                    CurrencyTo='TRY',
+                    Rate=rate_value,
+                    RateDate=rate_date,
+                    Source='TCMB'
+                ))
+            except (ValueError, TypeError):
+                # Geçersiz rate value, skip
+                continue
+    
+    return rates
+
 @router.post("/fetch-tcmb", response_model=List[ExchangeRate])
 def fetch_from_tcmb(
     date_param: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """
-    TCMB'den güncel kurları çek (placeholder - gerçek API entegrasyonu gerekli)
+    TCMB'den güncel kurları çek ve database'e kaydet
+    
+    Args:
+        date_param: YYYY-MM-DD formatında tarih (opsiyonel, default: bugün)
+    
+    Returns:
+        Kaydedilen kur listesi
     """
-    raise HTTPException(
-        status_code=501,
-        detail="TCMB entegrasyonu henüz implement edilmedi. Manuel kur girişi yapabilirsiniz."
-    )
+    # Tarihi parse et
+    if date_param:
+        try:
+            target_date = datetime.strptime(date_param, '%Y-%m-%d').date()
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail="Geçersiz tarih formatı. YYYY-MM-DD formatında olmalı."
+            )
+    else:
+        target_date = date.today()
+    
+    # TCMB XML'ini fetch et
+    xml_content = fetch_tcmb_xml(target_date)
+    
+    # XML'i parse et
+    rate_creates = parse_tcmb_xml(xml_content, target_date)
+    
+    if not rate_creates:
+        raise HTTPException(
+            status_code=404,
+            detail=f"TCMB'den {target_date} tarihi için kur bilgisi bulunamadı. Hafta sonu veya resmi tatil günü olabilir."
+        )
+    
+    # Database'e kaydet
+    saved_rates = []
+    
+    for rate_create in rate_creates:
+        # Aynı tarih ve currency için kayıt var mı kontrol et
+        existing = db.query(ExchangeRateModel).filter(
+            ExchangeRateModel.CurrencyFrom == rate_create.CurrencyFrom,
+            ExchangeRateModel.CurrencyTo == rate_create.CurrencyTo,
+            ExchangeRateModel.RateDate == rate_create.RateDate
+        ).first()
+        
+        if existing:
+            # Güncelle
+            existing.Rate = rate_create.Rate
+            existing.Source = 'TCMB'
+            db.commit()
+            db.refresh(existing)
+            saved_rates.append(existing)
+        else:
+            # Yeni kayıt ekle
+            db_rate = ExchangeRateModel(**rate_create.model_dump())
+            db.add(db_rate)
+            saved_rates.append(db_rate)
+    
+    db.commit()
+    
+    # Refresh all
+    for rate in saved_rates:
+        db.refresh(rate)
+    
+    return saved_rates
