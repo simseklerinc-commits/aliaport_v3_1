@@ -1,84 +1,223 @@
 // DÖVİZ KURLARI API - exchange_rate tablosu için API endpoints
-// Döviz kuru yönetimi ve güncel kurlar
-// GET, POST, PUT, DELETE işlemleri
+// Döviz kuru yönetimi ve güncel kurlar - GERÇEK BACKEND ENTEGRASYONU
 
-import { api } from './client';
+import { apiClient } from './client';
 import type { 
   ExchangeRate,
   PaginatedResponse 
 } from '../types/database';
 
 // ============================================
-// EXCHANGE RATE ENDPOINTS
+// BACKEND RESPONSE TYPE (PascalCase)
+// ============================================
+
+interface ExchangeRateBackend {
+  Id: number;
+  CurrencyFrom: string;
+  CurrencyTo: string;
+  Rate: number;
+  RateDate: string;
+  Source?: string;
+  CreatedAt: string;
+}
+
+interface PaginatedBackendResponse {
+  items: ExchangeRateBackend[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+// ============================================
+// TRANSFORMER: Backend → Frontend
+// ============================================
+
+function transformExchangeRate(backend: ExchangeRateBackend): ExchangeRate {
+  return {
+    id: backend.Id,
+    currency_from: backend.CurrencyFrom,
+    currency_to: backend.CurrencyTo,
+    rate: backend.Rate,
+    rate_date: backend.RateDate,
+    source: backend.Source,
+    created_at: backend.CreatedAt,
+  };
+}
+
+function transformPaginatedResponse(
+  backend: PaginatedBackendResponse
+): PaginatedResponse<ExchangeRate> {
+  return {
+    items: backend.items.map(transformExchangeRate),
+    total: backend.total,
+    page: backend.page,
+    page_size: backend.page_size,
+    total_pages: backend.total_pages,
+  };
+}
+
+// ============================================
+// REVERSE TRANSFORMER: Frontend → Backend
+// ============================================
+
+function toBackendFormat(data: Partial<ExchangeRate>) {
+  const backend: any = {};
+  
+  if (data.currency_from !== undefined) backend.CurrencyFrom = data.currency_from;
+  if (data.currency_to !== undefined) backend.CurrencyTo = data.currency_to;
+  if (data.rate !== undefined) backend.Rate = data.rate;
+  if (data.rate_date !== undefined) backend.RateDate = data.rate_date;
+  if (data.source !== undefined) backend.Source = data.source;
+  
+  return backend;
+}
+
+// ============================================
+// EXCHANGE RATE API
 // ============================================
 
 export const kurlarApi = {
-  // Tüm kurları getir
-  getAll: (params?: {
+  // Tüm kurları getir (Paginated)
+  getAll: async (params?: {
     page?: number;
     page_size?: number;
     currency_from?: string;
     currency_to?: string;
     rate_date?: string;
-  }) => 
-    api.get<PaginatedResponse<ExchangeRate>>('/exchange-rate', { params }),
+  }): Promise<PaginatedResponse<ExchangeRate>> => {
+    const queryParams: Record<string, string | number | boolean> = {};
+    if (params?.page) queryParams.page = params.page;
+    if (params?.page_size) queryParams.page_size = params.page_size;
+    if (params?.currency_from) queryParams.currency_from = params.currency_from;
+    if (params?.currency_to) queryParams.currency_to = params.currency_to;
+    if (params?.rate_date) queryParams.rate_date = params.rate_date;
+
+    const response = await apiClient.get<PaginatedBackendResponse>('/exchange-rate/', { 
+      params: queryParams
+    });
+    return transformPaginatedResponse(response);
+  },
 
   // Tek kur detayı
-  getById: (id: number) => 
-    api.get<ExchangeRate>(`/exchange-rate/${id}`),
+  getById: async (id: number): Promise<ExchangeRate> => {
+    const response = await apiClient.get<ExchangeRateBackend>(`/exchange-rate/${id}`);
+    return transformExchangeRate(response);
+  },
 
   // Belirli tarih için kur
-  getByDate: (currencyFrom: string, currencyTo: string, rateDate: string) => 
-    api.get<ExchangeRate>(
+  getByDate: async (
+    currencyFrom: string, 
+    currencyTo: string, 
+    rateDate: string
+  ): Promise<ExchangeRate> => {
+    const response = await apiClient.get<ExchangeRateBackend>(
       `/exchange-rate/${currencyFrom}/${currencyTo}/${rateDate}`
-    ),
+    );
+    return transformExchangeRate(response);
+  },
 
   // En güncel kur
-  getLatest: (currencyFrom: string, currencyTo: string) => 
-    api.get<ExchangeRate>(
+  getLatest: async (
+    currencyFrom: string, 
+    currencyTo: string
+  ): Promise<ExchangeRate> => {
+    const response = await apiClient.get<ExchangeRateBackend>(
       `/exchange-rate/latest/${currencyFrom}/${currencyTo}`
-    ),
+    );
+    return transformExchangeRate(response);
+  },
 
   // Bugünkü tüm kurlar
-  getToday: () => 
-    api.get<ExchangeRate[]>('/exchange-rate/today'),
+  getToday: async (): Promise<ExchangeRate[]> => {
+    const response = await apiClient.get<ExchangeRateBackend[]>('/exchange-rate/today');
+    return response.map(transformExchangeRate);
+  },
 
   // Tarihe göre tüm kurlar
-  getByDateAll: (rateDate: string) => 
-    api.get<ExchangeRate[]>(`/exchange-rate/date/${rateDate}`),
+  getByDateAll: async (rateDate: string): Promise<ExchangeRate[]> => {
+    const response = await apiClient.get<ExchangeRateBackend[]>(
+      `/exchange-rate/date/${rateDate}`
+    );
+    return response.map(transformExchangeRate);
+  },
 
   // Yeni kur ekle
-  create: (data: Omit<ExchangeRate, 'id' | 'created_at'>) => 
-    api.post<ExchangeRate>('/exchange-rate', data),
+  create: async (data: Omit<ExchangeRate, 'id' | 'created_at'>): Promise<ExchangeRate> => {
+    const backendData = toBackendFormat(data);
+    const response = await apiClient.post<ExchangeRateBackend>('/exchange-rate/', backendData);
+    return transformExchangeRate(response);
+  },
 
   // Toplu kur ekleme (günlük kur güncelleme için)
-  createBulk: (rates: Omit<ExchangeRate, 'id' | 'created_at'>[]) => 
-    api.post<ExchangeRate[]>('/exchange-rate/bulk', { rates }),
+  createBulk: async (
+    rates: Omit<ExchangeRate, 'id' | 'created_at'>[]
+  ): Promise<ExchangeRate[]> => {
+    const backendRates = rates.map(toBackendFormat);
+    const response = await apiClient.post<ExchangeRateBackend[]>(
+      '/exchange-rate/bulk', 
+      { rates: backendRates }
+    );
+    return response.map(transformExchangeRate);
+  },
 
   // Kur güncelle
-  update: (id: number, data: Partial<ExchangeRate>) => 
-    api.put<ExchangeRate>(`/exchange-rate/${id}`, data),
+  update: async (id: number, data: Partial<ExchangeRate>): Promise<ExchangeRate> => {
+    const backendData = toBackendFormat(data);
+    const response = await apiClient.put<ExchangeRateBackend>(
+      `/exchange-rate/${id}`, 
+      backendData
+    );
+    return transformExchangeRate(response);
+  },
 
   // Kur sil
-  delete: (id: number) => 
-    api.delete<void>(`/exchange-rate/${id}`),
+  delete: async (id: number): Promise<void> => {
+    await apiClient.delete(`/exchange-rate/${id}`);
+  },
 
   // TCMB'den güncel kurları çek
-  fetchFromTCMB: (date?: string) => 
-    api.post<ExchangeRate[]>('/exchange-rate/fetch-tcmb', { date }),
+  fetchFromTCMB: async (date?: string): Promise<ExchangeRate[]> => {
+    const response = await apiClient.post<ExchangeRateBackend[]>(
+      '/exchange-rate/fetch-tcmb', 
+      { date }
+    );
+    return response.map(transformExchangeRate);
+  },
 
   // Kur dönüşümü yap
-  convert: (amount: number, from: string, to: string, date?: string) => 
-    api.get<{ 
-      amount: number; 
-      from: string; 
-      to: string; 
-      rate: number; 
+  convert: async (
+    amount: number, 
+    from: string, 
+    to: string, 
+    date?: string
+  ): Promise<{
+    amount: number;
+    from: string;
+    to: string;
+    rate: number;
+    converted_amount: number;
+    rate_date: string;
+  }> => {
+    const queryParams: Record<string, string | number | boolean> = {
+      amount,
+      from,
+      to
+    };
+    if (date) queryParams.date = date;
+
+    const response = await apiClient.get<{
+      amount: number;
+      from: string;
+      to: string;
+      rate: number;
       converted_amount: number;
       rate_date: string;
-    }>('/exchange-rate/convert', { 
-      params: { amount, from, to, date } 
-    }),
+    }>('/exchange-rate/convert', {
+      params: queryParams
+    });
+    return response;
+  },
 };
 
 // ============================================
@@ -104,348 +243,6 @@ export function calculateCrossRate(
 ): number {
   return parseFloat((baseToTRY / targetToTRY).toFixed(6));
 }
-
-// ============================================
-// MOCK DATA (Backend hazır değilse)
-// ============================================
-
-const MOCK_EXCHANGE_RATES: ExchangeRate[] = [
-  // 2025-11-19 Kurları
-  {
-    id: 1,
-    currency_from: 'USD',
-    currency_to: 'TRY',
-    rate: 34.50,
-    rate_date: '2025-11-19',
-    source: 'TCMB',
-    created_at: '2025-11-19T10:00:00Z',
-  },
-  {
-    id: 2,
-    currency_from: 'EUR',
-    currency_to: 'TRY',
-    rate: 37.80,
-    rate_date: '2025-11-19',
-    source: 'TCMB',
-    created_at: '2025-11-19T10:00:00Z',
-  },
-  {
-    id: 3,
-    currency_from: 'GBP',
-    currency_to: 'TRY',
-    rate: 43.20,
-    rate_date: '2025-11-19',
-    source: 'TCMB',
-    created_at: '2025-11-19T10:00:00Z',
-  },
-  {
-    id: 4,
-    currency_from: 'CHF',
-    currency_to: 'TRY',
-    rate: 39.15,
-    rate_date: '2025-11-19',
-    source: 'TCMB',
-    created_at: '2025-11-19T10:00:00Z',
-  },
-  {
-    id: 5,
-    currency_from: 'JPY',
-    currency_to: 'TRY',
-    rate: 0.2245,
-    rate_date: '2025-11-19',
-    source: 'TCMB',
-    created_at: '2025-11-19T10:00:00Z',
-  },
-  {
-    id: 6,
-    currency_from: 'CAD',
-    currency_to: 'TRY',
-    rate: 24.65,
-    rate_date: '2025-11-19',
-    source: 'TCMB',
-    created_at: '2025-11-19T10:00:00Z',
-  },
-  {
-    id: 7,
-    currency_from: 'AUD',
-    currency_to: 'TRY',
-    rate: 22.45,
-    rate_date: '2025-11-19',
-    source: 'TCMB',
-    created_at: '2025-11-19T10:00:00Z',
-  },
-  {
-    id: 8,
-    currency_from: 'SAR',
-    currency_to: 'TRY',
-    rate: 9.20,
-    rate_date: '2025-11-19',
-    source: 'TCMB',
-    created_at: '2025-11-19T10:00:00Z',
-  },
-  {
-    id: 9,
-    currency_from: 'SEK',
-    currency_to: 'TRY',
-    rate: 3.25,
-    rate_date: '2025-11-19',
-    source: 'TCMB',
-    created_at: '2025-11-19T10:00:00Z',
-  },
-  {
-    id: 10,
-    currency_from: 'NOK',
-    currency_to: 'TRY',
-    rate: 3.15,
-    rate_date: '2025-11-19',
-    source: 'TCMB',
-    created_at: '2025-11-19T10:00:00Z',
-  },
-  {
-    id: 11,
-    currency_from: 'DKK',
-    currency_to: 'TRY',
-    rate: 5.07,
-    rate_date: '2025-11-19',
-    source: 'TCMB',
-    created_at: '2025-11-19T10:00:00Z',
-  },
-  {
-    id: 12,
-    currency_from: 'KWD',
-    currency_to: 'TRY',
-    rate: 112.45,
-    rate_date: '2025-11-19',
-    source: 'TCMB',
-    created_at: '2025-11-19T10:00:00Z',
-  },
-
-  // 2025-11-18 Kurları
-  {
-    id: 20,
-    currency_from: 'USD',
-    currency_to: 'TRY',
-    rate: 34.35,
-    rate_date: '2025-11-18',
-    source: 'TCMB',
-    created_at: '2025-11-18T10:00:00Z',
-  },
-  {
-    id: 21,
-    currency_from: 'EUR',
-    currency_to: 'TRY',
-    rate: 37.65,
-    rate_date: '2025-11-18',
-    source: 'TCMB',
-    created_at: '2025-11-18T10:00:00Z',
-  },
-  {
-    id: 22,
-    currency_from: 'GBP',
-    currency_to: 'TRY',
-    rate: 43.05,
-    rate_date: '2025-11-18',
-    source: 'TCMB',
-    created_at: '2025-11-18T10:00:00Z',
-  },
-  {
-    id: 23,
-    currency_from: 'CHF',
-    currency_to: 'TRY',
-    rate: 39.00,
-    rate_date: '2025-11-18',
-    source: 'TCMB',
-    created_at: '2025-11-18T10:00:00Z',
-  },
-  {
-    id: 24,
-    currency_from: 'JPY',
-    currency_to: 'TRY',
-    rate: 0.2240,
-    rate_date: '2025-11-18',
-    source: 'TCMB',
-    created_at: '2025-11-18T10:00:00Z',
-  },
-
-  // 2025-11-17 Kurları (Hafta sonu - Cuma kurları tekrarlanır)
-  {
-    id: 30,
-    currency_from: 'USD',
-    currency_to: 'TRY',
-    rate: 34.20,
-    rate_date: '2025-11-17',
-    source: 'TCMB',
-    created_at: '2025-11-17T10:00:00Z',
-  },
-  {
-    id: 31,
-    currency_from: 'EUR',
-    currency_to: 'TRY',
-    rate: 37.50,
-    rate_date: '2025-11-17',
-    source: 'TCMB',
-    created_at: '2025-11-17T10:00:00Z',
-  },
-];
-
-// Mock mode için fallback
-export const kurlarApiMock = {
-  getAll: async (params?: any) => {
-    let filtered = [...MOCK_EXCHANGE_RATES];
-    
-    if (params?.currency_from) {
-      filtered = filtered.filter(r => r.currency_from === params.currency_from);
-    }
-    
-    if (params?.currency_to) {
-      filtered = filtered.filter(r => r.currency_to === params.currency_to);
-    }
-    
-    if (params?.rate_date) {
-      filtered = filtered.filter(r => r.rate_date === params.rate_date);
-    }
-    
-    return {
-      items: filtered,
-      total: filtered.length,
-      page: params?.page || 1,
-      page_size: params?.page_size || 50,
-      total_pages: 1,
-    };
-  },
-
-  getById: async (id: number) => 
-    MOCK_EXCHANGE_RATES.find(r => r.id === id) || MOCK_EXCHANGE_RATES[0],
-
-  getByDate: async (currencyFrom: string, currencyTo: string, rateDate: string) => 
-    MOCK_EXCHANGE_RATES.find(
-      r => r.currency_from === currencyFrom && 
-           r.currency_to === currencyTo && 
-           r.rate_date === rateDate
-    ),
-
-  getLatest: async (currencyFrom: string, currencyTo: string) => {
-    const rates = MOCK_EXCHANGE_RATES.filter(
-      r => r.currency_from === currencyFrom && r.currency_to === currencyTo
-    );
-    // En güncel tarihi bul
-    return rates.sort((a, b) => b.rate_date.localeCompare(a.rate_date))[0];
-  },
-
-  getToday: async () => {
-    const today = new Date().toISOString().split('T')[0];
-    return MOCK_EXCHANGE_RATES.filter(r => r.rate_date === today);
-  },
-
-  getByDateAll: async (rateDate: string) => 
-    MOCK_EXCHANGE_RATES.filter(r => r.rate_date === rateDate),
-
-  create: async (data: any) => {
-    const newRate: ExchangeRate = {
-      id: Math.max(...MOCK_EXCHANGE_RATES.map(r => r.id), 0) + 1,
-      ...data,
-      created_at: new Date().toISOString(),
-    };
-    MOCK_EXCHANGE_RATES.push(newRate);
-    return newRate;
-  },
-
-  createBulk: async (rates: any[]) => {
-    return rates.map((rate, index) => {
-      const newRate: ExchangeRate = {
-        id: Math.max(...MOCK_EXCHANGE_RATES.map(r => r.id), 0) + index + 1,
-        ...rate,
-        created_at: new Date().toISOString(),
-      };
-      MOCK_EXCHANGE_RATES.push(newRate);
-      return newRate;
-    });
-  },
-
-  convert: async (amount: number, from: string, to: string, date?: string) => {
-    const rateDate = date || new Date().toISOString().split('T')[0];
-    
-    // Eğer aynı para birimiyse
-    if (from === to) {
-      return {
-        amount,
-        from,
-        to,
-        rate: 1,
-        converted_amount: amount,
-        rate_date: rateDate,
-      };
-    }
-    
-    // Kur bul
-    let rate = MOCK_EXCHANGE_RATES.find(
-      r => r.currency_from === from && r.currency_to === to && r.rate_date === rateDate
-    );
-    
-    // Ters kur dene
-    if (!rate) {
-      const reverseRate = MOCK_EXCHANGE_RATES.find(
-        r => r.currency_from === to && r.currency_to === from && r.rate_date === rateDate
-      );
-      if (reverseRate) {
-        rate = {
-          ...reverseRate,
-          currency_from: from,
-          currency_to: to,
-          rate: 1 / reverseRate.rate,
-        };
-      }
-    }
-    
-    if (!rate) {
-      throw new Error(`Kur bulunamadı: ${from}/${to} - ${rateDate}`);
-    }
-    
-    return {
-      amount,
-      from,
-      to,
-      rate: rate.rate,
-      converted_amount: calculateConversion(amount, rate.rate),
-      rate_date: rateDate,
-    };
-  },
-
-  fetchFromTCMB: async (date?: string) => {
-    // Mock: Bugünkü kurları döndür
-    const today = date || new Date().toISOString().split('T')[0];
-    const todayRates = MOCK_EXCHANGE_RATES.filter(r => r.rate_date === today);
-    
-    if (todayRates.length === 0) {
-      // Yeni kurlar oluştur (mock)
-      const newRates: ExchangeRate[] = [
-        {
-          id: Math.max(...MOCK_EXCHANGE_RATES.map(r => r.id), 0) + 1,
-          currency_from: 'USD',
-          currency_to: 'TRY',
-          rate: 34.50,
-          rate_date: today,
-          source: 'TCMB',
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: Math.max(...MOCK_EXCHANGE_RATES.map(r => r.id), 0) + 2,
-          currency_from: 'EUR',
-          currency_to: 'TRY',
-          rate: 37.80,
-          rate_date: today,
-          source: 'TCMB',
-          created_at: new Date().toISOString(),
-        },
-      ];
-      
-      MOCK_EXCHANGE_RATES.push(...newRates);
-      return newRates;
-    }
-    
-    return todayRates;
-  },
-};
 
 // ============================================
 // PARA BİRİMLERİ REFERANSI
