@@ -3,6 +3,7 @@ import { CariModule } from "./components/modules/CariModule";
 import { CariEkstre } from "./components/modules/CariEkstre";
 import { MotorbotModule } from "./components/modules/MotorbotModule";
 import { SeferModule } from "./components/modules/SeferModule";
+import { HizmetModule } from "./components/modules/HizmetModule";
 import { PlaceholderModule } from "./components/PlaceholderModule";
 import { ThemeSelector, Theme, themes } from "./components/ThemeSelector";
 import { Toaster } from "sonner";
@@ -395,13 +396,23 @@ export default function App() {
             />
           )}
 
+          {/* Hizmet Module */}
+          {currentPage === "hizmet-module" && (
+            <HizmetModule 
+              onNavigateHome={handleBackToMenu} 
+              onNavigateBack={handleBackToSubmenu} 
+              theme={currentTheme}
+            />
+          )}
+
           {/* PLACEHOLDER MODULES - All other pages */}
           {currentPage !== "menu" && 
            currentPage !== "submenu" && 
            currentPage !== "cari-module" && 
            currentPage !== "cari-ekstre" && 
            currentPage !== "motorbot-module" && 
-           currentPage !== "sefer-module" && (
+           currentPage !== "sefer-module" && 
+           currentPage !== "hizmet-module" && (
             <PlaceholderModule 
               onNavigateHome={handleBackToMenu}
               onNavigateBack={handleGoBack}

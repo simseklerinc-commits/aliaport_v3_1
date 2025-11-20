@@ -15,16 +15,18 @@ The system operates as a full-stack web application with a Python FastAPI backen
 - ✅ Updated CariModule with real backend API integration (`/api/cari/`)
 - ✅ Updated MotorbotModule with real backend API integration (`/api/motorbot/`)
 - ✅ Updated SeferModule with real backend API integration (`/api/mb-trip/`)
+- ✅ **NEW:** Activated HizmetModule with complete backend & frontend integration
 - ✅ Created PlaceholderModule for inactive features
-- ✅ Streamlined App.tsx routing - only 3 active modules, others show placeholder
+- ✅ Streamlined App.tsx routing - now 4 active modules, others show placeholder
 - ✅ All active modules have proper loading/error/empty state management
 - ✅ Turkish language error messages and toast notifications
 - ✅ Fixed API client to dynamically use window.location.origin (Replit deployment ready)
 - ✅ Configured Vite proxy to forward /api requests to backend with trailing slash fix
 - ✅ Backend returning 200 OK responses for all API calls
+- ✅ PascalCase → snake_case field transformers working correctly across all modules
 
 **Development Status:**
-- Active Modules: CariModule, MotorbotModule, SeferModule (fully integrated with backend)
+- Active Modules: CariModule, MotorbotModule, SeferModule, **HizmetModule** (fully integrated with backend)
 - Placeholder Modules: All other features pending API development
 - API Communication: Working correctly with FastAPI backend on port 8000
 
@@ -103,6 +105,16 @@ The active Replit implementation uses:
    - Features: Trip departure/return logging
    - Toast notifications for user feedback
    - Loading, error, and empty states handled
+
+4. **Service Cards** (HizmetModule) - Service definition management with real API integration
+   - Endpoint: `/api/hizmet`
+   - Backend: FastAPI router (router_hizmet.py), SQLAlchemy model (models_hizmet.py), Pydantic schemas (schemas_hizmet.py)
+   - Database: SQLite table "Hizmet" with fields: Kod, Ad, GrupKod, Birim, Fiyat, ParaBirimi, KdvOrani, SiraNo, AktifMi
+   - Features: List, search, create, edit, delete service cards
+   - Field transformer: Backend PascalCase → Frontend snake_case (transformHizmetResponse)
+   - Toast notifications for user feedback
+   - Loading, error, and empty states handled
+   - Simplified CariModule pattern (backed up old complex version to HizmetModule.tsx.backup)
 
 **Inactive Modules (Placeholder):**
 - Service Cards, Tariff Management, Invoicing, Reporting, and other features show placeholder message: "Bu modül henüz aktif değil"

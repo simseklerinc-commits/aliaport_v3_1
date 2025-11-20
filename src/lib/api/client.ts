@@ -128,6 +128,9 @@ export const api = {
   },
 };
 
+// Alias for backward compatibility
+export const apiClient = api;
+
 // Mock mode için helper
 export const setMockMode = (enabled: boolean) => {
   if (enabled) {

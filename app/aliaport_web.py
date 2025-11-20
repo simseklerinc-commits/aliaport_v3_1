@@ -3,9 +3,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import Base, engine
 from .models import Cari, Motorbot, MbTrip  # tablonun ORM'i yüklensin
+from .models_hizmet import Hizmet  # Hizmet tablosu
 from . import router_cari
 from . import router_motorbot
 from . import router_mbtrip
+from . import router_hizmet
 
 app = FastAPI(title="Aliaport v3.1 - Liman Yönetim Sistemi", version="3.1.0")
 
@@ -25,6 +27,7 @@ Base.metadata.create_all(bind=engine)
 app.include_router(router_cari.router)
 app.include_router(router_motorbot.router)
 app.include_router(router_mbtrip.router)
+app.include_router(router_hizmet.router, prefix="/api/hizmet", tags=["Hizmet"])
 
 
 @app.get("/")
@@ -37,6 +40,7 @@ def root():
             "cari": "/api/cari",
             "motorbot": "/api/motorbot",
             "mb_trip": "/api/mb-trip",
+            "hizmet": "/api/hizmet",
             "docs": "/docs"
         }
     }
