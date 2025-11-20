@@ -77,9 +77,9 @@ export function HizmetModule({ onNavigateHome, onNavigateBack, theme }: HizmetMo
     name: item.Ad,
     group_code: item.GrupKod || '',
     unit: item.Birim || '',
-    price: item.Fiyat || 0,
+    price: item.Fiyat ? parseFloat(item.Fiyat) : 0,
     currency: item.ParaBirimi || 'TRY',
-    vat_rate: item.KdvOrani || 0,
+    vat_rate: item.KdvOrani ? parseFloat(item.KdvOrani) : 0,
     order_no: item.SiraNo || 0,
     is_active: item.AktifMi,
     created_at: item.CreatedAt,
@@ -408,7 +408,7 @@ export function HizmetModule({ onNavigateHome, onNavigateBack, theme }: HizmetMo
                       <td className="px-4 py-4 text-gray-400">{hizmet.group_code || '-'}</td>
                       <td className="px-4 py-4 text-gray-400">{hizmet.unit || '-'}</td>
                       <td className="px-4 py-4 text-right text-white">
-                        {hizmet.price ? `${hizmet.price.toFixed(2)} ${hizmet.currency}` : '-'}
+                        {hizmet.price ? `${Number(hizmet.price).toFixed(2)} ${hizmet.currency}` : '-'}
                       </td>
                       <td className="px-4 py-4 text-center text-gray-400">
                         {hizmet.vat_rate ? `%${hizmet.vat_rate}` : '-'}
