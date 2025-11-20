@@ -1,4 +1,4 @@
-// KURLAR MODULE - Döviz Kurları Yönetimi
+// KURLAR MODULE - Döviz Kurları Yönetimi (HizmetModule pattern)
 // Backend: /api/exchange-rate/ (FastAPI + SQLite)
 
 import { useState, useEffect } from "react";
@@ -12,14 +12,9 @@ import {
   Plus, 
   Search,
   Loader2,
-  AlertCircle,
   ArrowLeft,
-  Save,
   Edit,
-  Trash2,
-  X,
-  TrendingUp,
-  Calendar
+  Trash2
 } from "lucide-react";
 import { kurlarApi } from "../../lib/api/kurlar";
 import type { ExchangeRate } from "../../lib/types/database";
@@ -114,8 +109,8 @@ export default function KurlarModule({ onNavigateHome, onNavigateBack, theme }: 
     return Object.keys(errors).length === 0;
   };
 
-  // Kur oluştur
-  const handleCreate = async () => {
+  // Kur kaydet (create/update)
+  const handleSave = async () => {
     if (!validateForm()) {
       toast.error('Form hatası', {
         description: 'Lütfen tüm gerekli alanları doldurun'
@@ -123,46 +118,28 @@ export default function KurlarModule({ onNavigateHome, onNavigateBack, theme }: 
       return;
     }
 
+    setFormErrors({});
     setLoading(true);
+
     try {
-      await kurlarApi.create(formData);
-      
-      toast.success('Kur eklendi', {
-        description: `${formData.currency_from}/${formData.currency_to} kuru başarıyla eklendi`
-      });
-      
+      if (currentView === 'create') {
+        await kurlarApi.create(formData);
+        toast.success('Kur eklendi', {
+          description: `${formData.currency_from}/${formData.currency_to} kuru başarıyla eklendi`
+        });
+      } else if (currentView === 'edit' && selectedKur) {
+        await kurlarApi.update(selectedKur.id, formData);
+        toast.success('Kur güncellendi', {
+          description: `${formData.currency_from}/${formData.currency_to} kuru güncellendi`
+        });
+      }
+
+      resetForm();
       setCurrentView('list');
       loadKurlar();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Kayıt oluşturulamadı';
-      toast.error('Kur eklenemedi', {
-        description: errorMessage
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Kur güncelle
-  const handleUpdate = async () => {
-    if (!selectedKur || !validateForm()) {
-      toast.error('Form hatası');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await kurlarApi.update(selectedKur.id, formData);
-      
-      toast.success('Kur güncellendi', {
-        description: `${formData.currency_from}/${formData.currency_to} kuru güncellendi`
-      });
-      
-      setCurrentView('list');
-      loadKurlar();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Güncelleme başarısız';
-      toast.error('Kur güncellenemedi', {
+      const errorMessage = err instanceof Error ? err.message : 'Kaydetme başarısız';
+      toast.error('İşlem başarısız', {
         description: errorMessage
       });
     } finally {
@@ -171,14 +148,17 @@ export default function KurlarModule({ onNavigateHome, onNavigateBack, theme }: 
   };
 
   // Kur sil
-  const handleDelete = async (kur: ExchangeRate) => {
+  const handleDelete = async (id: number) => {
+    const kur = kurlar.find(k => k.id === id);
+    if (!kur) return;
+
     if (!confirm(`${kur.currency_from}/${kur.currency_to} kurunu silmek istediğinize emin misiniz?`)) {
       return;
     }
 
     setLoading(true);
     try {
-      await kurlarApi.delete(kur.id);
+      await kurlarApi.delete(id);
       
       toast.success('Kur silindi', {
         description: `${kur.currency_from}/${kur.currency_to} kuru silindi`
@@ -209,9 +189,8 @@ export default function KurlarModule({ onNavigateHome, onNavigateBack, theme }: 
     setCurrentView('edit');
   };
 
-  // Create mode'a geç
-  const handleNewKur = () => {
-    setSelectedKur(null);
+  // Form reset
+  const resetForm = () => {
     setFormData({
       currency_from: 'USD',
       currency_to: 'TRY',
@@ -219,19 +198,12 @@ export default function KurlarModule({ onNavigateHome, onNavigateBack, theme }: 
       rate_date: new Date().toISOString().split('T')[0],
       source: 'Manuel',
     });
-    setFormErrors({});
-    setCurrentView('create');
-  };
-
-  // Liste görünümüne dön
-  const handleBackToList = () => {
-    setCurrentView('list');
     setSelectedKur(null);
     setFormErrors({});
   };
 
   // Filtrelenmiş kurlar
-  const filteredKurlar = kurlar.filter(kur => {
+  const filteredKurlar = (kurlar || []).filter(kur => {
     const searchLower = searchTerm.toLowerCase();
     return (
       kur.currency_from.toLowerCase().includes(searchLower) ||
@@ -241,299 +213,301 @@ export default function KurlarModule({ onNavigateHome, onNavigateBack, theme }: 
     );
   });
 
+  // Statistics
+  const stats = {
+    total: kurlar.length,
+    pairs: new Set(kurlar.map(k => `${k.currency_from}/${k.currency_to}`)).size,
+    sources: new Set(kurlar.map(k => k.source || 'Manuel')).size,
+  };
+
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={currentView === 'list' ? onNavigateBack : handleBackToList}
-            className="text-slate-600 hover:text-slate-900"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Geri
-          </Button>
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-100 p-2 rounded-lg">
-              <DollarSign className="h-6 w-6 text-blue-600" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">Döviz Kurları</h1>
-              <p className="text-sm text-slate-500">
-                {currentView === 'list' && `${filteredKurlar.length} kur kaydı`}
-                {currentView === 'create' && 'Yeni Kur Ekle'}
-                {currentView === 'edit' && 'Kur Düzenle'}
-              </p>
+      <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              onClick={onNavigateBack}
+              className="text-gray-400 hover:text-white"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-blue-500/20 rounded-full flex items-center justify-center">
+                <DollarSign className="w-8 h-8 text-blue-400" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-white">Döviz Kurları</h1>
+                <p className="text-sm text-gray-400">
+                  Kur tanımları ve yönetimi
+                </p>
+              </div>
             </div>
           </div>
+          
+          {currentView === 'list' && (
+            <Button
+              onClick={() => setCurrentView('create')}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Yeni Kur
+            </Button>
+          )}
         </div>
-
-        {currentView === 'list' && (
-          <Button onClick={handleNewKur} className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="h-4 w-4 mr-2" />
-            Yeni Kur
-          </Button>
-        )}
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
-        {currentView === 'list' && (
-          <div className="space-y-4">
-            {/* Filters */}
-            <div className="bg-white rounded-lg p-4 border border-slate-200">
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <Input
-                      placeholder="Kur ara (para birimi, tarih, kaynak...)"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                <select
-                  value={filterCurrency}
-                  onChange={(e) => setFilterCurrency(e.target.value)}
-                  className="px-4 py-2 border border-slate-300 rounded-md"
-                >
-                  <option value="ALL">Tüm Para Birimleri</option>
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="GBP">GBP</option>
-                  <option value="CHF">CHF</option>
-                  <option value="JPY">JPY</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Loading/Error/Empty States */}
-            {loading && (
-              <div className="bg-white rounded-lg p-12 border border-slate-200 text-center">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
-                <p className="text-slate-600">Kurlar yükleniyor...</p>
-              </div>
-            )}
-
-            {error && (
-              <div className="bg-red-50 rounded-lg p-6 border border-red-200">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
-                  <div>
-                    <h3 className="font-semibold text-red-900">Hata</h3>
-                    <p className="text-sm text-red-700 mt-1">{error}</p>
-                    <Button 
-                      onClick={loadKurlar}
-                      size="sm"
-                      variant="outline"
-                      className="mt-3"
-                    >
-                      Tekrar Dene
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {!loading && !error && filteredKurlar.length === 0 && (
-              <div className="bg-white rounded-lg p-12 border border-slate-200 text-center">
-                <DollarSign className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">Kur bulunamadı</h3>
-                <p className="text-slate-600 mb-4">Henüz döviz kuru kaydı yok</p>
-                <Button onClick={handleNewKur} className="bg-blue-600 hover:bg-blue-700">
-                  <Plus className="h-4 w-4 mr-2" />
-                  İlk Kuru Ekle
-                </Button>
-              </div>
-            )}
-
-            {/* Kurlar Listesi */}
-            {!loading && !error && filteredKurlar.length > 0 && (
-              <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                        Para Birimi
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                        Kur
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                        Tarih
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                        Kaynak
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">
-                        İşlemler
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {filteredKurlar.map((kur) => (
-                      <tr key={kur.id} className="hover:bg-slate-50">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <TrendingUp className="h-4 w-4 text-blue-600" />
-                            <span className="font-medium text-slate-900">
-                              {kur.currency_from}/{kur.currency_to}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-lg font-semibold text-slate-900">
-                            {kur.rate.toFixed(4)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2 text-slate-600">
-                            <Calendar className="h-4 w-4" />
-                            {kur.rate_date}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <Badge variant="secondary">
-                            {kur.source || 'Manuel'}
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex gap-2 justify-end">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleEdit(kur)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDelete(kur)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+      {/* Stats */}
+      {currentView === 'list' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+            <div className="text-sm text-gray-400">Toplam Kur Kaydı</div>
+            <div className="text-3xl font-bold text-white mt-2">{stats.total}</div>
           </div>
-        )}
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+            <div className="text-sm text-gray-400">Para Birimi Çifti</div>
+            <div className="text-3xl font-bold text-blue-400 mt-2">{stats.pairs}</div>
+          </div>
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+            <div className="text-sm text-gray-400">Kaynak Sayısı</div>
+            <div className="text-3xl font-bold text-green-400 mt-2">{stats.sources}</div>
+          </div>
+        </div>
+      )}
 
-        {/* Create/Edit Form */}
-        {(currentView === 'create' || currentView === 'edit') && (
-          <div className="max-w-2xl mx-auto">
-            <div className="bg-white rounded-lg p-6 border border-slate-200 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Kaynak Para Birimi *
-                  </label>
-                  <Input
-                    value={formData.currency_from}
-                    onChange={(e) => setFormData({...formData, currency_from: e.target.value.toUpperCase()})}
-                    placeholder="USD"
-                    maxLength={3}
-                  />
-                  {formErrors.currency_from && (
-                    <p className="text-sm text-red-600 mt-1">{formErrors.currency_from}</p>
-                  )}
-                </div>
+      {/* List View */}
+      {currentView === 'list' && (
+        <div className="bg-gray-800/50 border border-gray-700 rounded-lg">
+          {/* Filters */}
+          <div className="p-4 border-b border-gray-700 flex gap-4">
+            <div className="flex-1 relative">
+              <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Input
+                placeholder="Kur ara (para birimi, tarih, kaynak...)"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-gray-900 border-gray-700 text-white"
+              />
+            </div>
+            <select
+              value={filterCurrency}
+              onChange={(e) => setFilterCurrency(e.target.value)}
+              className="bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white"
+            >
+              <option value="ALL">Tüm Para Birimleri</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+              <option value="CHF">CHF</option>
+              <option value="JPY">JPY</option>
+            </select>
+          </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Hedef Para Birimi *
-                  </label>
-                  <Input
-                    value={formData.currency_to}
-                    onChange={(e) => setFormData({...formData, currency_to: e.target.value.toUpperCase()})}
-                    placeholder="TRY"
-                    maxLength={3}
-                  />
-                  {formErrors.currency_to && (
-                    <p className="text-sm text-red-600 mt-1">{formErrors.currency_to}</p>
-                  )}
-                </div>
-              </div>
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-900/50 border-b border-gray-700">
+                <tr>
+                  <th className="text-left px-4 py-3 text-sm text-gray-400">Para Birimi</th>
+                  <th className="text-right px-4 py-3 text-sm text-gray-400">Kur Değeri</th>
+                  <th className="text-left px-4 py-3 text-sm text-gray-400">Tarih</th>
+                  <th className="text-left px-4 py-3 text-sm text-gray-400">Kaynak</th>
+                  <th className="text-right px-4 py-3 text-sm text-gray-400">İşlemler</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                    </td>
+                  </tr>
+                ) : filteredKurlar.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                      Kayıt bulunamadı
+                    </td>
+                  </tr>
+                ) : (
+                  filteredKurlar.map((kur) => (
+                    <tr
+                      key={kur.id}
+                      className="border-b border-gray-800 hover:bg-gray-700/50"
+                    >
+                      <td className="px-4 py-4">
+                        <span className="font-mono text-sm text-white font-bold">
+                          {kur.currency_from}/{kur.currency_to}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <span className="text-white font-semibold text-lg">
+                          {kur.rate.toFixed(4)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-gray-400">{kur.rate_date}</td>
+                      <td className="px-4 py-4">
+                        <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50">
+                          {kur.source || 'Manuel'}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(kur)}
+                            className="text-blue-400 hover:text-blue-300"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(kur.id)}
+                            className="text-red-400 hover:text-red-300"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Kur Değeri *
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.0001"
-                    value={formData.rate}
-                    onChange={(e) => setFormData({...formData, rate: parseFloat(e.target.value) || 0})}
-                    placeholder="34.5000"
-                  />
-                  {formErrors.rate && (
-                    <p className="text-sm text-red-600 mt-1">{formErrors.rate}</p>
-                  )}
-                </div>
+      {/* Create/Edit Form */}
+      {(currentView === 'create' || currentView === 'edit') && (
+        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  resetForm();
+                  setCurrentView('list');
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <h2 className="text-2xl font-bold text-white">
+                {currentView === 'create' ? 'Yeni Kur Ekle' : 'Kur Düzenle'}
+              </h2>
+            </div>
+          </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Tarih *
-                  </label>
-                  <Input
-                    type="date"
-                    value={formData.rate_date}
-                    onChange={(e) => setFormData({...formData, rate_date: e.target.value})}
-                  />
-                  {formErrors.rate_date && (
-                    <p className="text-sm text-red-600 mt-1">{formErrors.rate_date}</p>
-                  )}
-                </div>
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Kaynak Para Birimi *
+                </label>
+                <Input
+                  value={formData.currency_from}
+                  onChange={(e) => setFormData({...formData, currency_from: e.target.value.toUpperCase()})}
+                  placeholder="USD"
+                  maxLength={3}
+                  className="bg-gray-900 border-gray-700 text-white"
+                />
+                {formErrors.currency_from && (
+                  <p className="text-sm text-red-400 mt-1">{formErrors.currency_from}</p>
+                )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Kaynak
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Hedef Para Birimi *
                 </label>
                 <Input
-                  value={formData.source}
-                  onChange={(e) => setFormData({...formData, source: e.target.value})}
-                  placeholder="Manuel, TCMB, vb."
+                  value={formData.currency_to}
+                  onChange={(e) => setFormData({...formData, currency_to: e.target.value.toUpperCase()})}
+                  placeholder="TRY"
+                  maxLength={3}
+                  className="bg-gray-900 border-gray-700 text-white"
                 />
-              </div>
-
-              <div className="flex gap-3 pt-4 border-t">
-                <Button
-                  onClick={currentView === 'create' ? handleCreate : handleUpdate}
-                  disabled={loading}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700"
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4 mr-2" />
-                  )}
-                  {currentView === 'create' ? 'Kur Ekle' : 'Güncelle'}
-                </Button>
-                <Button
-                  onClick={handleBackToList}
-                  variant="outline"
-                  disabled={loading}
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  İptal
-                </Button>
+                {formErrors.currency_to && (
+                  <p className="text-sm text-red-400 mt-1">{formErrors.currency_to}</p>
+                )}
               </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Kur Değeri *
+                </label>
+                <Input
+                  type="number"
+                  step="0.0001"
+                  value={formData.rate}
+                  onChange={(e) => setFormData({...formData, rate: parseFloat(e.target.value) || 0})}
+                  placeholder="34.5000"
+                  className="bg-gray-900 border-gray-700 text-white"
+                />
+                {formErrors.rate && (
+                  <p className="text-sm text-red-400 mt-1">{formErrors.rate}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Tarih *
+                </label>
+                <Input
+                  type="date"
+                  value={formData.rate_date}
+                  onChange={(e) => setFormData({...formData, rate_date: e.target.value})}
+                  className="bg-gray-900 border-gray-700 text-white"
+                />
+                {formErrors.rate_date && (
+                  <p className="text-sm text-red-400 mt-1">{formErrors.rate_date}</p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Kaynak
+              </label>
+              <Input
+                value={formData.source}
+                onChange={(e) => setFormData({...formData, source: e.target.value})}
+                placeholder="Manuel, TCMB, vb."
+                className="bg-gray-900 border-gray-700 text-white"
+              />
+            </div>
+
+            <div className="flex gap-4 pt-4 border-t border-gray-700">
+              <Button
+                onClick={handleSave}
+                disabled={loading}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : null}
+                {currentView === 'create' ? 'Kur Ekle' : 'Güncelle'}
+              </Button>
+              <Button
+                onClick={() => {
+                  resetForm();
+                  setCurrentView('list');
+                }}
+                variant="outline"
+                disabled={loading}
+                className="border-gray-700 text-gray-400 hover:text-white"
+              >
+                İptal
+              </Button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
