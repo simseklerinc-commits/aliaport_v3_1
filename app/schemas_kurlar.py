@@ -34,3 +34,6 @@ class PaginatedExchangeRateResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+class BulkExchangeRateRequest(BaseModel):
+    rates: List[ExchangeRateCreate]

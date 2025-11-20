@@ -9,7 +9,8 @@ from .schemas_kurlar import (
     ExchangeRate, 
     ExchangeRateCreate, 
     ExchangeRateUpdate,
-    PaginatedExchangeRateResponse
+    PaginatedExchangeRateResponse,
+    BulkExchangeRateRequest
 )
 
 router = APIRouter()
@@ -275,7 +276,7 @@ def delete_exchange_rate(rate_id: int, db: Session = Depends(get_db)):
 
 @router.post("/bulk", response_model=List[ExchangeRate])
 def create_bulk_exchange_rates(
-    rates: List[ExchangeRateCreate],
+    request: BulkExchangeRateRequest,
     db: Session = Depends(get_db)
 ):
     """
@@ -283,7 +284,7 @@ def create_bulk_exchange_rates(
     """
     created_rates = []
     
-    for rate in rates:
+    for rate in request.rates:
         # Duplicate check
         existing = db.query(ExchangeRateModel).filter(
             ExchangeRateModel.CurrencyFrom == rate.CurrencyFrom,
