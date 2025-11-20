@@ -4,7 +4,7 @@ import { CariEkstre } from "./components/modules/CariEkstre";
 import { MotorbotModule } from "./components/modules/MotorbotModule";
 import { SeferModule } from "./components/modules/SeferModule";
 import { HizmetModule } from "./components/modules/HizmetModule";
-import { KurlarModule } from "./components/modules/KurlarModule";
+import KurlarModule from "./components/modules/KurlarModule";
 import { PlaceholderModule } from "./components/PlaceholderModule";
 import { ThemeSelector, Theme, themes } from "./components/ThemeSelector";
 import { Toaster } from "sonner";
@@ -211,7 +211,7 @@ export default function App() {
     if (subMenus[page as keyof typeof subMenus]) {
       setCurrentModule(page);
       setCurrentPage("submenu");
-    } else if (page === "kurlar" || page === "parametreler") {
+    } else if (page === "kurlar-module" || page === "parametreler") {
       // Modules without sub-menu
       setCurrentPage(page);
       setEFaturaContractData(null); // Clear contract data when navigating from main menu
@@ -302,7 +302,7 @@ export default function App() {
     if (currentPage === "tarife-module") return "Tarife Yönetimi";
     if (currentPage === "hizmet-yonetimi") return "Hizmet Yönetimi";
     if (currentPage === "tarife-kart-giris") return "Yeni Tarife Kartı";
-    if (currentPage === "kurlar") return "Kurlar";
+    if (currentPage === "kurlar-module") return "Kurlar";
     if (currentPage === "parametreler") return "Parametreler";
     if (currentPage === "saha-personeli") return "Saha Personeli";
     if (currentPage === "guvenlik") return "Güvenlik";
@@ -407,7 +407,7 @@ export default function App() {
           )}
 
           {/* Kurlar Module */}
-          {currentPage === "kurlar" && (
+          {currentPage === "kurlar-module" && (
             <KurlarModule 
               onNavigateHome={handleBackToMenu} 
               onNavigateBack={handleBackToMenu} 
@@ -423,7 +423,7 @@ export default function App() {
            currentPage !== "motorbot-module" && 
            currentPage !== "sefer-module" && 
            currentPage !== "hizmet-module" && 
-           currentPage !== "kurlar" && (
+           currentPage !== "kurlar-module" && (
             <PlaceholderModule 
               onNavigateHome={handleBackToMenu}
               onNavigateBack={handleGoBack}

@@ -40,7 +40,7 @@ const menuItems = [
     icon: Receipt,
   },
   {
-    id: "kurlar",
+    id: "kurlar-module",
     title: "Kurlar",
     icon: DollarSign,
   },

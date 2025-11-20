@@ -30,7 +30,7 @@ interface KurlarModuleProps {
   theme: Theme;
 }
 
-export function KurlarModule({ onNavigateHome, onNavigateBack, theme }: KurlarModuleProps) {
+export default function KurlarModule({ onNavigateHome, onNavigateBack, theme }: KurlarModuleProps) {
   const [currentView, setCurrentView] = useState<'list' | 'create' | 'edit'>('list');
   const [kurlar, setKurlar] = useState<ExchangeRate[]>([]);
   const [loading, setLoading] = useState(false);
