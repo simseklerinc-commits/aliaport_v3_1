@@ -83,6 +83,27 @@ export function MotorbotModule({
     is_frozen: false,
   });
 
+  // Backend PascalCase → Frontend snake_case transformer
+  const transformMotorbotResponse = (item: any) => ({
+    ...item,
+    id: item.Id,
+    code: item.Kod,
+    name: item.Ad,
+    owner_cari_id: item.OwnerCariId,
+    owner_cari_code: item.OwnerCariKod,
+    registration_number: item.Plaka || '',
+    gross_tonnage: item.KapasiteTon || 0,
+    max_speed_knots: item.MaxHizKnot || 0,
+    vessel_type: 'Motorbot',
+    boat_type: 'Motorbot',
+    is_active: item.Durum === 'AKTIF',
+    is_frozen: false,
+    purchase_date: item.AlisTarihi || null,
+    notes: item.Notlar || '',
+    created_at: item.CreatedAt,
+    updated_at: item.UpdatedAt,
+  });
+
   // Motorbotları yükle
   const loadMotorbots = async () => {
     setLoading(true);
@@ -98,23 +119,8 @@ export function MotorbotModule({
       // Backend direkt array dönüyor, response.items değil
       const rawData = Array.isArray(response) ? response : (response.items || []);
       
-      // Backend PascalCase → Frontend snake_case mapping
-      const mappedData = rawData.map((item: any) => ({
-        ...item,
-        id: item.Id,
-        code: item.Kod,
-        name: item.Ad,
-        owner_cari_id: item.OwnerCariId,
-        owner_cari_code: item.OwnerCariKod,
-        registration_number: item.Plaka,
-        gross_tonnage: item.KapasiteTon,
-        vessel_type: 'Motorbot',
-        boat_type: 'Motorbot',
-        is_active: item.Durum === 'AKTIF',
-        is_frozen: false,
-        created_at: item.CreatedAt,
-        updated_at: item.UpdatedAt,
-      }));
+      // Transform all items
+      const mappedData = rawData.map(transformMotorbotResponse);
       
       setMotorbots(mappedData);
       
@@ -245,7 +251,7 @@ export function MotorbotModule({
 
     try {
       if (currentView === 'create') {
-        const newMotorbot = await motorbotApi.create({
+        const created = await motorbotApi.create({
           code: formData.code || '',
           name: formData.name || '',
           owner_cari_id: formData.owner_cari_id || 0,
@@ -267,17 +273,21 @@ export function MotorbotModule({
           draft_meters: formData.draft || 0,
         } as any);
         
-        setMotorbots([newMotorbot, ...motorbots]);
+        // Backend response'u transform et ve state'e ekle
+        const transformedMotorbot = transformMotorbotResponse(created);
+        setMotorbots([transformedMotorbot, ...motorbots]);
         toast.success('Motorbot oluşturuldu', {
           description: `${formData.code} - ${formData.name} başarıyla kaydedildi`
         });
       } else {
         if (selectedMotorbot) {
-          await motorbotApi.update(selectedMotorbot.id, formData as any);
-          const updated = motorbots.map(m =>
-            m.id === selectedMotorbot.id ? { ...m, ...formData } : m
-          );
-          setMotorbots(updated);
+          const updated = await motorbotApi.update(selectedMotorbot.id, formData as any);
+          
+          // Backend response'u transform et ve state'e koy
+          const transformedMotorbot = transformMotorbotResponse(updated);
+          setMotorbots(motorbots.map(m =>
+            m.id === selectedMotorbot.id ? transformedMotorbot : m
+          ));
           toast.success('Motorbot güncellendi', {
             description: `${formData.code} - ${formData.name} başarıyla güncellendi`
           });

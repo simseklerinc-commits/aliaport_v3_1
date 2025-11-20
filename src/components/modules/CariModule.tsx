@@ -153,6 +153,41 @@ export function CariModule({
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+  // Backend PascalCase → Frontend snake_case transformer
+  const transformCariResponse = (item: any) => ({
+    ...item,
+    id: item.Id,
+    code: item.CariKod,
+    title: item.Unvan,
+    type: item.CariTip,
+    is_active: item.AktifMi,
+    role: item.Rol,
+    tax_id_type: item.VergiKimlikTipi || 'VKN',
+    tax_id: item.VergiNo || '',
+    tax_office: item.VergiDairesi || '',
+    tc_id: item.Tckn || '',
+    country: item.Ulke || '',
+    city: item.Il || '',
+    district: item.Ilce || '',
+    address: item.Adres || '',
+    phone: item.Telefon || '',
+    email: item.Eposta || '',
+    iban: item.Iban || '',
+    currency: item.ParaBirimi || 'TRY',
+    payment_term_days: item.VadeGun || 0,
+    risk_limit: item.RiskLimiti || 0,
+    is_einvoice_customer: item.IsEInvoiceCustomer || false,
+    einvoice_type: item.EInvoiceType || null,
+    einvoice_alias: item.EInvoiceAlias || '',
+    accepts_earchive: item.AcceptsEArchive || false,
+    send_method: item.SendMethod || 'E-FATURA',
+    kep_address: item.KepAddress || '',
+    mersis_no: item.MersisNo || '',
+    notes: item.Notlar || '',
+    created_at: item.CreatedAt,
+    updated_at: item.UpdatedAt,
+  });
+
   // Carileri yükle
   const loadCariler = async () => {
     setLoading(true);
@@ -169,28 +204,8 @@ export function CariModule({
       // Backend direkt array dönüyor, response.items değil
       const rawData = Array.isArray(response) ? response : (response.items || []);
       
-      // Backend PascalCase → Frontend snake_case mapping
-      const mappedData = rawData.map((item: any) => ({
-        ...item,
-        id: item.Id,
-        code: item.CariKod,
-        title: item.Unvan,
-        type: item.CariTip,
-        is_active: item.AktifMi,
-        tax_id_type: item.VergiKimlikTipi || 'VKN',
-        tax_id: item.VergiNo || '',
-        tax_office: item.VergiDairesi || '',
-        city: item.Il || '',
-        address: item.Adres || '',
-        phone: item.Telefon || '',
-        email: item.Eposta || '',
-        iban: item.Iban || '',
-        currency: item.ParaBirimi || 'TRY',
-        payment_term_days: item.VadeGun || 0,
-        risk_limit: item.RiskLimiti || 0,
-        created_at: item.CreatedAt,
-        updated_at: item.UpdatedAt,
-      }));
+      // Transform all items
+      const mappedData = rawData.map(transformCariResponse);
       
       setCariler(mappedData as any);
       
@@ -402,10 +417,11 @@ export function CariModule({
           updated_at: null,
         };
 
-        await cariApi.create(newCari as any);
+        const createdCari = await cariApi.create(newCari as any);
         
-        // Yeni cariyi state'e ekle - ÖNCE ekle, SONRA view değiştir
-        setCariler([newCari, ...cariler]);
+        // Backend response'u transform et ve state'e ekle
+        const transformedCari = transformCariResponse(createdCari);
+        setCariler([transformedCari, ...cariler]);
         
         // Form'u temizle ve listeye dön
         resetForm();
@@ -458,9 +474,11 @@ export function CariModule({
           updated_at: new Date().toISOString(),
         };
 
-        await cariApi.update(selectedCari.id, updatedCari as any);
+        const updated = await cariApi.update(selectedCari.id, updatedCari as any);
         
-        setCariler(cariler.map(c => c.id === selectedCari.id ? updatedCari : c));
+        // Backend response'u transform et ve state'e koy
+        const transformedCari = transformCariResponse(updated);
+        setCariler(cariler.map(c => c.id === selectedCari.id ? transformedCari : c));
         
         resetForm();
         setCurrentView('list');

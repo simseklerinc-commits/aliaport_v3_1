@@ -68,6 +68,35 @@ export function SeferModule({
   const [filterDateStart, setFilterDateStart] = useState("");
   const [filterDateEnd, setFilterDateEnd] = useState("");
 
+  // Backend status → Frontend status mapping
+  const mapBackendStatus = (backendStatus: string): string => {
+    const statusMap: Record<string, string> = {
+      'PLANLANDI': 'DEPARTED',
+      'SEFERDE': 'DEPARTED',
+      'TAMAMLANDI': 'RETURNED',
+      'IPTAL': 'CANCELLED',
+    };
+    return statusMap[backendStatus] || backendStatus;
+  };
+
+  // Backend PascalCase → Frontend snake_case transformer
+  const transformMbTripResponse = (item: any) => ({
+    id: item.Id,
+    motorbot_id: item.MotorbotId,
+    motorbot_code: item.MotorbotKod || '',
+    motorbot_name: item.MotorbotAd || '',
+    motorbot_owner: item.MotorbotSahibi || '',
+    cari_code: item.CariKod || '',
+    departure_date: item.SeferTarihi,
+    departure_time: item.CikisZamani,
+    return_date: item.DonusTarihi,
+    return_time: item.DonusZamani,
+    status: mapBackendStatus(item.Durum || 'PLANLANDI'),
+    notes: item.Notlar || '',
+    created_at: item.CreatedAt,
+    updated_at: item.UpdatedAt,
+  });
+
   // Seferleri ve motorbotları yükle
   const loadData = async () => {
     setLoading(true);
@@ -91,23 +120,8 @@ export function SeferModule({
       const rawTrips = Array.isArray(tripResponse) ? tripResponse : (tripResponse.items || []);
       const rawMotorbots = Array.isArray(motorbotResponse) ? motorbotResponse : (motorbotResponse.items || []);
       
-      // Backend PascalCase → Frontend snake_case mapping
-      const mappedTrips = rawTrips.map((item: any) => ({
-        id: item.Id,
-        motorbot_id: item.MotorbotId,
-        motorbot_code: item.MotorbotKod || '',
-        motorbot_name: item.MotorbotAd || '',
-        motorbot_owner: item.MotorbotSahibi || '',
-        cari_code: item.CariKod || '',
-        departure_date: item.SeferTarihi,
-        departure_time: item.CikisZamani,
-        return_date: item.DonusTarihi,
-        return_time: item.DonusZamani,
-        status: item.Durum,
-        notes: item.Notlar || '',
-        created_at: item.CreatedAt,
-        updated_at: item.UpdatedAt,
-      }));
+      // Transform all items
+      const mappedTrips = rawTrips.map(transformMbTripResponse);
       
       const mappedMotorbots = rawMotorbots.map((item: any) => ({
         id: item.Id,
@@ -173,7 +187,7 @@ export function SeferModule({
     }
 
     try {
-      const newTrip = await seferApi.createDeparture({
+      const created = await seferApi.createDeparture({
         motorbot_id: motorbot.id,
         motorbot_code: motorbot.code,
         motorbot_name: motorbot.name,
@@ -187,7 +201,9 @@ export function SeferModule({
         vat_rate: 18,
       });
 
-      setSeferler([newTrip, ...seferler]);
+      // Backend response'u transform et ve state'e ekle
+      const transformedTrip = transformMbTripResponse(created);
+      setSeferler([transformedTrip, ...seferler]);
       
       // Form temizle
       setSelectedMotorbotId(null);
@@ -223,16 +239,17 @@ export function SeferModule({
     }
 
     try {
-      const updatedTrip = await seferApi.recordReturn(selectedSeferId, {
+      const updated = await seferApi.recordReturn(selectedSeferId, {
         return_date: returnDate,
         return_time: returnTime,
         return_note: returnNote,
       });
 
-      const updatedSeferler = seferler.map(s => 
-        s.id === selectedSeferId ? updatedTrip : s
-      );
-      setSeferler(updatedSeferler);
+      // Backend response'u transform et ve state'e koy
+      const transformedTrip = transformMbTripResponse(updated);
+      setSeferler(seferler.map(s => 
+        s.id === selectedSeferId ? transformedTrip : s
+      ));
       
       // Form temizle
       setSelectedSeferId(null);
