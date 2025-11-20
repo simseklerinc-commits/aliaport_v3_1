@@ -96,11 +96,30 @@ export function MotorbotModule({
       });
       
       // Backend direkt array dönüyor, response.items değil
-      const data = Array.isArray(response) ? response : (response.items || []);
-      setMotorbots(data);
+      const rawData = Array.isArray(response) ? response : (response.items || []);
+      
+      // Backend PascalCase → Frontend snake_case mapping
+      const mappedData = rawData.map((item: any) => ({
+        ...item,
+        id: item.Id,
+        code: item.Kod,
+        name: item.Ad,
+        owner_cari_id: item.OwnerCariId,
+        owner_cari_code: item.OwnerCariKod,
+        registration_number: item.Plaka,
+        gross_tonnage: item.KapasiteTon,
+        vessel_type: 'Motorbot',
+        boat_type: 'Motorbot',
+        is_active: item.Durum === 'AKTIF',
+        is_frozen: false,
+        created_at: item.CreatedAt,
+        updated_at: item.UpdatedAt,
+      }));
+      
+      setMotorbots(mappedData);
       
       // Empty state kontrolü
-      if (data.length === 0) {
+      if (mappedData.length === 0) {
         toast.info('Kayıt bulunamadı', {
           description: 'Filtrelere uygun motorbot kaydı bulunamadı'
         });

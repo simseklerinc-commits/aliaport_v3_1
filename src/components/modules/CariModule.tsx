@@ -167,11 +167,35 @@ export function CariModule({
       });
       
       // Backend direkt array dönüyor, response.items değil
-      const data = Array.isArray(response) ? response : (response.items || []);
-      setCariler(data as any);
+      const rawData = Array.isArray(response) ? response : (response.items || []);
+      
+      // Backend PascalCase → Frontend snake_case mapping
+      const mappedData = rawData.map((item: any) => ({
+        ...item,
+        id: item.Id,
+        code: item.CariKod,
+        title: item.Unvan,
+        type: item.CariTip,
+        is_active: item.AktifMi,
+        tax_id_type: item.VergiKimlikTipi || 'VKN',
+        tax_id: item.VergiNo || '',
+        tax_office: item.VergiDairesi || '',
+        city: item.Il || '',
+        address: item.Adres || '',
+        phone: item.Telefon || '',
+        email: item.Eposta || '',
+        iban: item.Iban || '',
+        currency: item.ParaBirimi || 'TRY',
+        payment_term_days: item.VadeGun || 0,
+        risk_limit: item.RiskLimiti || 0,
+        created_at: item.CreatedAt,
+        updated_at: item.UpdatedAt,
+      }));
+      
+      setCariler(mappedData as any);
       
       // Empty state kontrolü
-      if (data.length === 0) {
+      if (mappedData.length === 0) {
         toast.info('Kayıt bulunamadı', {
           description: 'Filtrelere uygun cari kaydı bulunamadı'
         });

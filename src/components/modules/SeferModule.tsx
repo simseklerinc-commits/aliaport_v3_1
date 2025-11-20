@@ -87,13 +87,43 @@ export function SeferModule({
         })
       ]);
       
-      setSeferler(tripResponse.items.sort((a, b) => 
-        new Date(b.departure_date).getTime() - new Date(a.departure_date).getTime()
+      // Backend direkt array dönüyor
+      const rawTrips = Array.isArray(tripResponse) ? tripResponse : (tripResponse.items || []);
+      const rawMotorbots = Array.isArray(motorbotResponse) ? motorbotResponse : (motorbotResponse.items || []);
+      
+      // Backend PascalCase → Frontend snake_case mapping
+      const mappedTrips = rawTrips.map((item: any) => ({
+        id: item.Id,
+        motorbot_id: item.MotorbotId,
+        motorbot_code: item.MotorbotKod || '',
+        motorbot_name: item.MotorbotAd || '',
+        motorbot_owner: item.MotorbotSahibi || '',
+        cari_code: item.CariKod || '',
+        departure_date: item.SeferTarihi,
+        departure_time: item.CikisZamani,
+        return_date: item.DonusTarihi,
+        return_time: item.DonusZamani,
+        status: item.Durum,
+        notes: item.Notlar || '',
+        created_at: item.CreatedAt,
+        updated_at: item.UpdatedAt,
+      }));
+      
+      const mappedMotorbots = rawMotorbots.map((item: any) => ({
+        id: item.Id,
+        code: item.Kod,
+        name: item.Ad,
+        owner: item.OwnerCariKod || '',
+        is_active: item.Durum === 'AKTIF',
+      }));
+      
+      setSeferler(mappedTrips.sort((a, b) => 
+        new Date(b.departure_date || '').getTime() - new Date(a.departure_date || '').getTime()
       ));
-      setMotorbotlar(motorbotResponse.items);
+      setMotorbotlar(mappedMotorbots);
       
       // Empty state kontrolü
-      if (tripResponse.items.length === 0) {
+      if (mappedTrips.length === 0) {
         toast.info('Kayıt bulunamadı', {
           description: 'Henüz hiç sefer kaydı bulunmuyor'
         });
