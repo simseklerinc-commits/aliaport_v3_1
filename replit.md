@@ -11,6 +11,15 @@ Preferred communication style: Simple, everyday language.
 ## Recent Changes
 
 **2025-11-21:**
+- ✅ **HİZMET Module completely rewritten with ZIP v3.1 design** (~800 lines):
+  - Row click → detail dialog pattern (matches ZIP, not double-click)
+  - Full form with all 11 backend fields: description, accounting_code, unit_id, vat_rate_id, vat_exemption_id, group_id, category_id, pricing_rule_id, metadata_json, created_by, updated_by
+  - HizmetKartiDetay detail view with tabs: Genel Bilgiler, İlişkili Tarifeler, Değişiklik Geçmişi
+  - MOCK_MODE completely removed - real API integration with `/api/hizmet/`
+  - PascalCase↔snake_case transformers for full data integrity
+  - Metadata preservation: tags editor updates preserve other metadata_json fields
+  - created_by/updated_by shown in RecordMetadataCard (read-only audit fields)
+  - priceListData.ts added to fix missing import errors
 - ✅ **TARİFE Module activated:** Backend (`models_tarife.py`, `schemas_tarife.py`, `router_tarife.py`) + Frontend (`TarifeModule.tsx`, `tarife.ts`) integrated
 - ✅ Real API connection established at `/api/price-list/` with pagination and filtering
 - ✅ PascalCase↔snake_case transformers implemented for frontend-backend data flow
