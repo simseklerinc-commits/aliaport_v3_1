@@ -5,6 +5,7 @@ import { MotorbotModule } from "./components/modules/MotorbotModule";
 import { SeferModule } from "./components/modules/SeferModule";
 import { HizmetModule } from "./components/modules/HizmetModule";
 import { TarifeModule } from "./components/modules/TarifeModule";
+import { BarinmaModule } from "./components/modules/BarinmaModule";
 import { Kurlar } from "./components/Kurlar";
 import { Parametreler } from "./components/Parametreler";
 import { PlaceholderModule } from "./components/PlaceholderModule";
@@ -434,6 +435,15 @@ export default function App() {
             />
           )}
 
+          {/* Barınma Module */}
+          {currentPage === "barinma-motorbot-liste" && (
+            <BarinmaModule 
+              onNavigateHome={handleBackToMenu} 
+              onNavigateBack={handleBackToSubmenu} 
+              theme={currentTheme}
+            />
+          )}
+
           {/* PLACEHOLDER MODULES - All other pages */}
           {currentPage !== "menu" && 
            currentPage !== "submenu" && 
@@ -443,6 +453,7 @@ export default function App() {
            currentPage !== "sefer-module" && 
            currentPage !== "hizmet-module" && 
            currentPage !== "tarife-module" && 
+           currentPage !== "barinma-motorbot-liste" && 
            currentPage !== "kurlar" && 
            currentPage !== "parametreler" && (
             <PlaceholderModule 
