@@ -1,17 +1,15 @@
-// TARİFE MODULE - Basitleştirilmiş gerçek API entegrasyonu
-// Backend: /api/price-list/ (FastAPI + SQLite)
+// TARİFE MODULE - Master-Detail Yapı (ZIP Tasarımı)
+// Tarife Listesi + Tarife Düzenle (Hizmet Fiyatları Tablosu)
+// Backend: /api/price-list/ + /api/hizmet/
 
 import { useState, useEffect } from "react";
 import { Theme } from "../ThemeSelector";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
-import { Textarea } from "../ui/textarea";
 import { toast } from "sonner";
 import { 
   DollarSign, 
-  Plus, 
-  Filter,
   Search,
   Loader2,
   AlertCircle,
@@ -19,18 +17,29 @@ import {
   Save,
   Edit,
   Trash2,
-  X
+  CheckCircle
 } from "lucide-react";
 import { tarifeApi, PriceList } from "../../lib/api/tarife";
+import { hizmetApi } from "../../lib/api/hizmet";
 
 interface TarifeModuleProps {
-  onNavigateHome: () => void;
-  onNavigateBack: () => void;
   theme: Theme;
 }
 
-export function TarifeModule({ onNavigateHome, onNavigateBack, theme }: TarifeModuleProps) {
-  const [currentView, setCurrentView] = useState<'list' | 'create' | 'edit'>('list');
+interface HizmetWithPrice {
+  id: number;
+  code: string;
+  name: string;
+  unit: string;
+  vat_rate: number;
+  unit_price: number;
+  is_active: boolean;
+  item_id?: number; // PriceListItem ID (varsa)
+  hasExistingItem: boolean; // Backend'de kaydı var mı?
+}
+
+export function TarifeModule({ theme }: TarifeModuleProps) {
+  const [currentView, setCurrentView] = useState<'list' | 'edit'>('list');
   const [tarifeler, setTarifeler] = useState<PriceList[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,20 +49,10 @@ export function TarifeModule({ onNavigateHome, onNavigateBack, theme }: TarifeMo
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'AKTIF' | 'PASIF' | 'TASLAK'>('AKTIF');
 
-  // Form state
-  const [formData, setFormData] = useState({
-    code: '',
-    name: '',
-    description: '',
-    currency: 'TRY' as 'TRY' | 'USD' | 'EUR',
-    version: 1,
-    status: 'TASLAK' as 'AKTIF' | 'PASIF' | 'TASLAK',
-    valid_from: new Date().toISOString().split('T')[0],
-    valid_to: '',
-    is_active: true,
-  });
-
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  // Hizmet + Fiyat verisi (Edit modunda)
+  const [hizmetlerWithPrices, setHizmetlerWithPrices] = useState<HizmetWithPrice[]>([]);
+  const [editedPrices, setEditedPrices] = useState<Record<number, number>>({});
+  const [savingItems, setSavingItems] = useState(false);
 
   // Tarifeleri yükle
   const loadTarifeler = async () => {
@@ -80,7 +79,45 @@ export function TarifeModule({ onNavigateHome, onNavigateBack, theme }: TarifeMo
       toast.error('Tarife listesi yüklenemedi', {
         description: errorMessage
       });
-      console.error('Tarife yükleme hatası:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Tarife + Hizmet fiyatlarını yükle (Edit modu için)
+  const loadTarifeWithPrices = async (tarife: PriceList) => {
+    setLoading(true);
+    try {
+      // 1. Tüm hizmetleri çek
+      const hizmetResponse: any = await hizmetApi.getAll({ page: 1, page_size: 1000 });
+      const hizmetler = hizmetResponse.items || [];
+
+      // 2. Bu tarifeye ait fiyat kalemlerini çek
+      const priceItems = await tarifeApi.getItems(tarife.id!);
+
+      // 3. Hizmetler + Fiyat kalemlerini birleştir
+      const merged: HizmetWithPrice[] = hizmetler.map((h: any) => {
+        const existingItem = priceItems.find((item: any) => item.service_code === h.Kod);
+        return {
+          id: h.Id,
+          code: h.Kod,
+          name: h.Ad,
+          unit: h.Birim || '',
+          vat_rate: parseFloat(h.KdvOrani) || 20,
+          unit_price: existingItem?.unit_price || 0,
+          is_active: h.AktifMi,
+          item_id: existingItem?.id,
+          hasExistingItem: !!existingItem,
+        };
+      });
+
+      setHizmetlerWithPrices(merged);
+      setEditedPrices({});
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Veriler yüklenemedi';
+      toast.error('Hizmet fiyatları yüklenemedi', {
+        description: errorMessage
+      });
     } finally {
       setLoading(false);
     }
@@ -88,10 +125,103 @@ export function TarifeModule({ onNavigateHome, onNavigateBack, theme }: TarifeMo
 
   // İlk yükleme
   useEffect(() => {
-    if (currentView === 'list' && tarifeler.length === 0) {
+    if (currentView === 'list') {
       loadTarifeler();
     }
-  }, []);
+  }, [currentView, filterStatus]);
+
+  // Tarife düzenle
+  const handleEdit = (tarife: PriceList) => {
+    setSelectedTarife(tarife);
+    loadTarifeWithPrices(tarife);
+    setCurrentView('edit');
+  };
+
+  // Fiyat değiştir (inline edit)
+  const handlePriceChange = (hizmetId: number, newPrice: number) => {
+    setEditedPrices((prev) => ({
+      ...prev,
+      [hizmetId]: newPrice,
+    }));
+  };
+
+  // Fiyatları kaydet
+  const handleSavePrices = async () => {
+    if (!selectedTarife) return;
+
+    // Aktif hizmetler için fiyat kontrolü
+    const activeServices = hizmetlerWithPrices.filter((h) => h.is_active);
+    const emptyPrices = activeServices.filter((h) => {
+      const price = editedPrices[h.id] !== undefined ? editedPrices[h.id] : h.unit_price;
+      return !price || price <= 0;
+    });
+
+    if (emptyPrices.length > 0) {
+      toast.error('Fiyat eksik', {
+        description: `${emptyPrices.length} aktif hizmet için fiyat girilmedi!`
+      });
+      return;
+    }
+
+    setSavingItems(true);
+
+    try {
+      const updates: Promise<any>[] = [];
+
+      hizmetlerWithPrices.forEach((hizmet) => {
+        const newPrice = editedPrices[hizmet.id] !== undefined ? editedPrices[hizmet.id] : hizmet.unit_price;
+
+        // Sadece değişen veya yeni eklenecek fiyatları kaydet
+        if (editedPrices[hizmet.id] !== undefined || (!hizmet.hasExistingItem && newPrice > 0)) {
+          if (hizmet.hasExistingItem && hizmet.item_id) {
+            // Güncelleme
+            updates.push(
+              tarifeApi.updateItem(hizmet.item_id, {
+                price_list_id: selectedTarife.id!,
+                service_code: hizmet.code,
+                service_name: hizmet.name,
+                unit: hizmet.unit,
+                unit_price: newPrice,
+                vat_rate: hizmet.vat_rate,
+                is_active: hizmet.is_active,
+              })
+            );
+          } else if (newPrice > 0) {
+            // Yeni ekleme
+            updates.push(
+              tarifeApi.createItem({
+                price_list_id: selectedTarife.id!,
+                service_code: hizmet.code,
+                service_name: hizmet.name,
+                unit: hizmet.unit,
+                unit_price: newPrice,
+                vat_rate: hizmet.vat_rate,
+                is_active: hizmet.is_active,
+              })
+            );
+          }
+        }
+      });
+
+      await Promise.all(updates);
+
+      toast.success('Fiyatlar kaydedildi', {
+        description: `${updates.length} kalem güncellendi`
+      });
+
+      setEditedPrices({});
+      
+      // Verileri yeniden yükle
+      await loadTarifeWithPrices(selectedTarife);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Kayıt başarısız';
+      toast.error('Fiyatlar kaydedilemedi', {
+        description: errorMessage
+      });
+    } finally {
+      setSavingItems(false);
+    }
+  };
 
   // Tarife sil
   const handleDelete = async (id: number) => {
@@ -100,117 +230,12 @@ export function TarifeModule({ onNavigateHome, onNavigateBack, theme }: TarifeMo
     try {
       await tarifeApi.delete(id);
       setTarifeler(tarifeler.filter(t => t.id !== id));
-      toast.success('Tarife silindi', {
-        description: 'Tarife kaydı başarıyla silindi'
-      });
+      toast.success('Tarife silindi');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Silme işlemi başarısız';
-      toast.error('Tarife silinemedi', {
-        description: errorMessage
+      toast.error('Silme başarısız', {
+        description: err instanceof Error ? err.message : 'Hata'
       });
     }
-  };
-
-  // Tarife düzenle
-  const handleEdit = (tarife: PriceList) => {
-    setSelectedTarife(tarife);
-    setFormData({
-      code: tarife.code,
-      name: tarife.name,
-      description: tarife.description || '',
-      currency: tarife.currency as 'TRY' | 'USD' | 'EUR',
-      version: tarife.version,
-      status: tarife.status as 'AKTIF' | 'PASIF' | 'TASLAK',
-      valid_from: tarife.valid_from || new Date().toISOString().split('T')[0],
-      valid_to: tarife.valid_to || '',
-      is_active: tarife.is_active,
-    });
-    setCurrentView('edit');
-  };
-
-  // Form kaydet
-  const handleSave = async () => {
-    // Validasyon
-    const errors: Record<string, string> = {};
-    if (!formData.code) errors.code = 'Tarife kodu zorunludur';
-    if (!formData.name) errors.name = 'Tarife adı zorunludur';
-    
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      toast.error('Eksik bilgi', {
-        description: 'Lütfen tüm zorunlu alanları doldurun'
-      });
-      return;
-    }
-    
-    setFormErrors({});
-    setLoading(true);
-    
-    try {
-      if (currentView === 'create') {
-        const newTarife = await tarifeApi.create({
-          code: formData.code.toUpperCase(),
-          name: formData.name,
-          description: formData.description,
-          currency: formData.currency,
-          version: formData.version,
-          status: formData.status,
-          valid_from: formData.valid_from,
-          valid_to: formData.valid_to || undefined,
-          is_active: formData.is_active,
-        });
-        
-        setTarifeler([newTarife, ...tarifeler]);
-        
-        toast.success('Tarife oluşturuldu', {
-          description: `${formData.code} - ${formData.name} başarıyla kaydedildi`
-        });
-      } else if (currentView === 'edit' && selectedTarife) {
-        const updatedTarife = await tarifeApi.update(selectedTarife.id!, {
-          code: formData.code.toUpperCase(),
-          name: formData.name,
-          description: formData.description,
-          currency: formData.currency,
-          version: formData.version,
-          status: formData.status,
-          valid_from: formData.valid_from,
-          valid_to: formData.valid_to || undefined,
-          is_active: formData.is_active,
-        });
-        
-        setTarifeler(tarifeler.map(t => t.id === selectedTarife.id ? updatedTarife : t));
-        
-        toast.success('Tarife güncellendi', {
-          description: `${formData.code} - ${formData.name} başarıyla güncellendi`
-        });
-      }
-      
-      resetForm();
-      setCurrentView('list');
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Kayıt başarısız';
-      toast.error(currentView === 'create' ? 'Tarife oluşturulamadı' : 'Tarife güncellenemedi', {
-        description: errorMessage
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      code: '',
-      name: '',
-      description: '',
-      currency: 'TRY',
-      version: 1,
-      status: 'TASLAK',
-      valid_from: new Date().toISOString().split('T')[0],
-      valid_to: '',
-      is_active: true,
-    });
-    setFormErrors({});
-    setSelectedTarife(null);
   };
 
   // Filtreleme
@@ -222,7 +247,9 @@ export function TarifeModule({ onNavigateHome, onNavigateBack, theme }: TarifeMo
     return matchesSearch;
   });
 
+  // ============================================
   // LİSTE GÖRÜNÜMÜ
+  // ============================================
   if (currentView === 'list') {
     return (
       <div className="p-6">
@@ -245,21 +272,9 @@ export function TarifeModule({ onNavigateHome, onNavigateBack, theme }: TarifeMo
                 variant="outline"
                 size="sm"
                 disabled={loading}
-                className="text-base"
               >
                 {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                 Yenile
-              </Button>
-              <Button
-                onClick={() => {
-                  resetForm();
-                  setCurrentView('create');
-                }}
-                className={`${theme.colors.primaryBg} hover:opacity-90 text-white text-base`}
-                size="sm"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Yeni Tarife
               </Button>
             </div>
           </div>
@@ -284,7 +299,7 @@ export function TarifeModule({ onNavigateHome, onNavigateBack, theme }: TarifeMo
                   onClick={() => setFilterStatus(status)}
                   variant={filterStatus === status ? 'default' : 'outline'}
                   size="sm"
-                  className={filterStatus === status ? theme.colors.primaryBg : ''}
+                  className={filterStatus === status ? theme.colors.primary : ''}
                 >
                   {status === 'ALL' ? 'Tümü' : status}
                 </Button>
@@ -331,7 +346,7 @@ export function TarifeModule({ onNavigateHome, onNavigateBack, theme }: TarifeMo
                   {filteredTarifeler.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
-                        Tarife bulunamadı. Yeni tarife eklemek için "Yeni Tarife" butonuna tıklayın.
+                        Tarife bulunamadı.
                       </td>
                     </tr>
                   ) : (
@@ -390,14 +405,18 @@ export function TarifeModule({ onNavigateHome, onNavigateBack, theme }: TarifeMo
     );
   }
 
-  // FORM GÖRÜNÜMÜ (Create / Edit)
+  // ============================================
+  // DÜZENLE GÖRÜNÜMÜ (Master-Detail)
+  // ============================================
   return (
     <div className="p-6">
       {/* Header */}
       <div className="mb-6">
         <Button
           onClick={() => {
-            resetForm();
+            setSelectedTarife(null);
+            setHizmetlerWithPrices([]);
+            setEditedPrices({});
             setCurrentView('list');
           }}
           variant="ghost"
@@ -405,143 +424,25 @@ export function TarifeModule({ onNavigateHome, onNavigateBack, theme }: TarifeMo
           className="mb-4 text-gray-300 hover:text-white"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Geri Dön
+          Tarife Listesine Dön
         </Button>
 
-        <h1 className="text-3xl font-bold text-white">
-          {currentView === 'create' ? 'Yeni Tarife Oluştur' : 'Tarife Düzenle'}
-        </h1>
-        <p className="text-gray-200 mt-2">
-          {currentView === 'create' ? 'Yeni fiyat listesi tanımlayın' : selectedTarife?.code}
-        </p>
-      </div>
-
-      {/* Form */}
-      <div className="bg-gray-900 rounded-lg border border-gray-800 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Kod */}
+        <div className="flex justify-between items-center">
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-2">
-              Tarife Kodu <span className="text-red-400">*</span>
-            </label>
-            <Input
-              value={formData.code}
-              onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-              placeholder="TARIFE-2024-STANDART"
-              className={`bg-gray-800 border-gray-700 text-white ${formErrors.code ? 'border-red-500' : ''}`}
-            />
-            {formErrors.code && <p className="text-red-400 text-sm mt-1">{formErrors.code}</p>}
+            <h1 className="text-3xl font-bold text-white">
+              Tarife Fiyat Düzenleme
+            </h1>
+            <p className="text-gray-200 mt-2">
+              {selectedTarife?.code} - {selectedTarife?.name}
+            </p>
           </div>
 
-          {/* Ad */}
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-2">
-              Tarife Adı <span className="text-red-400">*</span>
-            </label>
-            <Input
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="2024 Standart Fiyat Listesi"
-              className={`bg-gray-800 border-gray-700 text-white ${formErrors.name ? 'border-red-500' : ''}`}
-            />
-            {formErrors.name && <p className="text-red-400 text-sm mt-1">{formErrors.name}</p>}
-          </div>
-
-          {/* Para Birimi */}
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-2">Para Birimi</label>
-            <select
-              value={formData.currency}
-              onChange={(e) => setFormData({ ...formData, currency: e.target.value as any })}
-              className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-white"
-            >
-              <option value="TRY">TRY (₺)</option>
-              <option value="USD">USD ($)</option>
-              <option value="EUR">EUR (€)</option>
-            </select>
-          </div>
-
-          {/* Durum */}
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-2">Durum</label>
-            <select
-              value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-              className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-white"
-            >
-              <option value="TASLAK">Taslak</option>
-              <option value="AKTIF">Aktif</option>
-              <option value="PASIF">Pasif</option>
-            </select>
-          </div>
-
-          {/* Geçerlilik Başlangıç */}
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-2">Geçerlilik Başlangıç</label>
-            <Input
-              type="date"
-              value={formData.valid_from}
-              onChange={(e) => setFormData({ ...formData, valid_from: e.target.value })}
-              className="bg-gray-800 border-gray-700 text-white"
-            />
-          </div>
-
-          {/* Geçerlilik Bitiş */}
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-2">Geçerlilik Bitiş</label>
-            <Input
-              type="date"
-              value={formData.valid_to}
-              onChange={(e) => setFormData({ ...formData, valid_to: e.target.value })}
-              className="bg-gray-800 border-gray-700 text-white"
-            />
-          </div>
-
-          {/* Açıklama */}
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-200 mb-2">Açıklama</label>
-            <Textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Tarife hakkında açıklama..."
-              rows={3}
-              className="bg-gray-800 border-gray-700 text-white"
-            />
-          </div>
-
-          {/* Aktif Mi */}
-          <div className="md:col-span-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.is_active}
-                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                className="w-4 h-4"
-              />
-              <span className="text-sm text-gray-200">Aktif</span>
-            </label>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-800">
           <Button
-            onClick={() => {
-              resetForm();
-              setCurrentView('list');
-            }}
-            variant="outline"
-            disabled={loading}
+            onClick={handleSavePrices}
+            className={`${theme.colors.primary} hover:opacity-90 text-white`}
+            disabled={savingItems || loading}
           >
-            <X className="w-4 h-4 mr-2" />
-            İptal
-          </Button>
-          <Button
-            onClick={handleSave}
-            className={`${theme.colors.primaryBg} hover:opacity-90 text-white`}
-            disabled={loading}
-          >
-            {loading ? (
+            {savingItems ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Kaydediliyor...
@@ -549,12 +450,132 @@ export function TarifeModule({ onNavigateHome, onNavigateBack, theme }: TarifeMo
             ) : (
               <>
                 <Save className="w-4 h-4 mr-2" />
-                Kaydet
+                Fiyatları Kaydet
               </>
             )}
           </Button>
         </div>
       </div>
+
+      {/* Tarife Bilgileri Kartı */}
+      <div className="mb-6 bg-gray-900 rounded-lg border border-gray-800 p-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <p className="text-sm text-gray-400">Kod</p>
+            <p className="text-white font-mono">{selectedTarife?.code}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-400">Para Birimi</p>
+            <p className="text-white">{selectedTarife?.currency}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-400">Durum</p>
+            <Badge
+              variant="outline"
+              className={
+                selectedTarife?.status === 'AKTIF'
+                  ? 'bg-green-500/10 text-green-400 border-green-500/50'
+                  : selectedTarife?.status === 'TASLAK'
+                  ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/50'
+                  : 'bg-gray-500/10 text-gray-400 border-gray-500/50'
+              }
+            >
+              {selectedTarife?.status}
+            </Badge>
+          </div>
+          <div>
+            <p className="text-sm text-gray-400">Geçerlilik</p>
+            <p className="text-white text-sm">
+              {selectedTarife?.valid_from || '-'} {selectedTarife?.valid_to ? `→ ${selectedTarife.valid_to}` : ''}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Loading State */}
+      {loading && (
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className={`w-8 h-8 animate-spin ${theme.colors.primaryText}`} />
+        </div>
+      )}
+
+      {/* Hizmet Fiyatları Tablosu */}
+      {!loading && (
+        <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+          <div className="px-6 py-4 bg-gray-800/50 border-b border-gray-700">
+            <h2 className="text-lg font-semibold text-white">
+              Hizmet Fiyat Listesi ({hizmetlerWithPrices.length} hizmet)
+            </h2>
+            <p className="text-sm text-gray-400 mt-1">
+              Fiyat alanlarına tıklayarak değiştirebilirsiniz. Değişiklikler yeşil renkte gösterilir.
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-800/50 border-b border-gray-700">
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-200">Kod</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-200">Hizmet Adı</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-200">Birim</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-200">KDV %</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-200">Birim Fiyat</th>
+                  <th className="px-6 py-3 text-center text-sm font-semibold text-gray-200">Durum</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800">
+                {hizmetlerWithPrices.map((hizmet) => {
+                  const currentPrice = editedPrices[hizmet.id] !== undefined 
+                    ? editedPrices[hizmet.id] 
+                    : hizmet.unit_price;
+                  const isEdited = editedPrices[hizmet.id] !== undefined;
+
+                  return (
+                    <tr
+                      key={hizmet.id}
+                      className={`hover:bg-gray-800/30 transition-colors ${!hizmet.is_active ? 'opacity-50' : ''}`}
+                    >
+                      <td className="px-6 py-4 text-sm font-mono text-gray-300">{hizmet.code}</td>
+                      <td className="px-6 py-4 text-sm text-white">{hizmet.name}</td>
+                      <td className="px-6 py-4 text-sm text-gray-300">{hizmet.unit || '-'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-300">{hizmet.vat_rate}</td>
+                      <td className="px-6 py-4">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={currentPrice}
+                          onChange={(e) => handlePriceChange(hizmet.id, parseFloat(e.target.value) || 0)}
+                          disabled={!hizmet.is_active}
+                          className={`w-32 bg-gray-800 border-gray-700 text-white ${
+                            isEdited ? 'border-green-500 bg-green-500/10' : ''
+                          }`}
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {hizmet.is_active ? (
+                          <CheckCircle className="w-5 h-5 text-green-400 mx-auto" />
+                        ) : (
+                          <span className="text-gray-500 text-sm">Pasif</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Değişiklik Sayısı */}
+      {Object.keys(editedPrices).length > 0 && (
+        <div className="mt-4 p-4 bg-green-500/10 border border-green-500/50 rounded-lg">
+          <p className="text-green-400 font-medium">
+            {Object.keys(editedPrices).length} fiyat değişikliği mevcut. Kaydetmeyi unutmayın!
+          </p>
+        </div>
+      )}
     </div>
   );
 }

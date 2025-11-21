@@ -411,8 +411,6 @@ export default function App() {
           {/* Tarife Module */}
           {currentPage === "tarife-module" && (
             <TarifeModule 
-              onNavigateHome={handleBackToMenu} 
-              onNavigateBack={handleBackToSubmenu} 
               theme={currentTheme}
             />
           )}
