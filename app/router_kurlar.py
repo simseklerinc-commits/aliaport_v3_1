@@ -4,6 +4,8 @@ from typing import List, Optional
 from datetime import date, datetime, timedelta
 import requests
 import xml.etree.ElementTree as ET
+import os
+import pandas as pd
 
 from .database import get_db
 from .models_kurlar import ExchangeRate as ExchangeRateModel
@@ -457,6 +459,177 @@ def fetch_from_tcmb(
             # Güncelle
             existing.Rate = rate_create.Rate
             existing.Source = 'TCMB'
+            db.commit()
+            db.refresh(existing)
+            saved_rates.append(existing)
+        else:
+            # Yeni kayıt ekle
+            db_rate = ExchangeRateModel(**rate_create.model_dump())
+            db.add(db_rate)
+            saved_rates.append(db_rate)
+    
+    db.commit()
+    
+    # Refresh all
+    for rate in saved_rates:
+        db.refresh(rate)
+    
+    return saved_rates
+
+# ============================================
+# EVDS API INTEGRATION (Resmi TCMB API)
+# ============================================
+
+def fetch_evds_rates(target_date: date) -> List[ExchangeRateCreate]:
+    """
+    TCMB EVDS API'sinden kurları çek (resmi Python paketi)
+    
+    Avantajlar:
+    - Geçmiş tarih verilerine erişim (yıllara uzanan arşiv)
+    - Daha güvenilir ve profesyonel
+    - TCMB'nin resmi veri dağıtım servisi
+    
+    Args:
+        target_date: Kurların geçerli olduğu tarih
+        
+    Returns:
+        ExchangeRateCreate listesi
+    """
+    api_key = os.getenv("EVDS_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=500,
+            detail="EVDS_API_KEY environment variable not set"
+        )
+    
+    try:
+        from evds import evdsAPI
+    except ImportError:
+        raise HTTPException(
+            status_code=500,
+            detail="evds package not installed. Run: pip install evds"
+        )
+    
+    # EVDS API client
+    evds = evdsAPI(api_key)
+    
+    # Döviz kuru seri kodları (TCMB format)
+    # TP.DK.<CURRENCY>.A = Döviz Kurları, Alış
+    currency_series = {
+        'USD': 'TP.DK.USD.A',
+        'EUR': 'TP.DK.EUR.A',
+        'GBP': 'TP.DK.GBP.A',
+        'CHF': 'TP.DK.CHF.A',
+        'JPY': 'TP.DK.JPY.A',
+        'CAD': 'TP.DK.CAD.A',
+        'AUD': 'TP.DK.AUD.A',
+        'SAR': 'TP.DK.SAR.A',
+        'SEK': 'TP.DK.SEK.A',
+        'NOK': 'TP.DK.NOK.A',
+        'DKK': 'TP.DK.DKK.A',
+        'KWD': 'TP.DK.KWD.A',
+    }
+    
+    # Tarih formatı: DD-MM-YYYY (EVDS format)
+    date_str = target_date.strftime('%d-%m-%Y')
+    
+    try:
+        # EVDS'den verileri çek
+        series_list = list(currency_series.values())
+        df = evds.get_data(series_list, startdate=date_str, enddate=date_str)
+        
+        if df is None or df.empty:
+            raise HTTPException(
+                status_code=404,
+                detail=f"{target_date} tarihi için EVDS'de kur bilgisi bulunamadı."
+            )
+        
+        # DataFrame'den kurları parse et
+        # NOT: EVDS API seri kodlarındaki noktaları alt çizgiye dönüştürüyor
+        # Örn: 'TP.DK.USD.A' -> 'TP_DK_USD_A'
+        rates = []
+        for currency_code, series_code in currency_series.items():
+            # Column adı: noktalar alt çizgiye dönüşüyor
+            column_name = series_code.replace('.', '_')
+            
+            if column_name in df.columns:
+                rate_value = df[column_name].iloc[0]
+                
+                # None veya NaN kontrolü
+                if rate_value is not None and not pd.isna(rate_value):
+                    rates.append(ExchangeRateCreate(
+                        CurrencyFrom=currency_code,
+                        CurrencyTo='TRY',
+                        Rate=float(rate_value),
+                        RateDate=target_date,
+                        Source='EVDS'
+                    ))
+        
+        return rates
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"EVDS API hatası: {str(e)}"
+        )
+
+@router.post("/fetch-evds", response_model=List[ExchangeRate])
+def fetch_from_evds(
+    request: FetchTCMBRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    TCMB EVDS API'sinden kurları çek (resmi Python API)
+    
+    EVDS avantajları:
+    - Geçmiş tarih verilerine erişim (yıllara uzanan)
+    - Daha güvenilir ve profesyonel
+    - TCMB'nin resmi veri dağıtım servisi
+    
+    Request Body:
+        {
+            "date": "YYYY-MM-DD" (opsiyonel, default: bugün)
+        }
+    
+    Returns:
+        Kaydedilen kur listesi
+    """
+    # Tarihi parse et
+    date_param = request.date
+    if date_param:
+        try:
+            target_date = datetime.strptime(date_param, '%Y-%m-%d').date()
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail="Geçersiz tarih formatı. YYYY-MM-DD formatında olmalı."
+            )
+    else:
+        target_date = date.today()
+    
+    # EVDS API'den kurları fetch et
+    rate_creates = fetch_evds_rates(target_date)
+    
+    if not rate_creates:
+        raise HTTPException(
+            status_code=404,
+            detail=f"EVDS'den {target_date} tarihi için kur bilgisi bulunamadı."
+        )
+    
+    # Database'e kaydet (upsert logic)
+    saved_rates = []
+    
+    for rate_create in rate_creates:
+        existing = db.query(ExchangeRateModel).filter(
+            ExchangeRateModel.CurrencyFrom == rate_create.CurrencyFrom,
+            ExchangeRateModel.CurrencyTo == rate_create.CurrencyTo,
+            ExchangeRateModel.RateDate == rate_create.RateDate
+        ).first()
+        
+        if existing:
+            # Güncelle
+            existing.Rate = rate_create.Rate
+            existing.Source = 'EVDS'
             db.commit()
             db.refresh(existing)
             saved_rates.append(existing)
