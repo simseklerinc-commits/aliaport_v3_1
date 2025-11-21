@@ -88,15 +88,15 @@ export function TarifeModule({ theme }: TarifeModuleProps) {
   const loadTarifeWithPrices = async (tarife: PriceList) => {
     setLoading(true);
     try {
-      // 1. Tüm hizmetleri çek (pagination response handle et)
+      // 1. Tüm hizmetleri çek
       const hizmetResponse: any = await hizmetApi.getAll({ page: 1, page_size: 1000 });
       
-      // Backend pagination: { items: [], total: 0, page: 1, ... }
-      const hizmetler = Array.isArray(hizmetResponse?.items) 
-        ? hizmetResponse.items 
-        : [];
+      // Backend response check: either array or pagination object
+      const hizmetler = Array.isArray(hizmetResponse) 
+        ? hizmetResponse 
+        : (Array.isArray(hizmetResponse?.items) ? hizmetResponse.items : []);
 
-      console.log('Loaded services:', hizmetler.length);
+      console.log('Loaded services:', hizmetler.length, 'from response type:', typeof hizmetResponse);
 
       // 2. Bu tarifeye ait fiyat kalemlerini çek
       const priceItems = await tarifeApi.getItems(tarife.id!);

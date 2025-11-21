@@ -51,8 +51,8 @@ localPort = 8000
 externalPort = 8000
 
 [[ports]]
-localPort = 45347
-externalPort = 3000
+localPort = 34983
+externalPort = 3001
 
 [nix]
 packages = ["glibcLocales", "libxcrypt"]
