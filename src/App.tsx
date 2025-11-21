@@ -442,6 +442,7 @@ export default function App() {
            currentPage !== "motorbot-module" && 
            currentPage !== "sefer-module" && 
            currentPage !== "hizmet-module" && 
+           currentPage !== "tarife-module" && 
            currentPage !== "kurlar" && 
            currentPage !== "parametreler" && (
             <PlaceholderModule 
