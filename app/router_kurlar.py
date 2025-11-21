@@ -500,8 +500,9 @@ def find_latest_available_rate_date(target_date: date, evds_client, currency_lis
     Raises:
         HTTPException: Veri bulunamazsa 404 hatası
     """
-    # En fazla 10 gün geriye git (resmi tatil + hafta sonu kombinasyonları için)
-    max_attempts = 10
+    # En fazla 15 gün geriye git (Bayram tatilleri + hafta sonu kombinasyonları için)
+    # Bayram tatilleri 9 güne kadar olabilir, hafta sonuyla birlikte 15 gün yeterli
+    max_attempts = 15
     
     # Bir gün geriye git (TCMB bir gün önce yayınlar)
     current_date = target_date - timedelta(days=1)
@@ -526,8 +527,24 @@ def find_latest_available_rate_date(target_date: date, evds_client, currency_lis
                 available_cols = [col for col in df.columns if col.startswith('TP_DK_') and col.endswith('_A')]
                 if len(available_cols) >= 2:  # En az 2 para birimi varsa kabul et
                     return current_date
-        except:
-            pass  # Hata varsa bir gün daha geriye git
+            # Veri yok - bir sonraki güne geç
+        except Exception as e:
+            # EVDS API hatası (credential, network, vb.)
+            error_msg = str(e).lower()
+            if 'api key' in error_msg or 'unauthorized' in error_msg or 'forbidden' in error_msg:
+                # Credential hatası - devam etme
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"EVDS API yetkilendirme hatası: {str(e)}"
+                )
+            elif 'timeout' in error_msg or 'connection' in error_msg or 'network' in error_msg:
+                # Network hatası - devam etme
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"EVDS API bağlantı hatası: {str(e)}"
+                )
+            # Diğer hatalar - bir gün geriye git ve devam et
+            pass
         
         # Bir gün daha geriye git
         current_date = current_date - timedelta(days=1)
@@ -535,7 +552,7 @@ def find_latest_available_rate_date(target_date: date, evds_client, currency_lis
     # Veri bulunamadı - exception raise et
     raise HTTPException(
         status_code=404,
-        detail=f"{target_date} tarihi için son {max_attempts} gün içinde EVDS'de kur bilgisi bulunamadı. Resmi tatil dönemi veya EVDS API sorunu olabilir."
+        detail=f"{target_date} tarihi için son {max_attempts} gün içinde EVDS'de kur bilgisi bulunamadı. Uzun tatil dönemi (Bayram vb.) veya EVDS API sorunu olabilir."
     )
 
 def fetch_evds_rates(target_date: date) -> List[ExchangeRateCreate]:

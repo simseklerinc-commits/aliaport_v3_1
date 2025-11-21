@@ -51,6 +51,7 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [lastUpdateTime, setLastUpdateTime] = useState<string>("");
+  const [autoFetchAttempted, setAutoFetchAttempted] = useState(false);
 
   // Kurları yükle
   const loadRates = async (date: string) => {
@@ -90,6 +91,10 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
   // İlk yükleme - bugünün kurlarını kontrol et ve yoksa otomatik çek
   useEffect(() => {
     const checkAndLoadTodayRates = async () => {
+      // Duplicate fetch önleme - sadece bir kez otomatik çek
+      if (autoFetchAttempted) return;
+      setAutoFetchAttempted(true);
+      
       const today = new Date().toISOString().split('T')[0];
       
       // Önce veritabanından bugünün kurlarını kontrol et
@@ -103,20 +108,33 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
           previousDay.setDate(previousDay.getDate() - 1);
           setLastUpdateTime(`${previousDay.toLocaleDateString('tr-TR')} 15:30`);
         } else {
-          // Bugünün kurları yok - EVDS'den otomatik çek
-          toast.info('Bugünün kurları yükleniyor...');
-          try {
-            await kurlarApi.fetchFromEVDS(today);
-            // Başarılıysa kurları yükle
-            await loadRates(today);
-            toast.success('Günlük kurlar otomatik güncellendi');
-          } catch (error) {
-            // EVDS hatası - dünün kurlarını göster
-            console.error('EVDS otomatik güncelleme hatası:', error);
+          // Bugünün kurları yok - EVDS'den otomatik çek (scheduler ile race condition önleme)
+          // Sadece saat 16:10'dan önce otomatik çek (scheduler 16:05'te çalışır)
+          const now = new Date();
+          const currentHour = now.getHours();
+          const currentMinute = now.getMinutes();
+          
+          if (currentHour < 16 || (currentHour === 16 && currentMinute < 10)) {
+            // Henüz erken - dünün kurlarını göster
             const yesterday = new Date();
             yesterday.setDate(yesterday.getDate() - 1);
             await loadRates(yesterday.toISOString().split('T')[0]);
-            toast.warning('Bugünün kurları henüz yayınlanmadı, dünkü kurlar gösteriliyor');
+            toast.info('Bugünün kurları henüz yayınlanmadı (16:00-16:30), dünkü kurlar gösteriliyor');
+          } else {
+            // Saat 16:10+ - EVDS'den çek
+            toast.info('Bugünün kurları yükleniyor...');
+            try {
+              await kurlarApi.fetchFromEVDS(today);
+              await loadRates(today);
+              toast.success('Günlük kurlar otomatik güncellendi');
+            } catch (error) {
+              // EVDS hatası - dünün kurlarını göster
+              console.error('EVDS otomatik güncelleme hatası:', error);
+              const yesterday = new Date();
+              yesterday.setDate(yesterday.getDate() - 1);
+              await loadRates(yesterday.toISOString().split('T')[0]);
+              toast.warning('Bugünün kurları henüz yayınlanmadı, dünkü kurlar gösteriliyor');
+            }
           }
         }
       } catch (error) {
