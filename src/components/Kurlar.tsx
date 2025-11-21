@@ -98,12 +98,12 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
     loadRates(date);
   };
 
-  // TCMB'den kurları yenile
+  // EVDS API'sinden kurları yenile (geçmiş tarihler dahil)
   const handleRefresh = async () => {
     setLoading(true);
     try {
-      // TCMB API'sinden kurları çek
-      const updatedRates = await kurlarApi.fetchFromTCMB(selectedDate);
+      // EVDS API'sinden kurları çek (tatil günleri için önceki iş gününün kurları otomatik gelir)
+      const updatedRates = await kurlarApi.fetchFromEVDS(selectedDate);
       toast.success('TCMB kurları güncellendi', {
         description: `${updatedRates.length} kur kaydı eklendi/güncellendi`
       });

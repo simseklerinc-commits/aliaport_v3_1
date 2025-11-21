@@ -176,10 +176,19 @@ export const kurlarApi = {
     await apiClient.delete(`/exchange-rate/${id}`);
   },
 
-  // TCMB'den güncel kurları çek
+  // TCMB'den güncel kurları çek (XML API - sadece son birkaç gün)
   fetchFromTCMB: async (date?: string): Promise<ExchangeRate[]> => {
     const response = await apiClient.post<ExchangeRateBackend[]>(
       '/exchange-rate/fetch-tcmb', 
+      { date }
+    );
+    return response.map(transformExchangeRate);
+  },
+
+  // EVDS'den güncel kurları çek (Resmi API - geçmiş tarihler dahil)
+  fetchFromEVDS: async (date?: string): Promise<ExchangeRate[]> => {
+    const response = await apiClient.post<ExchangeRateBackend[]>(
+      '/exchange-rate/fetch-evds', 
       { date }
     );
     return response.map(transformExchangeRate);
