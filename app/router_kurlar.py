@@ -480,20 +480,46 @@ def fetch_from_tcmb(
 # EVDS API INTEGRATION (Resmi TCMB API)
 # ============================================
 
-def fetch_evds_rates(target_date: date) -> List[ExchangeRateCreate]:
+def get_previous_business_day(target_date: date) -> date:
     """
-    TCMB EVDS API'sinden kurları çek (resmi Python paketi)
+    Verilen tarihten önceki son iş gününü bul (Cumartesi, Pazar hariç)
     
-    Avantajlar:
-    - Geçmiş tarih verilerine erişim (yıllara uzanan arşiv)
-    - Daha güvenilir ve profesyonel
-    - TCMB'nin resmi veri dağıtım servisi
+    TCMB Kuralı:
+    - Cuma günü açıklanan kur → Cumartesi, Pazar, Pazartesi için geçerli
+    - Yani kullanıcı Pazartesi seçerse → Cuma kurlarını almalıyız
     
     Args:
         target_date: Kurların geçerli olduğu tarih
         
     Returns:
-        ExchangeRateCreate listesi
+        Bir önceki iş günü (kur yayınlama tarihi)
+    """
+    # Bir gün geriye git (TCMB bir gün önce yayınlar)
+    publish_date = target_date - timedelta(days=1)
+    
+    # Eğer Cumartesi ise → Cuma'ya git
+    if publish_date.weekday() == 5:  # Cumartesi
+        publish_date = publish_date - timedelta(days=1)
+    # Eğer Pazar ise → Cuma'ya git  
+    elif publish_date.weekday() == 6:  # Pazar
+        publish_date = publish_date - timedelta(days=2)
+    
+    return publish_date
+
+def fetch_evds_rates(target_date: date) -> List[ExchangeRateCreate]:
+    """
+    TCMB EVDS API'sinden kurları çek (resmi Python paketi)
+    
+    ÖNEMLİ TCMB KURALI:
+    - Cuma günü yayınlanan kur → Cumartesi, Pazar, Pazartesi için geçerli
+    - Yani 10 Kasım Pazartesi için → 7 Kasım Cuma kurlarını çekmeliyiz
+    - Bu fonksiyon otomatik olarak doğru yayın tarihini bulup EVDS'den çeker
+    
+    Args:
+        target_date: Kurların geçerli olduğu tarih (kullanıcının seçtiği tarih)
+        
+    Returns:
+        ExchangeRateCreate listesi (RateDate = target_date ile kaydedilir)
     """
     api_key = os.getenv("EVDS_API_KEY")
     if not api_key:
@@ -530,11 +556,15 @@ def fetch_evds_rates(target_date: date) -> List[ExchangeRateCreate]:
         'KWD': 'TP.DK.KWD.A',
     }
     
+    # ÖNEMLİ: Bir önceki iş gününü bul (kur yayın tarihi)
+    # Örnek: 10 Kasım Pazartesi seçilirse → 7 Kasım Cuma kurlarını çek
+    publish_date = get_previous_business_day(target_date)
+    
     # Tarih formatı: DD-MM-YYYY (EVDS format)
-    date_str = target_date.strftime('%d-%m-%Y')
+    date_str = publish_date.strftime('%d-%m-%Y')
     
     try:
-        # EVDS'den verileri çek
+        # EVDS'den verileri çek (publish_date için)
         series_list = list(currency_series.values())
         df = evds.get_data(series_list, startdate=date_str, enddate=date_str)
         
@@ -557,11 +587,13 @@ def fetch_evds_rates(target_date: date) -> List[ExchangeRateCreate]:
                 
                 # None veya NaN kontrolü
                 if rate_value is not None and not pd.isna(rate_value):
+                    # ÖNEMLİ: RateDate = target_date (kullanıcının seçtiği tarih)
+                    # Yani 10 Kasım için 7 Kasım kurlarını çekip, 10 Kasım olarak kaydediyoruz
                     rates.append(ExchangeRateCreate(
                         CurrencyFrom=currency_code,
                         CurrencyTo='TRY',
                         Rate=float(rate_value),
-                        RateDate=target_date,
+                        RateDate=target_date,  # Kurların geçerli olduğu tarih
                         Source='EVDS'
                     ))
         
