@@ -373,7 +373,7 @@ def parse_tcmb_xml(xml_content: str, rate_date: date) -> List[ExchangeRateCreate
 
 @router.post("/fetch-tcmb", response_model=List[ExchangeRate])
 def fetch_from_tcmb(
-    date_param: Optional[str] = None,
+    date_param: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
@@ -381,6 +381,7 @@ def fetch_from_tcmb(
     
     Args:
         date_param: YYYY-MM-DD formatında tarih (opsiyonel, default: bugün)
+                   Örnek: ?date_param=2024-11-20
     
     Returns:
         Kaydedilen kur listesi
