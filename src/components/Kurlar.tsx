@@ -87,9 +87,45 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
     }
   };
 
-  // İlk yükleme - bugünün kurları
+  // İlk yükleme - bugünün kurlarını kontrol et ve yoksa otomatik çek
   useEffect(() => {
-    loadRates(selectedDate);
+    const checkAndLoadTodayRates = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Önce veritabanından bugünün kurlarını kontrol et
+      try {
+        const todayRates = await kurlarApi.getByDateAll(today);
+        
+        if (todayRates && todayRates.length > 0) {
+          // Bugünün kurları mevcut - göster
+          setRates(todayRates);
+          const previousDay = new Date(today);
+          previousDay.setDate(previousDay.getDate() - 1);
+          setLastUpdateTime(`${previousDay.toLocaleDateString('tr-TR')} 15:30`);
+        } else {
+          // Bugünün kurları yok - EVDS'den otomatik çek
+          toast.info('Bugünün kurları yükleniyor...');
+          try {
+            await kurlarApi.fetchFromEVDS(today);
+            // Başarılıysa kurları yükle
+            await loadRates(today);
+            toast.success('Günlük kurlar otomatik güncellendi');
+          } catch (error) {
+            // EVDS hatası - dünün kurlarını göster
+            console.error('EVDS otomatik güncelleme hatası:', error);
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            await loadRates(yesterday.toISOString().split('T')[0]);
+            toast.warning('Bugünün kurları henüz yayınlanmadı, dünkü kurlar gösteriliyor');
+          }
+        }
+      } catch (error) {
+        console.error('Kur kontrol hatası:', error);
+        await loadRates(selectedDate);
+      }
+    };
+    
+    checkAndLoadTodayRates();
   }, []);
 
   // Tarih değiştiğinde kurları yükle
