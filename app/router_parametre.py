@@ -54,16 +54,22 @@ def get_all_parametreler(
 
 
 @router.get("/by-kategori/{kategori}", response_model=List[ParametreResponse])
-def get_by_kategori(kategori: str, db: Session = Depends(get_db)):
+def get_by_kategori(
+    kategori: str, 
+    include_inactive: bool = False,
+    db: Session = Depends(get_db)
+):
     """
-    Belirli kategori altındaki tüm aktif parametreleri listele
+    Belirli kategori altındaki parametreleri listele
+    - include_inactive=False: Sadece aktif parametreler (varsayılan)
+    - include_inactive=True: Tüm parametreler (aktif + pasif)
     """
-    parametreler = (
-        db.query(Parametre)
-        .filter(Parametre.Kategori == kategori, Parametre.AktifMi == True)
-        .order_by(Parametre.Kod)
-        .all()
-    )
+    query = db.query(Parametre).filter(Parametre.Kategori == kategori)
+    
+    if not include_inactive:
+        query = query.filter(Parametre.AktifMi == True)
+    
+    parametreler = query.order_by(Parametre.Kod).all()
     return parametreler
 
 
@@ -127,12 +133,32 @@ def update_parametre(
 @router.delete("/{parametre_id}")
 def delete_parametre(parametre_id: int, db: Session = Depends(get_db)):
     """
-    Parametre sil (hard delete)
+    Parametre sil (soft delete - AktifMi=False)
     """
     parametre = db.query(Parametre).filter(Parametre.Id == parametre_id).first()
     if not parametre:
         raise HTTPException(status_code=404, detail="Parametre bulunamadı")
     
-    db.delete(parametre)
+    # Soft delete: AktifMi bayrağını False yap
+    parametre.AktifMi = False
+    parametre.UpdatedAt = datetime.utcnow()
     db.commit()
-    return {"success": True, "message": "Parametre başarıyla silindi"}
+    db.refresh(parametre)
+    return {"success": True, "message": "Parametre pasif hale getirildi"}
+
+
+@router.patch("/{parametre_id}/toggle-active", response_model=ParametreResponse)
+def toggle_parametre_active(parametre_id: int, db: Session = Depends(get_db)):
+    """
+    Parametre aktif/pasif durumunu değiştir
+    """
+    parametre = db.query(Parametre).filter(Parametre.Id == parametre_id).first()
+    if not parametre:
+        raise HTTPException(status_code=404, detail="Parametre bulunamadı")
+    
+    # Toggle AktifMi
+    parametre.AktifMi = not parametre.AktifMi
+    parametre.UpdatedAt = datetime.utcnow()
+    db.commit()
+    db.refresh(parametre)
+    return parametre

@@ -42,6 +42,7 @@ export function ParametreModule({ onNavigateHome, onNavigateBack, theme }: Param
   const [searchTerm, setSearchTerm] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState<ParametreCreate>({
@@ -57,7 +58,7 @@ export function ParametreModule({ onNavigateHome, onNavigateBack, theme }: Param
   const loadParametreler = async () => {
     setLoading(true);
     try {
-      const response = await parametreApi.getByCategory(selectedKategori);
+      const response = await parametreApi.getByCategory(selectedKategori, showInactive);
       setParametreler(response);
     } catch (error) {
       console.error("Parametreler yüklenemedi:", error);
@@ -70,7 +71,7 @@ export function ParametreModule({ onNavigateHome, onNavigateBack, theme }: Param
     }
   };
 
-  // Kategori değiştiğinde yeniden yükle
+  // Kategori veya showInactive değiştiğinde yeniden yükle
   useEffect(() => {
     loadParametreler();
     setIsCreating(false);
@@ -83,7 +84,7 @@ export function ParametreModule({ onNavigateHome, onNavigateBack, theme }: Param
       Aciklama: "",
       AktifMi: true,
     });
-  }, [selectedKategori]);
+  }, [selectedKategori, showInactive]);
 
   // Arama filtresi
   const filteredParametreler = parametreler.filter(
@@ -163,20 +164,37 @@ export function ParametreModule({ onNavigateHome, onNavigateBack, theme }: Param
     }
   };
 
-  // Silme
+  // Silme (soft delete - pasif yap)
   const handleDelete = async (id: number, kod: string) => {
-    if (!confirm(`${kod} kodlu parametreyi silmek istediğinizden emin misiniz?`)) {
+    if (!confirm(`${kod} kodlu parametreyi pasif hale getirmek istediğinizden emin misiniz?`)) {
       return;
     }
 
     setLoading(true);
     try {
       await parametreApi.delete(id);
-      toast.success("Parametre silindi");
+      toast.success("Parametre pasif hale getirildi");
       await loadParametreler();
     } catch (error: any) {
-      console.error("Parametre silinemedi:", error);
-      toast.error("Parametre silinemedi", {
+      console.error("Parametre pasif yapılamadı:", error);
+      toast.error("Parametre pasif yapılamadı", {
+        description: error?.message || "Bilinmeyen hata",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Aktif/Pasif toggle
+  const handleToggleActive = async (id: number, currentStatus: boolean) => {
+    setLoading(true);
+    try {
+      await parametreApi.toggleActive(id);
+      toast.success(currentStatus ? "Parametre pasif hale getirildi" : "Parametre aktif hale getirildi");
+      await loadParametreler();
+    } catch (error: any) {
+      console.error("Durum değiştirilemedi:", error);
+      toast.error("Durum değiştirilemedi", {
         description: error?.message || "Bilinmeyen hata",
       });
     } finally {
@@ -362,7 +380,7 @@ export function ParametreModule({ onNavigateHome, onNavigateBack, theme }: Param
                     {filteredParametreler.length} parametre
                   </CardDescription>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <Input
@@ -371,6 +389,18 @@ export function ParametreModule({ onNavigateHome, onNavigateBack, theme }: Param
                       placeholder="Ara..."
                       className="pl-10 bg-gray-800/50 border-gray-700 text-white w-64"
                     />
+                  </div>
+                  <div className="flex items-center gap-2 px-3 bg-gray-800/30 border border-gray-700 rounded-md">
+                    <input
+                      type="checkbox"
+                      id="showInactive"
+                      checked={showInactive}
+                      onChange={(e) => setShowInactive(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <label htmlFor="showInactive" className="text-sm cursor-pointer whitespace-nowrap">
+                      Pasif olanları da göster
+                    </label>
                   </div>
                   <Button
                     onClick={handleCreate}
@@ -421,11 +451,17 @@ export function ParametreModule({ onNavigateHome, onNavigateBack, theme }: Param
                           {parametre.Aciklama || "-"}
                         </TableCell>
                         <TableCell className="text-center">
-                          {parametre.AktifMi ? (
-                            <CheckCircle2 className="w-4 h-4 text-green-400 mx-auto" />
-                          ) : (
-                            <XCircle className="w-4 h-4 text-red-400 mx-auto" />
-                          )}
+                          <button
+                            onClick={() => handleToggleActive(parametre.Id, parametre.AktifMi)}
+                            disabled={loading}
+                            className="mx-auto hover:opacity-70 transition-opacity"
+                          >
+                            {parametre.AktifMi ? (
+                              <CheckCircle2 className="w-4 h-4 text-green-400" />
+                            ) : (
+                              <XCircle className="w-4 h-4 text-red-400" />
+                            )}
+                          </button>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
@@ -438,15 +474,17 @@ export function ParametreModule({ onNavigateHome, onNavigateBack, theme }: Param
                             >
                               <Edit2 className="w-4 h-4" />
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDelete(parametre.Id, parametre.Kod)}
-                              disabled={loading}
-                              className="text-red-400 hover:text-red-300"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            {parametre.AktifMi && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDelete(parametre.Id, parametre.Kod)}
+                                disabled={loading}
+                                className="text-red-400 hover:text-red-300"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

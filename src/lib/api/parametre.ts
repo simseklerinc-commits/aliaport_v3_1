@@ -57,8 +57,10 @@ export const parametreApi = {
     return await apiClient.get(`/parametre/${id}`);
   },
 
-  getByCategory: async (kategori: string): Promise<Parametre[]> => {
-    return await apiClient.get(`/parametre/by-kategori/${kategori}`);
+  getByCategory: async (kategori: string, includeInactive: boolean = false): Promise<Parametre[]> => {
+    return await apiClient.get(`/parametre/by-kategori/${kategori}`, {
+      params: { include_inactive: includeInactive },
+    });
   },
 
   create: async (data: ParametreCreate): Promise<Parametre> => {
@@ -71,6 +73,10 @@ export const parametreApi = {
 
   delete: async (id: number): Promise<{ success: boolean; message: string }> => {
     return await apiClient.delete(`/parametre/${id}`);
+  },
+
+  toggleActive: async (id: number): Promise<Parametre> => {
+    return await apiClient.patch(`/parametre/${id}/toggle-active`, {});
   },
 };
 
