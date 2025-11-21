@@ -267,7 +267,7 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
               weekday: 'long'
             })} Günü Döviz Kurları
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-base text-gray-200">
             {filteredRates.length} para birimi - TCMB resmi kurları
           </CardDescription>
         </CardHeader>
