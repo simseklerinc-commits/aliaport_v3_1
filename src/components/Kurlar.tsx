@@ -224,7 +224,7 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
                     <span className="text-2xl">{CURRENCY_FLAGS[rate.currency_from] || "🏳️"}</span>
                     <div>
                       <CardTitle className="text-lg">{rate.currency_from}</CardTitle>
-                      <CardDescription className="text-xs">
+                      <CardDescription className="text-sm text-gray-300">
                         {getCurrencyName(rate.currency_from)}
                       </CardDescription>
                     </div>
