@@ -181,11 +181,11 @@ export function Parametreler({ onNavigateHome, onNavigateBack, theme, currentUse
       <div className="p-6 space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl mb-2 flex items-center gap-3">
+          <h1 className="text-3xl mb-2 flex items-center gap-3 text-white">
             <Settings className={`w-8 h-8 ${theme.colors.primaryText}`} />
             Sistem Parametreleri
           </h1>
-          <p className="text-gray-400">Merkezi parametre tanımlamaları ve yönetim - Detay için bir kategori seçin</p>
+          <p className="text-gray-200">Merkezi parametre tanımlamaları ve yönetim - Detay için bir kategori seçin</p>
         </div>
 
         {/* Grid - Tıklanabilir Kartlar */}
@@ -205,25 +205,25 @@ export function Parametreler({ onNavigateHome, onNavigateBack, theme, currentUse
                         <Icon className={`w-8 h-8 ${category.color}`} />
                       </div>
                       <div className="flex-1">
-                        <CardTitle className="text-xl mb-2 group-hover:${theme.colors.primaryText} transition-colors">
+                        <CardTitle className="text-xl mb-2 text-white group-hover:${theme.colors.primaryText} transition-colors">
                           {category.name}
                         </CardTitle>
-                        <CardDescription className="text-base text-gray-400">
+                        <CardDescription className="text-base text-gray-200">
                           {category.description}
                         </CardDescription>
                       </div>
                     </div>
-                    <ChevronRight className={`w-6 h-6 text-gray-500 group-hover:${theme.colors.primaryText} transition-all group-hover:translate-x-1`} />
+                    <ChevronRight className={`w-6 h-6 text-gray-300 group-hover:${theme.colors.primaryText} transition-all group-hover:translate-x-1`} />
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className={`flex items-center justify-between p-4 rounded-lg ${category.bgColor} border ${category.borderColor}`}>
-                    <span className="text-base text-gray-300">Toplam Kayıt</span>
+                    <span className="text-base text-white font-medium">Toplam Kayıt</span>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className={`${category.color} text-base px-3 py-1`}>
+                      <Badge variant="outline" className={`${category.color} text-base px-3 py-1 font-semibold`}>
                         {category.activeCount} Aktif
                       </Badge>
-                      <Badge variant="outline" className="text-base px-3 py-1">
+                      <Badge variant="outline" className="text-base px-3 py-1 text-gray-200">
                         {category.count} Toplam
                       </Badge>
                     </div>
@@ -262,12 +262,12 @@ export function Parametreler({ onNavigateHome, onNavigateBack, theme, currentUse
               <Icon className={`w-6 h-6 ${selectedCategory?.color}`} />
               {selectedCategory?.name}
             </h1>
-            <p className="text-sm text-gray-400 mt-1">{selectedCategory?.description}</p>
+            <p className="text-sm text-gray-200 mt-1">{selectedCategory?.description}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-300" />
             <Input
               placeholder="Ara..."
               value={searchTerm}
@@ -329,7 +329,7 @@ const TABLE_STYLES = {
   textCell: "text-base text-white",
   textCellGray: "text-base text-gray-300",
   badgeActive: "bg-green-500/20 text-green-300 border-green-500/30 text-base",
-  badgeInactive: "text-gray-400 text-base",
+  badgeInactive: "text-gray-200 text-base",
   iconEdit: "w-5 h-5 text-blue-400",
   iconDelete: "w-5 h-5 text-red-400",
   buttonHover: "hover:bg-gray-700"
@@ -559,7 +559,7 @@ function KdvIstisnalariTable({ searchTerm, theme }: { searchTerm: string; theme:
                 <code className={TABLE_STYLES.code}>{exemption.code}</code>
               </TableCell>
               <TableCell className={TABLE_STYLES.textCell}>{exemption.name}</TableCell>
-              <TableCell className="max-w-xs text-base text-gray-400">
+              <TableCell className="max-w-xs text-base text-gray-200">
                 {exemption.description}
               </TableCell>
               <TableCell>
@@ -569,7 +569,7 @@ function KdvIstisnalariTable({ searchTerm, theme }: { searchTerm: string; theme:
                     Evet
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="text-gray-400 text-base">
+                  <Badge variant="outline" className="text-gray-200 text-base">
                     Hayır
                   </Badge>
                 )}
@@ -635,7 +635,7 @@ function HizmetGruplariTable({ searchTerm, theme }: { searchTerm: string; theme:
                 <code className={TABLE_STYLES.code}>{group.code}</code>
               </TableCell>
               <TableCell className={TABLE_STYLES.textCell}>{group.name}</TableCell>
-              <TableCell className="max-w-xs text-base text-gray-400">
+              <TableCell className="max-w-xs text-base text-gray-200">
                 {group.description}
               </TableCell>
               <TableCell className={TABLE_STYLES.textCellGray}>{group.display_order}</TableCell>
@@ -707,7 +707,7 @@ function HizmetKategorileriTable({ searchTerm, theme }: { searchTerm: string; th
                     {group?.name || "Bilinmiyor"}
                   </Badge>
                 </TableCell>
-                <TableCell className="max-w-xs text-base text-gray-400">
+                <TableCell className="max-w-xs text-base text-gray-200">
                   {category.description}
                 </TableCell>
                 <TableCell>
@@ -783,7 +783,7 @@ function FiyatlandirmaKurallariTable({ searchTerm, theme }: { searchTerm: string
                   {rule.calculation_type === "STANDARD" ? "Standart" : "Paket+Aşan"}
                 </Badge>
               </TableCell>
-              <TableCell className="max-w-xs text-base text-gray-400">
+              <TableCell className="max-w-xs text-base text-gray-200">
                 {rule.description}
               </TableCell>
               <TableCell>
@@ -945,7 +945,7 @@ function RollerTable({ searchTerm, theme }: { searchTerm: string; theme: Theme }
                     </Badge>
                   )}
                 </TableCell>
-                <TableCell className="max-w-xs text-base text-gray-400">
+                <TableCell className="max-w-xs text-base text-gray-200">
                   {role.description}
                 </TableCell>
                 <TableCell>
