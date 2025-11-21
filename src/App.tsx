@@ -5,7 +5,7 @@ import { MotorbotModule } from "./components/modules/MotorbotModule";
 import { SeferModule } from "./components/modules/SeferModule";
 import { HizmetModule } from "./components/modules/HizmetModule";
 import { Kurlar } from "./components/Kurlar";
-import { ParametreModule } from "./components/modules/ParametreModule";
+import { Parametreler } from "./components/Parametreler";
 import { PlaceholderModule } from "./components/PlaceholderModule";
 import { ThemeSelector, Theme, themes } from "./components/ThemeSelector";
 import { Toaster } from "sonner";
@@ -418,10 +418,11 @@ export default function App() {
 
           {/* Parametreler */}
           {currentPage === "parametreler" && (
-            <ParametreModule 
+            <Parametreler 
               onNavigateHome={handleBackToMenu} 
               onNavigateBack={handleBackToMenu} 
               theme={currentTheme}
+              currentUser={{ is_admin: true }}
             />
           )}
 
