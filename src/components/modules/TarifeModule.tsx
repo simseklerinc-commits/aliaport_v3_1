@@ -88,16 +88,25 @@ export function TarifeModule({ theme }: TarifeModuleProps) {
   const loadTarifeWithPrices = async (tarife: PriceList) => {
     setLoading(true);
     try {
-      // 1. Tüm hizmetleri çek
+      // 1. Tüm hizmetleri çek (pagination response handle et)
       const hizmetResponse: any = await hizmetApi.getAll({ page: 1, page_size: 1000 });
-      const hizmetler = hizmetResponse.items || [];
+      
+      // Backend pagination: { items: [], total: 0, page: 1, ... }
+      const hizmetler = Array.isArray(hizmetResponse?.items) 
+        ? hizmetResponse.items 
+        : [];
+
+      console.log('Loaded services:', hizmetler.length);
 
       // 2. Bu tarifeye ait fiyat kalemlerini çek
       const priceItems = await tarifeApi.getItems(tarife.id!);
+      console.log('Loaded price items:', priceItems.length);
 
       // 3. Hizmetler + Fiyat kalemlerini birleştir
       const merged: HizmetWithPrice[] = hizmetler.map((h: any) => {
+        // FIX: Kod karşılaştırması (Hizmet.Kod === PriceListItem.service_code)
         const existingItem = priceItems.find((item: any) => item.service_code === h.Kod);
+        
         return {
           id: h.Id,
           code: h.Kod,
@@ -111,6 +120,7 @@ export function TarifeModule({ theme }: TarifeModuleProps) {
         };
       });
 
+      console.log('Merged services with prices:', merged.length);
       setHizmetlerWithPrices(merged);
       setEditedPrices({});
     } catch (err) {
@@ -118,6 +128,7 @@ export function TarifeModule({ theme }: TarifeModuleProps) {
       toast.error('Hizmet fiyatları yüklenemedi', {
         description: errorMessage
       });
+      console.error('Load error:', err);
     } finally {
       setLoading(false);
     }
@@ -171,10 +182,10 @@ export function TarifeModule({ theme }: TarifeModuleProps) {
       hizmetlerWithPrices.forEach((hizmet) => {
         const newPrice = editedPrices[hizmet.id] !== undefined ? editedPrices[hizmet.id] : hizmet.unit_price;
 
-        // Sadece değişen veya yeni eklenecek fiyatları kaydet
-        if (editedPrices[hizmet.id] !== undefined || (!hizmet.hasExistingItem && newPrice > 0)) {
+        // Sadece değişen fiyatları kaydet
+        if (editedPrices[hizmet.id] !== undefined) {
           if (hizmet.hasExistingItem && hizmet.item_id) {
-            // Güncelleme
+            // Güncelleme (mevcut kayıt)
             updates.push(
               tarifeApi.updateItem(hizmet.item_id, {
                 price_list_id: selectedTarife.id!,
@@ -184,10 +195,11 @@ export function TarifeModule({ theme }: TarifeModuleProps) {
                 unit_price: newPrice,
                 vat_rate: hizmet.vat_rate,
                 is_active: hizmet.is_active,
+                order_no: hizmet.id,
               })
             );
           } else if (newPrice > 0) {
-            // Yeni ekleme
+            // Yeni ekleme (backend'de yoktu, şimdi fiyat girildi)
             updates.push(
               tarifeApi.createItem({
                 price_list_id: selectedTarife.id!,
@@ -197,6 +209,7 @@ export function TarifeModule({ theme }: TarifeModuleProps) {
                 unit_price: newPrice,
                 vat_rate: hizmet.vat_rate,
                 is_active: hizmet.is_active,
+                order_no: hizmet.id,
               })
             );
           }

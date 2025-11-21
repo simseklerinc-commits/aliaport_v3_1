@@ -18,6 +18,8 @@ Preferred communication style: Simple, everyday language.
 - ✅ Mock data completely removed, production-ready implementation
 - ✅ **7 tarife kaydı ZIP dosyasından veritabanına aktarıldı:** 1 Aktif, 2 Taslak, 4 Pasif (2021-2026 dönemi)
 - ✅ **15 hizmet kartı ZIP dosyasından veritabanına aktarıldı:** Barınma, İkmal, Bakım, Tesis hizmetleri
+- ✅ **TarifeModule master-detail tasarım:** List view (tarife listesi) + Edit view (tarife header + tüm hizmetlerin fiyatları tablosu)
+- ✅ Inline price editing with real-time state tracking and bulk save functionality
 - ✅ Parametreler module UI brightness fix: all text updated to text-gray-200/text-white for better readability
 
 ## System Architecture
