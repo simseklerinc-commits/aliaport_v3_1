@@ -37,6 +37,31 @@ Preferred communication style: Simple, everyday language.
 
 ### Application Structure
 
+Aliaport uses a **monorepo architecture** with clear separation between backend and frontend:
+
+**Monorepo Structure:**
+```
+/
+├── app/                    # Backend (FastAPI + SQLAlchemy)
+│   ├── models_*.py        # Domain models (hizmet, kurlar, tarife, etc.)
+│   ├── schemas_*.py       # Pydantic schemas for validation
+│   ├── router_*.py        # API routers (/api/... endpoints)
+│   ├── database.py        # SQLite connection & session
+│   └── aliaport_web.py    # Main FastAPI app
+├── src/                    # Frontend (React + Vite + TypeScript)
+│   ├── lib/api/*.ts       # Backend API client layer
+│   ├── components/modules/*Module.tsx  # Feature modules
+│   ├── components/ui/     # Shadcn/ui components
+│   └── data/              # Master data & parameters
+└── aliaport.db            # SQLite database
+```
+
+**Design Principles:**
+- **Backend:** Domain-driven design - her domain için ayrı model/schema/router
+- **Frontend:** Modüler component yapısı - her feature kendi Module.tsx dosyasında
+- **API Layer:** `src/lib/api/*.ts` backend ile frontend arasında type-safe bridge
+- **Inactive Modules:** `PlaceholderModule.tsx` ile geliştirme aşamasındaki modüller işaretlenir
+
 Aliaport features a dual-stack architecture, utilizing a Python FastAPI backend and a React TypeScript frontend, optimized for deployment on Replit with SQLite for data storage.
 
 ### Data Layer
