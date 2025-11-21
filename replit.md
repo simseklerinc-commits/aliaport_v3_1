@@ -41,13 +41,18 @@ The system operates as a full-stack web application with a Python FastAPI backen
 - ✅ **Data dependency:** `src/data/parametersData.ts` created from ZIP (14KB, currencyMasterData)
 - ✅ **Routing:** Integrated into App.tsx with correct import and page ID
 - ✅ **Production ready:** No trailing slash dependency, Vite proxy cleaned, works in dev and production builds
-- ✅ **TCMB API integration:** Complete implementation with XML parsing
-  - Fetch helper: `fetch_tcmb_xml()` - TCMB XML URL builder
-  - Parser: `parse_tcmb_xml()` - XML to ExchangeRate converter
-  - Endpoint: `/api/exchange-rate/fetch-tcmb?date_param=YYYY-MM-DD`
-  - Features: Auto-update or insert rates, 12 major currencies (USD, EUR, GBP, JPY, CHF, CAD, AUD, SAR, SEK, NOK, DKK, KWD)
-  - Error handling: 404 for weekends/holidays, 502 for TCMB network errors
-  - Python packages: `requests` for HTTP, `xml.etree.ElementTree` for XML parsing
+- ✅ **TCMB API integration:** Complete implementation with XML parsing (ARCHITECT REVIEWED ✅)
+  - **Backend endpoint:** `/api/exchange-rate/fetch-tcmb` (POST, JSON body: `{ "date": "YYYY-MM-DD" }`)
+  - **Fetch helper:** `fetch_tcmb_xml()` - TCMB XML URL builder (today.xml and YYMM/DDMMYYYY.xml)
+  - **Parser:** `parse_tcmb_xml()` - XML to ExchangeRate converter with ForexSelling field
+  - **Request model:** `FetchTCMBRequest` Pydantic schema for JSON body validation
+  - **Features:** Auto-update or insert rates, 12 major currencies (USD, EUR, GBP, JPY, CHF, CAD, AUD, SAR, SEK, NOK, DKK, KWD)
+  - **Error handling:** 
+    - 404: "Bu tarih için TCMB kuru bulunamadı. Hafta sonu veya resmi tatil günü olabilir."
+    - 502: "TCMB API hatası" or "TCMB bağlantı hatası"
+  - **Frontend integration:** `handleRefresh()` in `Kurlar.tsx` uses backend error messages
+  - **Dependencies:** `requests` (HTTP), `xml.etree.ElementTree` (XML parsing)
+  - **Test status:** ✅ Manual test passed (404 error working correctly for today)
 
 **Development Status:**
 - **Active Frontend Modules (5):** CariModule, MotorbotModule, SeferModule, HizmetModule, **Kurlar**
