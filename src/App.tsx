@@ -5,6 +5,7 @@ import { MotorbotModule } from "./components/modules/MotorbotModule";
 import { SeferModule } from "./components/modules/SeferModule";
 import { HizmetModule } from "./components/modules/HizmetModule";
 import { Kurlar } from "./components/Kurlar";
+import { ParametreModule } from "./components/modules/ParametreModule";
 import { PlaceholderModule } from "./components/PlaceholderModule";
 import { ThemeSelector, Theme, themes } from "./components/ThemeSelector";
 import { Toaster } from "sonner";
@@ -415,6 +416,15 @@ export default function App() {
             />
           )}
 
+          {/* Parametreler */}
+          {currentPage === "parametreler" && (
+            <ParametreModule 
+              onNavigateHome={handleBackToMenu} 
+              onNavigateBack={handleBackToMenu} 
+              theme={currentTheme}
+            />
+          )}
+
           {/* PLACEHOLDER MODULES - All other pages */}
           {currentPage !== "menu" && 
            currentPage !== "submenu" && 
@@ -423,7 +433,8 @@ export default function App() {
            currentPage !== "motorbot-module" && 
            currentPage !== "sefer-module" && 
            currentPage !== "hizmet-module" && 
-           currentPage !== "kurlar" && (
+           currentPage !== "kurlar" && 
+           currentPage !== "parametreler" && (
             <PlaceholderModule 
               onNavigateHome={handleBackToMenu}
               onNavigateBack={handleGoBack}
