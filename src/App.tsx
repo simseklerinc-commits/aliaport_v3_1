@@ -435,12 +435,21 @@ export default function App() {
             />
           )}
 
-          {/* Barınma Module */}
+          {/* Barınma Module - Liste */}
           {currentPage === "barinma-motorbot-liste" && (
             <BarinmaModule 
-              onNavigateHome={handleBackToMenu} 
               onNavigateBack={handleBackToSubmenu} 
               theme={currentTheme}
+              initialPage="list"
+            />
+          )}
+
+          {/* Barınma Module - Kontrat Giriş */}
+          {currentPage === "kontrat-giris" && (
+            <BarinmaModule 
+              onNavigateBack={handleBackToSubmenu} 
+              theme={currentTheme}
+              initialPage="create"
             />
           )}
 
@@ -454,6 +463,7 @@ export default function App() {
            currentPage !== "hizmet-module" && 
            currentPage !== "tarife-module" && 
            currentPage !== "barinma-motorbot-liste" && 
+           currentPage !== "kontrat-giris" && 
            currentPage !== "kurlar" && 
            currentPage !== "parametreler" && (
             <PlaceholderModule 
