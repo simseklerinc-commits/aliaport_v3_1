@@ -1,4 +1,4 @@
-// BARINMA API - Barınma Sözleşmeleri modülü için gerçek API endpoints
+// BARINMA API - Barınma Kontratları modülü için gerçek API endpoints
 // Backend: /api/barinma/ (FastAPI)
 // NOTE: Backend PascalCase → Frontend snake_case transformers
 

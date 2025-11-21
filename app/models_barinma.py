@@ -6,7 +6,7 @@ from .database import Base
 
 class BarinmaContract(Base):
     """
-    Barınma Sözleşmeleri - Motorbot konaklama kontratları
+    Barınma Kontratları - Motorbot konaklama kontratları
     SQL Tablo: barinma_contract
     """
     __tablename__ = "barinma_contract"

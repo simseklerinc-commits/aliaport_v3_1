@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Barınma Sözleşmeleri - Örnek Veri İmport Script
+Barınma Kontratları - Örnek Veri İmport Script
 ZIP dosyasında barınma verisi olmadığı için test amaçlı örnek kontratlar oluşturur
 """
 
@@ -13,22 +13,22 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 def import_sample_contracts():
-    """Örnek barınma sözleşmeleri ekle"""
+    """Örnek barınma kontratları ekle"""
     db = SessionLocal()
     
     try:
         # Mevcut kayıt sayısını kontrol et
         existing_count = db.query(BarinmaContract).count()
-        print(f"📊 Mevcut sözleşme sayısı: {existing_count}")
+        print(f"📊 Mevcut kontrat sayısı: {existing_count}")
         
         if existing_count > 0:
-            print("⚠️ Veritabanında zaten sözleşme kayıtları var.")
+            print("⚠️ Veritabanında zaten kontrat kayıtları var.")
             response = input("Yeni örnek veriler eklemek istiyor musunuz? (e/h): ")
             if response.lower() != 'e':
                 print("❌ İşlem iptal edildi.")
                 return
         
-        # Örnek barınma sözleşmeleri
+        # Örnek barınma kontratları
         sample_contracts = [
             {
                 "ContractNumber": "BAR-2025-001",
@@ -43,7 +43,7 @@ def import_sample_contracts():
                 "VatRate": Decimal("20.00"),
                 "BillingPeriod": "YEARLY",
                 "IsActive": True,
-                "Notes": "2025 yılı yıllık barınma sözleşmesi - Ödeme 12 taksit",
+                "Notes": "2025 yılı yıllık barınma kontratı - Ödeme 12 taksit",
                 "CreatedBy": 1
             },
             {
@@ -59,7 +59,7 @@ def import_sample_contracts():
                 "VatRate": Decimal("20.00"),
                 "BillingPeriod": "MONTHLY",
                 "IsActive": True,
-                "Notes": "3 aylık sözleşme - Ocak sonunda yenilenecek",
+                "Notes": "3 aylık kontrat - Ocak sonunda yenilenecek",
                 "CreatedBy": 1
             },
             {
@@ -75,7 +75,7 @@ def import_sample_contracts():
                 "VatRate": Decimal("20.00"),
                 "BillingPeriod": "MONTHLY",
                 "IsActive": False,
-                "Notes": "Süresi dolmuş sözleşme - 2025'te yenilenmedi",
+                "Notes": "Süresi dolmuş kontrat - 2025'te yenilenmedi",
                 "CreatedBy": 1
             },
             {
@@ -91,7 +91,7 @@ def import_sample_contracts():
                 "VatRate": Decimal("20.00"),
                 "BillingPeriod": "QUARTERLY",
                 "IsActive": True,
-                "Notes": "3 aylık deneme sözleşmesi - Mart ayında değerlendirme",
+                "Notes": "3 aylık deneme kontratı - Mart ayında değerlendirme",
                 "CreatedBy": 1
             },
             {
@@ -107,7 +107,7 @@ def import_sample_contracts():
                 "VatRate": Decimal("20.00"),
                 "BillingPeriod": "MONTHLY",
                 "IsActive": True,
-                "Notes": "Süresiz sözleşme - EURO üzerinden ödeme",
+                "Notes": "Süresiz kontrat - EURO üzerinden ödeme",
                 "CreatedBy": 1
             }
         ]
@@ -115,7 +115,7 @@ def import_sample_contracts():
         added_count = 0
         
         for contract_data in sample_contracts:
-            # Aynı sözleşme numarasına sahip kayıt var mı kontrol et
+            # Aynı kontrat numarasına sahip kayıt var mı kontrol et
             existing = db.query(BarinmaContract).filter(
                 BarinmaContract.ContractNumber == contract_data["ContractNumber"]
             ).first()
@@ -134,13 +134,13 @@ def import_sample_contracts():
         total_count = db.query(BarinmaContract).count()
         print(f"\n🎉 İşlem tamamlandı!")
         print(f"📊 Yeni eklenen: {added_count}")
-        print(f"📊 Toplam sözleşme: {total_count}")
+        print(f"📊 Toplam kontrat: {total_count}")
         
         # Özet bilgi
         active_count = db.query(BarinmaContract).filter(BarinmaContract.IsActive == True).count()
         inactive_count = db.query(BarinmaContract).filter(BarinmaContract.IsActive == False).count()
-        print(f"\n📈 Aktif sözleşmeler: {active_count}")
-        print(f"📉 Pasif sözleşmeler: {inactive_count}")
+        print(f"\n📈 Aktif kontratlar: {active_count}")
+        print(f"📉 Pasif kontratlar: {inactive_count}")
         
     except Exception as e:
         db.rollback()
@@ -151,5 +151,5 @@ def import_sample_contracts():
         db.close()
 
 if __name__ == "__main__":
-    print("🚀 Barınma Sözleşmeleri Örnek Veri İmport\n")
+    print("🚀 Barınma Kontratları Örnek Veri İmport\n")
     import_sample_contracts()

@@ -26,7 +26,7 @@ def get_all_contracts(
     db: Session = Depends(get_db),
 ):
     """
-    Tüm barınma sözleşmelerini listele (pagination + filtreler)
+    Tüm barınma kontratlarını listele (pagination + filtreler)
     """
     query = db.query(BarinmaContract)
     
@@ -55,7 +55,7 @@ def get_contracts_paginated(
     db: Session = Depends(get_db),
 ):
     """
-    Paginated barınma sözleşmeleri listesi (frontend için)
+    Paginated barınma kontratları listesi (frontend için)
     """
     query = db.query(BarinmaContract)
     
@@ -88,20 +88,20 @@ def get_contracts_paginated(
 @router.get("/{contract_id}", response_model=BarinmaContractResponse)
 def get_contract(contract_id: int, db: Session = Depends(get_db)):
     """
-    Belirli bir barınma sözleşmesini getir
+    Belirli bir barınma kontratını getir
     """
     contract = (
         db.query(BarinmaContract).filter(BarinmaContract.Id == contract_id).first()
     )
     if not contract:
-        raise HTTPException(status_code=404, detail="Sözleşme bulunamadı")
+        raise HTTPException(status_code=404, detail="Kontrat bulunamadı")
     return contract
 
 
 @router.post("/", response_model=BarinmaContractResponse)
 def create_contract(contract_data: BarinmaContractCreate, db: Session = Depends(get_db)):
     """
-    Yeni barınma sözleşmesi oluştur
+    Yeni barınma kontratı oluştur
     """
     # Kontrat numarası benzersizliğini kontrol et
     existing = (
@@ -110,7 +110,7 @@ def create_contract(contract_data: BarinmaContractCreate, db: Session = Depends(
         .first()
     )
     if existing:
-        raise HTTPException(status_code=400, detail="Bu sözleşme numarası zaten kullanılıyor")
+        raise HTTPException(status_code=400, detail="Bu kontrat numarası zaten kullanılıyor")
     
     new_contract = BarinmaContract(**contract_data.model_dump())
     db.add(new_contract)
@@ -126,13 +126,13 @@ def update_contract(
     db: Session = Depends(get_db),
 ):
     """
-    Barınma sözleşmesini güncelle
+    Barınma kontratını güncelle
     """
     contract = (
         db.query(BarinmaContract).filter(BarinmaContract.Id == contract_id).first()
     )
     if not contract:
-        raise HTTPException(status_code=404, detail="Sözleşme bulunamadı")
+        raise HTTPException(status_code=404, detail="Kontrat bulunamadı")
     
     # Kontrat numarası benzersizliğini kontrol et (eğer değiştiriliyorsa)
     if (
@@ -146,7 +146,7 @@ def update_contract(
         )
         if existing:
             raise HTTPException(
-                status_code=400, detail="Bu sözleşme numarası zaten kullanılıyor"
+                status_code=400, detail="Bu kontrat numarası zaten kullanılıyor"
             )
     
     # Güncelleme
@@ -162,23 +162,23 @@ def update_contract(
 @router.delete("/{contract_id}")
 def delete_contract(contract_id: int, db: Session = Depends(get_db)):
     """
-    Barınma sözleşmesini sil (hard delete)
+    Barınma kontratını sil (hard delete)
     """
     contract = (
         db.query(BarinmaContract).filter(BarinmaContract.Id == contract_id).first()
     )
     if not contract:
-        raise HTTPException(status_code=404, detail="Sözleşme bulunamadı")
+        raise HTTPException(status_code=404, detail="Kontrat bulunamadı")
     
     db.delete(contract)
     db.commit()
-    return {"message": "Sözleşme başarıyla silindi"}
+    return {"message": "Kontrat başarıyla silindi"}
 
 
 @router.get("/motorbot/{motorbot_id}/active", response_model=Optional[BarinmaContractResponse])
 def get_active_contract_by_motorbot(motorbot_id: int, db: Session = Depends(get_db)):
     """
-    Motorbot'un aktif sözleşmesini getir
+    Motorbot'un aktif kontratını getir
     """
     contract = (
         db.query(BarinmaContract)

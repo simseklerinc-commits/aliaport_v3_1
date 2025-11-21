@@ -1,4 +1,4 @@
-// BARINMA MODULE - Barınma Sözleşmeleri modülü - Gerçek API entegrasyonlu
+// BARINMA MODULE - Barınma Kontratları modülü - Gerçek API entegrasyonlu
 // Backend: /api/barinma/ (FastAPI + SQLite)
 // Pattern: HizmetModule.tsx takip ediliyor
 
@@ -83,20 +83,20 @@ export function BarinmaModule({
       
       if (response.length === 0) {
         toast.info('Kayıt bulunamadı', {
-          description: 'Filtrelere uygun sözleşme bulunamadı'
+          description: 'Filtrelere uygun kontrat bulunamadı'
         });
       } else {
-        toast.success('Sözleşmeler yüklendi', {
-          description: `${response.length} sözleşme kaydı listelendi`
+        toast.success('Kontratlar yüklendi', {
+          description: `${response.length} kontrat kaydı listelendi`
         });
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Veri yüklenemedi';
       setError(errorMessage);
-      toast.error('Sözleşme listesi yüklenemedi', {
+      toast.error('Kontrat listesi yüklenemedi', {
         description: errorMessage
       });
-      console.error('Sözleşme yükleme hatası:', err);
+      console.error('Kontrat yükleme hatası:', err);
     } finally {
       setLoading(false);
     }
@@ -111,17 +111,17 @@ export function BarinmaModule({
 
   // Delete contract
   const handleDelete = async (id: number) => {
-    if (!confirm('Bu sözleşmeyi silmek istediğinizden emin misiniz?')) return;
+    if (!confirm('Bu kontratı silmek istediğinizden emin misiniz?')) return;
     
     try {
       await barinmaApi.delete(id);
       setContracts(contracts.filter(c => c.id !== id));
-      toast.success('Sözleşme silindi', {
-        description: 'Sözleşme başarıyla silindi'
+      toast.success('Kontrat silindi', {
+        description: 'Kontrat başarıyla silindi'
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Silme işlemi başarısız';
-      toast.error('Sözleşme silinemedi', {
+      toast.error('Kontrat silinemedi', {
         description: errorMessage
       });
     }
@@ -138,7 +138,7 @@ export function BarinmaModule({
         c.id === id ? { ...c, is_active: !c.is_active } : c
       ));
       toast.success('Durum güncellendi', {
-        description: `Sözleşme ${!contract.is_active ? 'aktif' : 'pasif'} edildi`
+        description: `Kontrat ${!contract.is_active ? 'aktif' : 'pasif'} edildi`
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Güncelleme başarısız';
@@ -173,7 +173,7 @@ export function BarinmaModule({
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
     
-    if (!formData.contract_number.trim()) errors.contract_number = 'Sözleşme numarası zorunludur';
+    if (!formData.contract_number.trim()) errors.contract_number = 'Kontrat numarası zorunludur';
     if (formData.motorbot_id === 0) errors.motorbot_id = 'Tekne seçilmelidir';
     if (formData.cari_id === 0) errors.cari_id = 'Cari seçilmelidir';
     if (!formData.start_date) errors.start_date = 'Başlangıç tarihi zorunludur';
@@ -215,8 +215,8 @@ export function BarinmaModule({
         });
         
         setContracts([newContract, ...contracts]);
-        toast.success('Sözleşme oluşturuldu', {
-          description: `Sözleşme No: ${newContract.contract_number}`
+        toast.success('Kontrat oluşturuldu', {
+          description: `Kontrat No: ${newContract.contract_number}`
         });
       } else if (currentView === 'edit' && selectedContract) {
         // UPDATE
@@ -238,8 +238,8 @@ export function BarinmaModule({
         });
         
         setContracts(contracts.map(c => c.id === selectedContract.id ? updatedContract : c));
-        toast.success('Sözleşme güncellendi', {
-          description: `Sözleşme No: ${updatedContract.contract_number}`
+        toast.success('Kontrat güncellendi', {
+          description: `Kontrat No: ${updatedContract.contract_number}`
         });
       }
       
@@ -314,14 +314,14 @@ export function BarinmaModule({
                   <Anchor className="w-6 h-6 text-blue-400" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-semibold">Barınma Sözleşmeleri</h1>
-                  <p className="text-sm text-gray-500">Tekne barınma sözleşmeleri yönetimi</p>
+                  <h1 className="text-xl font-semibold">Barınma Kontratları</h1>
+                  <p className="text-sm text-gray-500">Tekne barınma kontratları yönetimi</p>
                 </div>
               </div>
             </div>
             <Button onClick={() => setCurrentView('create')} className="bg-blue-600 hover:bg-blue-700">
               <Plus className="w-4 h-4 mr-2" />
-              Yeni Sözleşme
+              Yeni Kontrat
             </Button>
           </div>
         </div>
@@ -332,7 +332,7 @@ export function BarinmaModule({
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
-                placeholder="Sözleşme no veya ID ile ara..."
+                placeholder="Kontrat no veya ID ile ara..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -489,10 +489,10 @@ export function BarinmaModule({
             </div>
             <div>
               <h1 className="text-xl font-semibold">
-                {currentView === 'create' ? 'Yeni Sözleşme' : 'Sözleşme Düzenle'}
+                {currentView === 'create' ? 'Yeni Kontrat' : 'Kontrat Düzenle'}
               </h1>
               <p className="text-sm text-gray-500">
-                {currentView === 'create' ? 'Yeni barınma sözleşmesi oluştur' : 'Mevcut sözleşmeyi güncelle'}
+                {currentView === 'create' ? 'Yeni barınma kontratı oluştur' : 'Mevcut kontratı güncelle'}
               </p>
             </div>
           </div>
@@ -504,11 +504,11 @@ export function BarinmaModule({
         <div className="max-w-3xl mx-auto space-y-6">
           {/* Contract Number */}
           <div>
-            <Label>Sözleşme Numarası *</Label>
+            <Label>Kontrat Numarası *</Label>
             <Input
               value={formData.contract_number}
               onChange={(e) => setFormData({ ...formData, contract_number: e.target.value })}
-              placeholder="örn: SOZLESME-2025-001"
+              placeholder="örn: KONTRAT-2025-001"
               className={formErrors.contract_number ? 'border-red-500' : ''}
             />
             {formErrors.contract_number && (
@@ -629,7 +629,7 @@ export function BarinmaModule({
             <Textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="Sözleşme ile ilgili notlar..."
+              placeholder="Kontrat ile ilgili notlar..."
               rows={4}
             />
           </div>
@@ -643,7 +643,7 @@ export function BarinmaModule({
               onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
               className="w-4 h-4"
             />
-            <Label htmlFor="is_active">Aktif sözleşme</Label>
+            <Label htmlFor="is_active">Aktif kontrat</Label>
           </div>
 
           {/* Actions */}
