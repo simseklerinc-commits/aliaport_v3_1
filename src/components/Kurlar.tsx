@@ -258,7 +258,7 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
       {/* Ana Tablo */}
       <Card className={`${theme.colors.bgCard} border-${theme.colors.border}`}>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-xl text-white">
             <Calendar className="w-5 h-5" />
             {new Date(selectedDate).toLocaleDateString('tr-TR', { 
               day: '2-digit', 
