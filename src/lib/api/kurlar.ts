@@ -15,7 +15,8 @@ interface ExchangeRateBackend {
   Id: number;
   CurrencyFrom: string;
   CurrencyTo: string;
-  Rate: number;
+  Rate: number;  // Döviz Alış (Buy)
+  SellRate?: number;  // Döviz Satış (Sell)
   RateDate: string;
   Source?: string;
   CreatedAt: string;
@@ -39,6 +40,7 @@ function transformExchangeRate(backend: ExchangeRateBackend): ExchangeRate {
     currency_from: backend.CurrencyFrom,
     currency_to: backend.CurrencyTo,
     rate: backend.Rate,
+    sell_rate: backend.SellRate,
     rate_date: backend.RateDate,
     source: backend.Source,
     created_at: backend.CreatedAt,
@@ -67,6 +69,7 @@ function toBackendFormat(data: Partial<ExchangeRate>) {
   if (data.currency_from !== undefined) backend.CurrencyFrom = data.currency_from;
   if (data.currency_to !== undefined) backend.CurrencyTo = data.currency_to;
   if (data.rate !== undefined) backend.Rate = data.rate;
+  if (data.sell_rate !== undefined) backend.SellRate = data.sell_rate;
   if (data.rate_date !== undefined) backend.RateDate = data.rate_date;
   if (data.source !== undefined) backend.Source = data.source;
   

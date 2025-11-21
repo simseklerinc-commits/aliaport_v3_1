@@ -133,10 +133,10 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
     );
   });
 
-  // Kur değişim yüzdesini hesapla (mock - gerçekte bir önceki günle karşılaştırılacak)
+  // Kur değişim yüzdesini hesapla (mock - gelecekte bir önceki günle karşılaştırılacak)
   const calculateChange = (rate: number): number => {
-    // Mock: Rastgele değişim %
-    return (Math.random() - 0.5) * 2; // -1% ile +1% arası
+    // TODO: Bir önceki günün kuruyla karşılaştır
+    return 0; // Şimdilik 0% göster
   };
 
   // Para birimi adını getir
@@ -302,10 +302,10 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
                   {filteredRates.map((rate, index) => {
                     const change = calculateChange(rate.rate);
                     const isPositive = change > 0;
-                    const buyRate = rate.rate * 0.998; // Alış kuru (mock)
-                    const sellRate = rate.rate * 1.002; // Satış kuru (mock)
-                    const effectiveBuy = rate.rate * 0.995; // Efektif alış (mock)
-                    const effectiveSell = rate.rate * 1.005; // Efektif satış (mock)
+                    const buyRate = rate.rate; // Döviz Alış (TCMB resmi)
+                    const sellRate = rate.sell_rate || rate.rate; // Döviz Satış (TCMB resmi)
+                    const effectiveBuy = rate.rate; // Efektif Alış (şimdilik Alış ile aynı)
+                    const effectiveSell = rate.sell_rate || rate.rate; // Efektif Satış (şimdilik Satış ile aynı)
                     
                     return (
                       <TableRow 

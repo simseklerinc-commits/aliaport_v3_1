@@ -540,21 +540,12 @@ def fetch_evds_rates(target_date: date) -> List[ExchangeRateCreate]:
     evds = evdsAPI(api_key)
     
     # Döviz kuru seri kodları (TCMB format)
-    # TP.DK.<CURRENCY>.A = Döviz Kurları, Alış
-    currency_series = {
-        'USD': 'TP.DK.USD.A',
-        'EUR': 'TP.DK.EUR.A',
-        'GBP': 'TP.DK.GBP.A',
-        'CHF': 'TP.DK.CHF.A',
-        'JPY': 'TP.DK.JPY.A',
-        'CAD': 'TP.DK.CAD.A',
-        'AUD': 'TP.DK.AUD.A',
-        'SAR': 'TP.DK.SAR.A',
-        'SEK': 'TP.DK.SEK.A',
-        'NOK': 'TP.DK.NOK.A',
-        'DKK': 'TP.DK.DKK.A',
-        'KWD': 'TP.DK.KWD.A',
-    }
+    # TP.DK.<CURRENCY>.A = Döviz Kurları Alış (Buy Rate)
+    # TP.DK.<CURRENCY>.S = Döviz Kurları Satış (Sell Rate)
+    currency_list = ['USD', 'EUR', 'GBP', 'CHF', 'JPY', 'CAD', 'AUD', 'SAR', 'SEK', 'NOK', 'DKK', 'KWD']
+    
+    currency_series_buy = {curr: f'TP.DK.{curr}.A' for curr in currency_list}
+    currency_series_sell = {curr: f'TP.DK.{curr}.S' for curr in currency_list}
     
     # ÖNEMLİ: Bir önceki iş gününü bul (kur yayın tarihi)
     # Örnek: 10 Kasım Pazartesi seçilirse → 7 Kasım Cuma kurlarını çek
@@ -564,9 +555,12 @@ def fetch_evds_rates(target_date: date) -> List[ExchangeRateCreate]:
     date_str = publish_date.strftime('%d-%m-%Y')
     
     try:
-        # EVDS'den verileri çek (publish_date için)
-        series_list = list(currency_series.values())
-        df = evds.get_data(series_list, startdate=date_str, enddate=date_str)
+        # EVDS'den hem Alış hem Satış kurlarını çek (publish_date için)
+        series_list_buy = list(currency_series_buy.values())
+        series_list_sell = list(currency_series_sell.values())
+        all_series = series_list_buy + series_list_sell
+        
+        df = evds.get_data(all_series, startdate=date_str, enddate=date_str)
         
         if df is None or df.empty:
             raise HTTPException(
@@ -576,23 +570,30 @@ def fetch_evds_rates(target_date: date) -> List[ExchangeRateCreate]:
         
         # DataFrame'den kurları parse et
         # NOT: EVDS API seri kodlarındaki noktaları alt çizgiye dönüştürüyor
-        # Örn: 'TP.DK.USD.A' -> 'TP_DK_USD_A'
+        # Örn: 'TP.DK.USD.A' -> 'TP_DK_USD_A', 'TP.DK.USD.S' -> 'TP_DK_USD_S'
         rates = []
-        for currency_code, series_code in currency_series.items():
-            # Column adı: noktalar alt çizgiye dönüşüyor
-            column_name = series_code.replace('.', '_')
+        for currency_code in currency_list:
+            # Alış kuru (Buy Rate)
+            buy_series = currency_series_buy[currency_code]
+            buy_column = buy_series.replace('.', '_')
             
-            if column_name in df.columns:
-                rate_value = df[column_name].iloc[0]
+            # Satış kuru (Sell Rate)
+            sell_series = currency_series_sell[currency_code]
+            sell_column = sell_series.replace('.', '_')
+            
+            if buy_column in df.columns:
+                buy_rate = df[buy_column].iloc[0]
+                sell_rate = df[sell_column].iloc[0] if sell_column in df.columns else None
                 
                 # None veya NaN kontrolü
-                if rate_value is not None and not pd.isna(rate_value):
+                if buy_rate is not None and not pd.isna(buy_rate):
                     # ÖNEMLİ: RateDate = target_date (kullanıcının seçtiği tarih)
                     # Yani 10 Kasım için 7 Kasım kurlarını çekip, 10 Kasım olarak kaydediyoruz
                     rates.append(ExchangeRateCreate(
                         CurrencyFrom=currency_code,
                         CurrencyTo='TRY',
-                        Rate=float(rate_value),
+                        Rate=float(buy_rate),  # Alış kuru
+                        SellRate=float(sell_rate) if sell_rate and not pd.isna(sell_rate) else None,  # Satış kuru
                         RateDate=target_date,  # Kurların geçerli olduğu tarih
                         Source='EVDS'
                     ))

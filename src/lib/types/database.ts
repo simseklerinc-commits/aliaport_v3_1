@@ -319,7 +319,8 @@ export interface ExchangeRate {
   id: number;
   currency_from: string;
   currency_to: string;
-  rate: number;
+  rate: number;  // Döviz Alış Kuru (Buy Rate)
+  sell_rate?: number;  // Döviz Satış Kuru (Sell Rate)
   rate_date: string;
   source?: string;
   created_at: string;
