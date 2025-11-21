@@ -65,17 +65,13 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
         const previousDay = new Date(date);
         previousDay.setDate(previousDay.getDate() - 1);
         setLastUpdateTime(`${previousDay.toLocaleDateString('tr-TR')} 15:30`);
-        toast.success(`${response.length} kur başarıyla yüklendi`);
+        toast.success(`${date} için ${response.length} kur yüklendi`);
       } else {
-        // Eğer o gün için kur yoksa, bugünün kurlarını getir
-        const todayRates = await kurlarApi.getToday();
-        setRates(todayRates);
-        setLastUpdateTime(new Date().toLocaleDateString('tr-TR') + ' 15:30');
-        if (todayRates.length > 0) {
-          toast.info(`Bugünkü ${todayRates.length} kur gösteriliyor`);
-        } else {
-          toast.warning('Henüz kur bilgisi yok');
-        }
+        // O gün için kur yok - kullanıcıyı bilgilendir
+        setRates([]);
+        toast.warning(`${date} için kur bilgisi bulunamadı`, {
+          description: 'EVDS\'den çekmek için "Kurları Yenile" butonuna tıklayın'
+        });
       }
     } catch (error) {
       console.error('Kurlar yüklenemedi:', error);
@@ -109,16 +105,17 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
           setLastUpdateTime(`${previousDay.toLocaleDateString('tr-TR')} 15:30`);
         } else {
           // Bugünün kurları yok - EVDS'den otomatik çek (scheduler ile race condition önleme)
-          // Sadece saat 16:10'dan önce otomatik çek (scheduler 16:05'te çalışır)
           const now = new Date();
           const currentHour = now.getHours();
           const currentMinute = now.getMinutes();
           
           if (currentHour < 16 || (currentHour === 16 && currentMinute < 10)) {
-            // Henüz erken - dünün kurlarını göster
+            // Henüz erken - dünün kurlarını göster VE selectedDate'i güncelle
             const yesterday = new Date();
             yesterday.setDate(yesterday.getDate() - 1);
-            await loadRates(yesterday.toISOString().split('T')[0]);
+            const yesterdayStr = yesterday.toISOString().split('T')[0];
+            setSelectedDate(yesterdayStr);  // DÜZELTME: Tarihi güncelle
+            await loadRates(yesterdayStr);
             toast.info('Bugünün kurları henüz yayınlanmadı (16:00-16:30), dünkü kurlar gösteriliyor');
           } else {
             // Saat 16:10+ - EVDS'den çek
@@ -128,11 +125,13 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
               await loadRates(today);
               toast.success('Günlük kurlar otomatik güncellendi');
             } catch (error) {
-              // EVDS hatası - dünün kurlarını göster
+              // EVDS hatası - dünün kurlarını göster VE selectedDate'i güncelle
               console.error('EVDS otomatik güncelleme hatası:', error);
               const yesterday = new Date();
               yesterday.setDate(yesterday.getDate() - 1);
-              await loadRates(yesterday.toISOString().split('T')[0]);
+              const yesterdayStr = yesterday.toISOString().split('T')[0];
+              setSelectedDate(yesterdayStr);  // DÜZELTME: Tarihi güncelle
+              await loadRates(yesterdayStr);
               toast.warning('Bugünün kurları henüz yayınlanmadı, dünkü kurlar gösteriliyor');
             }
           }
