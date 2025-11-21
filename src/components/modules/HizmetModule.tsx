@@ -127,8 +127,19 @@ export function HizmetModule({
   };
 
   // Frontend snake_case → Backend PascalCase transformer
-  const transformHizmetRequest = (data: typeof formData & { id?: number }) => {
-    const metadataJson = JSON.stringify({ tags: data.tags });
+  const transformHizmetRequest = (data: typeof formData & { id?: number }, existingMetadata?: string | null) => {
+    // Preserve existing metadata fields and merge with tags
+    let metadataObj: any = { tags: data.tags };
+    if (existingMetadata) {
+      try {
+        const existing = JSON.parse(existingMetadata);
+        metadataObj = { ...existing, tags: data.tags };
+      } catch {
+        metadataObj = { tags: data.tags };
+      }
+    }
+    const metadataJson = JSON.stringify(metadataObj);
+
     return {
       Kod: data.code.toUpperCase(),
       Ad: data.name,
@@ -362,7 +373,7 @@ export function HizmetModule({
           description: `${formData.code} - ${formData.name}`
         });
       } else if (currentView === 'edit' && selectedHizmet) {
-        const requestData = transformHizmetRequest({ ...formData, id: selectedHizmet.id });
+        const requestData = transformHizmetRequest({ ...formData, id: selectedHizmet.id }, selectedHizmet.metadata_json);
         const updatedHizmet = await hizmetApi.update(selectedHizmet.id, requestData);
         const mappedHizmet = transformHizmetResponse(updatedHizmet);
         
