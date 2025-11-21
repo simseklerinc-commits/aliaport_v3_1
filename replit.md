@@ -16,6 +16,7 @@ Preferred communication style: Simple, everyday language.
 - ✅ PascalCase↔snake_case transformers implemented for frontend-backend data flow
 - ✅ Menu integration completed: Hizmet > Tarife Yönetimi
 - ✅ Mock data completely removed, production-ready implementation
+- ✅ **7 tarife kaydı ZIP dosyasından veritabanına aktarıldı:** 1 Aktif, 2 Taslak, 4 Pasif (2021-2026 dönemi)
 - ✅ Parametreler module UI brightness fix: all text updated to text-gray-200/text-white for better readability
 
 ## System Architecture
