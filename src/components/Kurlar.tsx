@@ -102,14 +102,20 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
   const handleRefresh = async () => {
     setLoading(true);
     try {
-      // TCMB API'sinden kurları çek (gerçek endpoint - şu an 501 döndürüyor)
-      await kurlarApi.fetchFromTCMB(selectedDate);
-      toast.success('TCMB kurları güncellendi');
+      // TCMB API'sinden kurları çek
+      const updatedRates = await kurlarApi.fetchFromTCMB(selectedDate);
+      toast.success('TCMB kurları güncellendi', {
+        description: `${updatedRates.length} kur kaydı eklendi/güncellendi`
+      });
       await loadRates(selectedDate);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Kurlar güncellenemedi:', error);
+      
+      // Backend error mesajını kullan
+      const errorMessage = error?.message || 'TCMB kurları güncellenemedi';
+      
       toast.error('TCMB güncellemesi başarısız', {
-        description: 'TCMB API entegrasyonu henüz aktif değil'
+        description: errorMessage
       });
     } finally {
       setLoading(false);

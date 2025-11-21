@@ -12,7 +12,8 @@ from .schemas_kurlar import (
     ExchangeRateCreate, 
     ExchangeRateUpdate,
     PaginatedExchangeRateResponse,
-    BulkExchangeRateRequest
+    BulkExchangeRateRequest,
+    FetchTCMBRequest
 )
 
 router = APIRouter()
@@ -323,10 +324,22 @@ def fetch_tcmb_xml(target_date: Optional[date] = None) -> str:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         return response.text
+    except requests.exceptions.HTTPError as e:
+        # 404 = hafta sonu/tatil günü, diğerleri network hatası
+        if e.response.status_code == 404:
+            raise HTTPException(
+                status_code=404,
+                detail="Bu tarih için TCMB kuru bulunamadı. Hafta sonu veya resmi tatil günü olabilir."
+            )
+        else:
+            raise HTTPException(
+                status_code=502,
+                detail=f"TCMB API hatası: {str(e)}"
+            )
     except requests.exceptions.RequestException as e:
         raise HTTPException(
             status_code=502,
-            detail=f"TCMB'den kur bilgisi alınamadı: {str(e)}"
+            detail=f"TCMB bağlantı hatası: {str(e)}"
         )
 
 def parse_tcmb_xml(xml_content: str, rate_date: date) -> List[ExchangeRateCreate]:
@@ -373,20 +386,27 @@ def parse_tcmb_xml(xml_content: str, rate_date: date) -> List[ExchangeRateCreate
 
 @router.post("/fetch-tcmb", response_model=List[ExchangeRate])
 def fetch_from_tcmb(
-    date_param: Optional[str] = Query(None),
+    request: FetchTCMBRequest,
     db: Session = Depends(get_db)
 ):
     """
     TCMB'den güncel kurları çek ve database'e kaydet
     
-    Args:
-        date_param: YYYY-MM-DD formatında tarih (opsiyonel, default: bugün)
-                   Örnek: ?date_param=2024-11-20
+    Request Body:
+        {
+            "date": "YYYY-MM-DD" (opsiyonel, default: bugün)
+        }
     
     Returns:
         Kaydedilen kur listesi
+    
+    Error Codes:
+        - 400: Geçersiz tarih formatı
+        - 404: TCMB'de bu tarih için kur bulunamadı (hafta sonu/tatil günleri)
+        - 502: TCMB API bağlantı hatası
     """
     # Tarihi parse et
+    date_param = request.date
     if date_param:
         try:
             target_date = datetime.strptime(date_param, '%Y-%m-%d').date()

@@ -37,3 +37,6 @@ class PaginatedExchangeRateResponse(BaseModel):
 
 class BulkExchangeRateRequest(BaseModel):
     rates: List[ExchangeRateCreate]
+
+class FetchTCMBRequest(BaseModel):
+    date: Optional[str] = Field(None, description="YYYY-MM-DD formatında tarih (opsiyonel, default: bugün)")
