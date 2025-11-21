@@ -22,7 +22,7 @@ export const cariApi = {
     type?: 'CUSTOMER' | 'SUPPLIER' | 'BOTH';
     is_active?: boolean;
   }) => 
-    api.get<PaginatedResponse<Cari>>('/cari', { params }),
+    api.get<PaginatedResponse<Cari>>('/cari/', { params }),
 
   // Tek cari detayı
   getById: (id: number) => 
@@ -38,7 +38,7 @@ export const cariApi = {
 
   // Yeni cari oluştur
   create: (data: Omit<Cari, 'id' | 'created_at' | 'updated_at'>) => 
-    api.post<Cari>('/cari', data),
+    api.post<Cari>('/cari/', data),
 
   // Cari güncelle
   update: (id: number, data: Partial<Cari>) => 
