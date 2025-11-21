@@ -154,8 +154,8 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
             <DollarSign className={`w-8 h-8 ${theme.colors.primaryText}`} />
             Döviz Kurları
           </h1>
-          <p className="text-gray-400">
-            T.C. Merkez Bankası Günlük Döviz Kurları - {lastUpdateTime && `Son Güncelleme: ${lastUpdateTime}`}
+          <p className="text-base text-gray-200">
+            T.C. Merkez Bankası Günlük Döviz Kurları {lastUpdateTime && `- Son Güncelleme: ${lastUpdateTime}`}
           </p>
         </div>
         <Button 
