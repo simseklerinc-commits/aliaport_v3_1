@@ -11,6 +11,16 @@ Preferred communication style: Simple, everyday language.
 ## Recent Changes
 
 **2025-11-21:**
+- ✅ **BARINMA Module implemented with full CRUD operations** (~670 lines):
+  - Backend: `models_barinma.py`, `schemas_barinma.py`, `router_barinma.py` created following domain-driven pattern
+  - Frontend: `BarinmaModule.tsx` created following HizmetModule pattern
+  - API client: `src/lib/api/barinma.ts` with PascalCase↔snake_case transformers
+  - Real API integration at `/api/barinma/` endpoint (paginated list, create, edit, delete, toggle active/inactive)
+  - Database table: `barinma_contract` with 17 fields (contract_number, motorbot_id, cari_id, service_card_id, price_list_id, start/end dates, pricing, billing_period, etc.)
+  - List view with filters (Active/Inactive/All) and search
+  - Create/Edit forms with validation (contract details, pricing, billing period, notes)
+  - App.tsx routing: "barinma-motorbot-liste" now uses BarinmaModule instead of PlaceholderModule
+  - Fixed undefined parameter issue in API calls (filterActive === 'ALL' now omits is_active param)
 - ✅ **HİZMET Module completely rewritten with ZIP v3.1 design** (~800 lines):
   - Row click → detail dialog pattern (matches ZIP, not double-click)
   - Full form with all 11 backend fields: description, accounting_code, unit_id, vat_rate_id, vat_exemption_id, group_id, category_id, pricing_rule_id, metadata_json, created_by, updated_by
