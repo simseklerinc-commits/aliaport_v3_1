@@ -119,11 +119,6 @@ const subMenus = {
     title: "Barınma",
     items: [
       {
-        id: "barinma-dashboard",
-        title: "Dashboard",
-        description: "Genel bakış ve istatistikler",
-      },
-      {
         id: "barinma-motorbot-liste",
         title: "Barınma Kontratları",
         description: "Kontrat bilgileri ve tarife yönetimi",
@@ -132,11 +127,6 @@ const subMenus = {
         id: "kontrat-giris",
         title: "Kontrat Giriş",
         description: "Yeni barınma kontratı oluştur",
-      },
-      {
-        id: "barinma-raporlar",
-        title: "Barınma Raporları",
-        description: "Gelir analizi ve istatistikler",
       },
     ],
   },
@@ -283,10 +273,8 @@ export default function App() {
     if (currentPage === "is-emri-talep") return "İş Emri Talebi";
     if (currentPage === "is-emri-onay") return "İş Emri Giriş Onay";
     if (currentPage === "is-emri-liste") return "İş Emri Listesi";
-    if (currentPage === "barinma-dashboard") return "Barınma Dashboard";
     if (currentPage === "barinma-motorbot-liste") return "Barınma Kontratları";
     if (currentPage === "kontrat-giris") return "Yeni Barınma Kontratı";
-    if (currentPage === "barinma-raporlar") return "Barınma Raporları";
     if (currentPage === "e-fatura") return "E-Fatura";
     if (currentPage === "cari-kart-giris") return "Cari Kart Tanımlama";
     if (currentPage === "cari-kart-tanimlama") return "Cari Kartlar Yönetimi";
