@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import requests
 import xml.etree.ElementTree as ET
 
@@ -310,14 +310,25 @@ def create_bulk_exchange_rates(
 def fetch_tcmb_xml(target_date: Optional[date] = None) -> str:
     """
     TCMB XML'ini fetch et
+    
+    ÖNEMLİ TCMB MANTIĞI:
+    - TCMB kurları bir gün önceden yayınlanır
+    - 20 Kasım 15:30'da yayınlanan kurlar → 21 Kasım için geçerli
+    - 21 Kasım 15:30'da yayınlanan kurlar → 22, 23, 24 Kasım için geçerli (hafta sonu)
+    
+    Örnek: Kullanıcı "21 Kasım 2025" seçerse → 20112025.xml dosyasını çek
     """
     if target_date is None:
-        # Bugünün kurları
+        # Bugünün kurları - today.xml kullan (bugün için geçerli kurlar)
         url = "https://www.tcmb.gov.tr/kurlar/today.xml"
     else:
-        # Belirli bir tarih için: YYMM/DDMMYYYY.xml
-        year_month = target_date.strftime("%y%m")  # 2411
-        day_month_year = target_date.strftime("%d%m%Y")  # 20112024
+        # TCMB mantığı: Kurlar bir gün önceden yayınlanır
+        # Kullanıcının seçtiği tarih için geçerli kurları almak için
+        # bir gün önceki TCMB yayınını çek
+        tcmb_publish_date = target_date - timedelta(days=1)
+        
+        year_month = tcmb_publish_date.strftime("%y%m")  # 2411
+        day_month_year = tcmb_publish_date.strftime("%d%m%Y")  # 20112024
         url = f"https://www.tcmb.gov.tr/kurlar/{year_month}/{day_month_year}.xml"
     
     try:
@@ -415,13 +426,14 @@ def fetch_from_tcmb(
                 status_code=400,
                 detail="Geçersiz tarih formatı. YYYY-MM-DD formatında olmalı."
             )
+        # Belirli tarih için: TCMB mantığı (bir gün önceki XML)
+        xml_content = fetch_tcmb_xml(target_date)
     else:
+        # Bugünün kurları için: today.xml kullan
         target_date = date.today()
+        xml_content = fetch_tcmb_xml(None)  # None = today.xml
     
-    # TCMB XML'ini fetch et
-    xml_content = fetch_tcmb_xml(target_date)
-    
-    # XML'i parse et
+    # XML'i parse et (target_date = kurların geçerli olduğu tarih)
     rate_creates = parse_tcmb_xml(xml_content, target_date)
     
     if not rate_creates:

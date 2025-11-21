@@ -41,18 +41,24 @@ The system operates as a full-stack web application with a Python FastAPI backen
 - ✅ **Data dependency:** `src/data/parametersData.ts` created from ZIP (14KB, currencyMasterData)
 - ✅ **Routing:** Integrated into App.tsx with correct import and page ID
 - ✅ **Production ready:** No trailing slash dependency, Vite proxy cleaned, works in dev and production builds
-- ✅ **TCMB API integration:** Complete implementation with XML parsing (ARCHITECT REVIEWED ✅)
+- ✅ **TCMB API integration:** Complete implementation with XML parsing (ARCHITECT REVIEWED ✅ PRODUCTION READY ✅)
   - **Backend endpoint:** `/api/exchange-rate/fetch-tcmb` (POST, JSON body: `{ "date": "YYYY-MM-DD" }`)
   - **Fetch helper:** `fetch_tcmb_xml()` - TCMB XML URL builder (today.xml and YYMM/DDMMYYYY.xml)
   - **Parser:** `parse_tcmb_xml()` - XML to ExchangeRate converter with ForexSelling field
   - **Request model:** `FetchTCMBRequest` Pydantic schema for JSON body validation
   - **Features:** Auto-update or insert rates, 12 major currencies (USD, EUR, GBP, JPY, CHF, CAD, AUD, SAR, SEK, NOK, DKK, KWD)
+  - **TCMB Date Logic (CRITICAL):**
+    - 20 Kasım 15:30'da yayınlanan kurlar → 21 Kasım için geçerli
+    - 21 Kasım 15:30'da yayınlanan kurlar → 22, 23, 24 Kasım için geçerli (hafta sonu)
+    - User selects "21 Kasım" → System fetches `20112025.xml` (one day before)
+    - No date parameter → System uses `today.xml` (current valid rates)
   - **Error handling:** 
     - 404: "Bu tarih için TCMB kuru bulunamadı. Hafta sonu veya resmi tatil günü olabilir."
     - 502: "TCMB API hatası" or "TCMB bağlantı hatası"
   - **Frontend integration:** `handleRefresh()` in `Kurlar.tsx` uses backend error messages
   - **Dependencies:** `requests` (HTTP), `xml.etree.ElementTree` (XML parsing)
-  - **Test status:** ✅ Manual test passed (404 error working correctly for today)
+  - **Test status:** ✅ Live test PASSED - 12 exchange rates fetched from today.xml and saved to database
+  - **Sample rates (21 Nov 2025):** USD/TRY: 42.36, EUR/TRY: 48.81, GBP/TRY: 55.46, CHF/TRY: 52.66
 
 **Development Status:**
 - **Active Frontend Modules (5):** CariModule, MotorbotModule, SeferModule, HizmetModule, **Kurlar**
