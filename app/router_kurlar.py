@@ -480,31 +480,63 @@ def fetch_from_tcmb(
 # EVDS API INTEGRATION (Resmi TCMB API)
 # ============================================
 
-def get_previous_business_day(target_date: date) -> date:
+def find_latest_available_rate_date(target_date: date, evds_client, currency_list: list) -> date:
     """
-    Verilen tarihten önceki son iş gününü bul (Cumartesi, Pazar hariç)
+    EVDS'den veri gelene kadar geriye doğru tarih ara (resmi tatil kontrolü)
     
     TCMB Kuralı:
-    - Cuma günü açıklanan kur → Cumartesi, Pazar, Pazartesi için geçerli
-    - Yani kullanıcı Pazartesi seçerse → Cuma kurlarını almalıyız
+    - Resmi tatil/hafta sonu günlerinde kur yayınlanmaz
+    - Yayınlanmayan günler için bir önceki iş günü kuru kullanılır
+    - Örnek: 23 Nisan (resmi tatil) → 22 Nisan kurunu kullan
     
     Args:
         target_date: Kurların geçerli olduğu tarih
+        evds_client: EVDS API client instance
+        currency_list: Para birimleri listesi (validation için)
         
     Returns:
-        Bir önceki iş günü (kur yayınlama tarihi)
+        Kur verisi bulunan en son tarih (publish date)
+        
+    Raises:
+        HTTPException: Veri bulunamazsa 404 hatası
     """
+    # En fazla 10 gün geriye git (resmi tatil + hafta sonu kombinasyonları için)
+    max_attempts = 10
+    
     # Bir gün geriye git (TCMB bir gün önce yayınlar)
-    publish_date = target_date - timedelta(days=1)
+    current_date = target_date - timedelta(days=1)
     
-    # Eğer Cumartesi ise → Cuma'ya git
-    if publish_date.weekday() == 5:  # Cumartesi
-        publish_date = publish_date - timedelta(days=1)
-    # Eğer Pazar ise → Cuma'ya git  
-    elif publish_date.weekday() == 6:  # Pazar
-        publish_date = publish_date - timedelta(days=2)
+    # Test için birkaç majör para birimi (USD, EUR, GBP)
+    test_series = ['TP.DK.USD.A', 'TP.DK.EUR.A', 'TP.DK.GBP.A']
     
-    return publish_date
+    for attempt in range(max_attempts):
+        # Cumartesi/Pazar'ı atla
+        if current_date.weekday() == 5:  # Cumartesi
+            current_date = current_date - timedelta(days=1)
+        elif current_date.weekday() == 6:  # Pazar
+            current_date = current_date - timedelta(days=2)
+        
+        # EVDS'den test et - veri var mı?
+        date_str = current_date.strftime('%d-%m-%Y')
+        try:
+            df = evds_client.get_data(test_series, startdate=date_str, enddate=date_str)
+            
+            # Veri validasyonu: En az 2 para birimi mevcut olmalı
+            if df is not None and not df.empty:
+                available_cols = [col for col in df.columns if col.startswith('TP_DK_') and col.endswith('_A')]
+                if len(available_cols) >= 2:  # En az 2 para birimi varsa kabul et
+                    return current_date
+        except:
+            pass  # Hata varsa bir gün daha geriye git
+        
+        # Bir gün daha geriye git
+        current_date = current_date - timedelta(days=1)
+    
+    # Veri bulunamadı - exception raise et
+    raise HTTPException(
+        status_code=404,
+        detail=f"{target_date} tarihi için son {max_attempts} gün içinde EVDS'de kur bilgisi bulunamadı. Resmi tatil dönemi veya EVDS API sorunu olabilir."
+    )
 
 def fetch_evds_rates(target_date: date) -> List[ExchangeRateCreate]:
     """
@@ -547,9 +579,10 @@ def fetch_evds_rates(target_date: date) -> List[ExchangeRateCreate]:
     currency_series_buy = {curr: f'TP.DK.{curr}.A' for curr in currency_list}
     currency_series_sell = {curr: f'TP.DK.{curr}.S' for curr in currency_list}
     
-    # ÖNEMLİ: Bir önceki iş gününü bul (kur yayın tarihi)
-    # Örnek: 10 Kasım Pazartesi seçilirse → 7 Kasım Cuma kurlarını çek
-    publish_date = get_previous_business_day(target_date)
+    # ÖNEMLİ: Kur yayınlanan en son tarihi bul (resmi tatil + hafta sonu kontrolü)
+    # Örnek 1: 10 Kasım Pazartesi → 7 Kasım Cuma kurları
+    # Örnek 2: 23 Nisan (resmi tatil) → 22 Nisan kurları (veya önceki iş günü)
+    publish_date = find_latest_available_rate_date(target_date, evds, currency_list)
     
     # Tarih formatı: DD-MM-YYYY (EVDS format)
     date_str = publish_date.strftime('%d-%m-%Y')
