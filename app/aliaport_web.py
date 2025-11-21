@@ -6,12 +6,14 @@ from .models import Cari, Motorbot, MbTrip  # tablonun ORM'i yüklensin
 from .models_hizmet import Hizmet  # Hizmet tablosu
 from .models_kurlar import ExchangeRate  # Kur tablosu
 from .models_parametre import Parametre  # Parametre tablosu
+from .models_tarife import PriceList, PriceListItem  # Tarife tabloları
 from . import router_cari
 from . import router_motorbot
 from . import router_mbtrip
 from . import router_hizmet
 from . import router_kurlar
 from . import router_parametre
+from . import router_tarife
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import date
 import logging
@@ -116,6 +118,7 @@ app.include_router(router_mbtrip.router)
 app.include_router(router_hizmet.router, prefix="/api/hizmet", tags=["Hizmet"])
 app.include_router(router_kurlar.router, prefix="/api/exchange-rate", tags=["Kurlar"])
 app.include_router(router_parametre.router)
+app.include_router(router_tarife.router, prefix="/api/price-list", tags=["Tarife"])
 
 
 @app.get("/")

@@ -4,6 +4,7 @@ import { CariEkstre } from "./components/modules/CariEkstre";
 import { MotorbotModule } from "./components/modules/MotorbotModule";
 import { SeferModule } from "./components/modules/SeferModule";
 import { HizmetModule } from "./components/modules/HizmetModule";
+import { TarifeModule } from "./components/modules/TarifeModule";
 import { Kurlar } from "./components/Kurlar";
 import { Parametreler } from "./components/Parametreler";
 import { PlaceholderModule } from "./components/PlaceholderModule";
@@ -401,6 +402,15 @@ export default function App() {
           {/* Hizmet Module */}
           {currentPage === "hizmet-module" && (
             <HizmetModule 
+              onNavigateHome={handleBackToMenu} 
+              onNavigateBack={handleBackToSubmenu} 
+              theme={currentTheme}
+            />
+          )}
+
+          {/* Tarife Module */}
+          {currentPage === "tarife-module" && (
+            <TarifeModule 
               onNavigateHome={handleBackToMenu} 
               onNavigateBack={handleBackToSubmenu} 
               theme={currentTheme}

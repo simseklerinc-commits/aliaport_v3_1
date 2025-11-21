@@ -1,0 +1,185 @@
+
+Aliaport – TARİFE Modülü Replit Görevi
+======================================
+
+Bu projede ZIP arşivi zaten yüklü: `Aliaport_v3_1.zip`.
+
+Amaç:
+Tarife (fiyat listesi) modülünü, projedeki mevcut mimariye tam uyumlu olacak şekilde **backend + frontend** tarafında aktif etmek. Cari / Motorbot / Sefer / Hizmet / Kurlar modüllerine dokunma; sadece TARİFE tarafını ekle/aktif et.
+
+--------------------------------------------------
+1) ZIP içeriğini temel referans al
+--------------------------------------------------
+
+- `Aliaport_v3_1.zip` içeriğini incele.
+- Aşağıdaki dosyaları özellikle referans al, KESİNLİKLE UYDURMA ŞEMA/ENDPOINT ÜRETME:
+  - `API_SQL_MAPPING.md`
+  - `schema.sql`
+  - `README.md`
+  - `app/aliaport_web.py`
+  - `app/router_*.py`
+  - `app/models_*.py`
+  - `src/lib/api/*.ts`
+  - `src/components/modules/*.tsx`
+
+--------------------------------------------------
+2) Backend’te TARİFE tarafını tespit et
+--------------------------------------------------
+
+1. `app/aliaport_web.py` dosyasında `app.include_router(...)` satırlarını tara:
+   - Hangi router’lar var? (**Sadece gerçekten var olanları kullan.**)
+2. `schema.sql` ve/veya `API_SQL_MAPPING.md` içinde TARİFE ile ilgili tablo ve endpoint tanımları var mı, kontrol et:
+   - Örnek sadece arama yapmak için (isimleri kafadan üretme):
+     - tablo: `Tarife`, `HizmetTarife`, `TarifeDetay` vb.
+     - endpoint: `/api/tarife`, `/api/tarife-kart`, `/api/price-list` vb.
+   - SADECE dosyalarda GERÇEKTEN tanımlı olan isimleri kullan.
+
+Not:
+- Eğer zaten `router_tarife.py` gibi bir router dosyası varsa, önce onu kullan ve sadece eksik kısımları tamamla.
+- Eğer yoksa, `API_SQL_MAPPING.md` + `schema.sql`’deki kurallara göre yeni router oluştur.
+
+--------------------------------------------------
+3) Backend TARİFE API’sini tamamla / doğrula
+--------------------------------------------------
+
+Amaç: Hizmet/Kurlar modüllerinde kullanılan pattern ile uyumlu bir **TARİFE API**.
+
+1. Aşağıdaki dosyaları incele ve aynı mimariyi kopyala:
+   - `app/router_hizmet.py`
+   - `app/router_motorbot.py`
+   - `app/router_kurlar.py`
+   - `app/schemas_*.py` (pagination, base response vb. için)
+
+2. TARİFE için:
+   - Model dosyası: `app/models_tarife.py`
+     - Varsa: kullan ve gerekirse küçük düzeltmeler yap.
+     - Yoksa: `schema.sql`’deki ilgili tabloya göre OLUŞTUR.
+   - Schema dosyası: `app/schemas_tarife.py`
+     - Create/Update + Paginated response tanımla.
+   - Router dosyası: `app/router_tarife.py`
+
+3. Endpoint’ler (mapping’e göre isimler değişebilir, sen mapping’e uy):
+   - Minimum (mapping’de aksi belirtilmedikçe):
+     - `GET  /api/tarife/`          → paginated liste
+     - `POST /api/tarife/`          → yeni tarife kaydı
+     - `PUT  /api/tarife/{id}`      → güncelle
+     - `DELETE /api/tarife/{id}`    → sil
+
+4. `app/aliaport_web.py` içinde:
+   - Uygun import ekle:  
+     `from app import router_tarife`  
+     (dosya adı farklıysa GERÇEĞİNE göre düzelt)
+   - Router’ı kaydet:
+     `app.include_router(router_tarife.router, prefix="/api/tarife", tags=["tarife"])`
+
+KURAL:
+- SQL tarafında olmayan alanı/kolonu kafadan ekleme.
+- Tablodaki kolonlara sadık kal.
+- `API_SQL_MAPPING.md` ile çelişme.
+
+--------------------------------------------------
+4) Frontend API client: src/lib/api/tarife.ts
+--------------------------------------------------
+
+1. `src/lib/api/hizmet.ts` ve `src/lib/api/kurlar.ts` dosyalarını incele.
+2. Bunları referans alarak **`src/lib/api/tarife.ts`** dosyasını oluştur:
+   - `apiClient` yapısını kullan.
+   - Pagination yapısı `kurlar.ts` ile aynı olsun.
+   - Backend’te tanımladığın `/api/tarife` endpoint’leriyle birebir uyuşsun.
+3. PascalCase → snake_case dönüşümü için Hizmet/Kurlar’daki transformer yapısını kopyala:
+   - Örn:
+     - `Kod`      → `code`
+     - `Ad`       → `name`
+     - `GrupKod`  → `group_code`
+     - `Birim`    → `unit`
+     - `Fiyat`    → `price`
+     - `ParaBirimi` → `currency`
+     - `KdvOrani` → `vat_rate`
+     - `AktifMi`  → `is_active`
+   - TARİFE ile ilgili kolonları **`API_SQL_MAPPING.md` ve `schema.sql`’e göre** map et.
+
+--------------------------------------------------
+5) Frontend modülü: TarifeModule
+--------------------------------------------------
+
+1. `src/components/modules/HizmetModule.tsx` dosyasını aç.
+2. Bu dosyayı temel alarak **`src/components/modules/TarifeModule.tsx`** oluştur:
+   - API olarak `tarifeApi` (yeni yazdığın `src/lib/api/tarife.ts`) kullanılacak.
+   - Liste yapısı, filter, pagination mantığı HizmetModule ile **aynı çizgide** olsun.
+   - Sadece sütun isimleri ve alanlar tarifeye uygun olacak (schema + mapping’e bak).
+
+3. Tipler için:
+   - Eğer halihazırda Tarife ile ilgili bir type/interface varsa onu kullan.
+   - Yoksa, `schema.sql` ve `API_SQL_MAPPING.md`’deki tarife alanlarına göre yeni bir type/interface tanımla:
+     - Örnek isim: `TarifeItem`
+     - İçerik örneği (gerçek kolona göre güncelle):
+       - `id`
+       - `code`
+       - `name`
+       - `group_code`
+       - `unit`
+       - `price`
+       - `currency`
+       - `vat_rate`
+       - `order_no`
+       - `is_active`
+       - `created_at`
+       - `updated_at`
+
+   - Type’ı `src/lib/types/...` altında uygun yerde tanımla ve modülde oradan import et.
+
+--------------------------------------------------
+6) App.tsx ve Menü entegrasyonu
+--------------------------------------------------
+
+1. `src/App.tsx` içinde:
+   - En üst importlara ekle:  
+     `import TarifeModule from "./components/modules/TarifeModule";`
+
+2. `currentPage` tabanlı render kısmında:
+   - `"tarife-module"` için `<TarifeModule />` gösteren bir koşul ekle.
+   - Örn. diğerleri gibi bir blok:
+     ```tsx
+     {currentPage === "tarife-module" && (
+       <TarifeModule />
+     )}
+     ```
+
+3. PlaceholderModule filtresini güncelle:
+   - Şu anda placeholder’a düşmeyen sayfalar:  
+     `menu`, `submenu`, `cari-module`, `cari-ekstre`, `motorbot-module`, `sefer-module`, `hizmet-module`, `kurlar-module` (varsa)
+   - Bunların yanına `"tarife-module"` de eklensin ki **placeholder yerine gerçek TarifeModule render edilsin.**
+
+4. Menü / alt menü config’inde:
+   - Tarife için bir item ekle:
+     - key / id: `"tarife-module"`
+     - görünen ad: `"Tarife"` veya `"Tarife Yönetimi"`
+   - Tıklanınca `setCurrentPage("tarife-module")` çağrılsın.
+
+--------------------------------------------------
+7) Test ve kısa rapor
+--------------------------------------------------
+
+1. Backend (FastAPI) ve Frontend (Vite) workflow’larını restart et.
+2. Aşağıdaki çağrıları test et:
+
+   - `GET /api/tarife/?page=1&page_size=10`
+   - Frontend’ten Tarife menüsüne tıkla:
+     - Liste açılıyor mu?
+     - Boş ise “kayıt yok” state’i düzgün mü görünüyor?
+
+3. Hata varsa:
+   - TypeScript / LSP hatalarını temizle (eksik import, yanlış tip vb).
+   - Backend log’larında 404/500 var mı kontrol et.
+
+4. Son olarak, `replit.md` içine **kısa bir özet** ekle:
+   - Örn:
+     - “TarifeModule backend+frontend entegrasyonu tamamlandı; `/api/tarife` aktif; App.tsx ve menüye bağlandı.”
+
+--------------------------------------------------
+ÖZET HEDEF
+--------------------------------------------------
+
+- Mevcut mimariyi BOZMA.
+- Cari / Motorbot / Sefer / Hizmet / Kurlar modüllerine dokunma.
+- `TarifeModule` de onlar gibi **gerçek API’ye bağlı, production-ready bir modül** olsun; placeholder olmaktan çıksın.

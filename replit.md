@@ -8,6 +8,16 @@ Aliaport is a comprehensive port and marina management system designed for harbo
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+**2025-11-21:**
+- ✅ **TARİFE Module activated:** Backend (`models_tarife.py`, `schemas_tarife.py`, `router_tarife.py`) + Frontend (`TarifeModule.tsx`, `tarife.ts`) integrated
+- ✅ Real API connection established at `/api/price-list/` with pagination and filtering
+- ✅ PascalCase↔snake_case transformers implemented for frontend-backend data flow
+- ✅ Menu integration completed: Hizmet > Tarife Yönetimi
+- ✅ Mock data completely removed, production-ready implementation
+- ✅ Parametreler module UI brightness fix: all text updated to text-gray-200/text-white for better readability
+
 ## System Architecture
 
 ### Application Structure
@@ -32,6 +42,7 @@ The frontend is a modular, component-based React application. It uses Radix UI c
 3.  **Trip Management:** Tracks voyage and trip details.
 4.  **Service Cards:** Defines and manages available services.
 5.  **Exchange Rates:** Provides real-time and historical exchange rate management, including integration with the Central Bank of the Republic of Turkey (TCMB) and Electronic Data Distribution System (EVDS) APIs.
+6.  **Tarife (Price Lists):** Master-detail price list management with PriceList (header) and PriceListItem (line items). Full CRUD operations via `/api/price-list/` REST API with PascalCase↔snake_case transformers.
 
 **Key Features:**
 *   Component-level state management with React `useState`.
