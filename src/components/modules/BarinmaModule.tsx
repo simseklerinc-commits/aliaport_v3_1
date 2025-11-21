@@ -13,7 +13,6 @@ import { toast } from "sonner";
 import { 
   Anchor, 
   Plus, 
-  Filter,
   Search,
   Loader2,
   AlertCircle,
@@ -23,21 +22,17 @@ import {
   Edit,
   Trash2,
   CheckCircle2,
-  XCircle,
-  Calendar
+  XCircle
 } from "lucide-react";
 import { barinmaApi, BarinmaContract } from "../../lib/api/barinma";
-import { format } from "date-fns";
 
 interface BarinmaModuleProps {
-  onNavigateHome: () => void;
   onNavigateBack: () => void;
   theme: Theme;
   initialPage?: 'list' | 'create';
 }
 
 export function BarinmaModule({ 
-  onNavigateHome, 
   onNavigateBack, 
   theme,
   initialPage = 'list'
@@ -77,11 +72,12 @@ export function BarinmaModule({
     setError(null);
     
     try {
-      const response = await barinmaApi.getAll({
-        page: 1,
-        page_size: 100,
-        is_active: filterActive === 'ALL' ? undefined : filterActive === 'ACTIVE',
-      });
+      const params: any = { page: 1, page_size: 100 };
+      if (filterActive !== 'ALL') {
+        params.is_active = filterActive === 'ACTIVE';
+      }
+      
+      const response = await barinmaApi.getAll(params);
       
       setContracts(response);
       
@@ -298,9 +294,9 @@ export function BarinmaModule({
 
   // ========== RENDER ==========
 
-  const bgColor = theme === "light" ? "bg-white" : "bg-gray-900";
-  const textColor = theme === "light" ? "text-gray-900" : "text-white";
-  const borderColor = theme === "light" ? "border-gray-300" : "border-gray-700";
+  const bgColor = theme.colors.bgCard;
+  const textColor = theme.colors.text;
+  const borderColor = theme.colors.border;
 
   // LIST VIEW
   if (currentView === 'list') {
@@ -314,8 +310,8 @@ export function BarinmaModule({
                 <ArrowLeft className="w-4 h-4" />
               </Button>
               <div className="flex items-center gap-3">
-                <div className={`p-2 ${theme === "light" ? "bg-blue-100" : "bg-blue-900"} rounded-lg`}>
-                  <Anchor className="w-6 h-6 text-blue-600" />
+                <div className={`p-2 bg-blue-900/50 rounded-lg`}>
+                  <Anchor className="w-6 h-6 text-blue-400" />
                 </div>
                 <div>
                   <h1 className="text-xl font-semibold">Barınma Sözleşmeleri</h1>
@@ -488,8 +484,8 @@ export function BarinmaModule({
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div className="flex items-center gap-3">
-            <div className={`p-2 ${theme === "light" ? "bg-blue-100" : "bg-blue-900"} rounded-lg`}>
-              <Anchor className="w-6 h-6 text-blue-600" />
+            <div className={`p-2 bg-blue-900/50 rounded-lg`}>
+              <Anchor className="w-6 h-6 text-blue-400" />
             </div>
             <div>
               <h1 className="text-xl font-semibold">
@@ -595,7 +591,7 @@ export function BarinmaModule({
               <select
                 value={formData.currency}
                 onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                className={`flex h-9 w-full rounded-md border ${borderColor} ${bgColor} px-3 py-1 text-sm`}
+                className="flex h-9 w-full rounded-md border border-gray-700 bg-gray-800/50 text-white px-3 py-1 text-sm"
               >
                 <option value="TRY">TRY</option>
                 <option value="USD">USD</option>
@@ -619,7 +615,7 @@ export function BarinmaModule({
             <select
               value={formData.billing_period}
               onChange={(e) => setFormData({ ...formData, billing_period: e.target.value })}
-              className={`flex h-9 w-full rounded-md border ${borderColor} ${bgColor} px-3 py-1 text-sm`}
+              className="flex h-9 w-full rounded-md border border-gray-700 bg-gray-800/50 text-white px-3 py-1 text-sm"
             >
               <option value="MONTHLY">Aylık</option>
               <option value="QUARTERLY">3 Aylık</option>
