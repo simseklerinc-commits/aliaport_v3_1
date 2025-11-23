@@ -10,6 +10,7 @@ from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 from datetime import datetime
 import json
 from typing import Any, Dict
+from aliaport_api.modules.audit.utils import persist_business_event  # DB persistence for audit
 
 
 class JSONFormatter(logging.Formatter):
@@ -299,6 +300,18 @@ def log_business_event(
         extra["user_id"] = user_id
     
     audit_logger.info(description, extra=extra)
+    # Persist to database audit table (safe-fail)
+    try:
+        persist_business_event(
+            event_type=event_type,
+            description=description,
+            user_id=user_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            details=details,
+        )
+    except Exception:
+        pass
 
 
 def log_error(

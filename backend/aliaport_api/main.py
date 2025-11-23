@@ -61,10 +61,13 @@ from .modules.isemri import router as router_isemri
 from .modules.saha import router as router_saha
 from .modules.guvenlik import router as router_guvenlik
 from .modules.auth import auth_router  # FAZ 4: Authentication endpoints
+from .modules.audit.router import router as audit_router
 
 # Middleware
 from .middleware.request_logging import RequestLoggingMiddleware
 from .middleware.error_handler import global_exception_handler
+from .modules.audit.utils import persist_audit_event
+import time
 
 app = FastAPI(title="Aliaport v3.1 - Liman Yönetim Sistemi", version="3.1.0")
 
@@ -94,6 +97,19 @@ app.add_exception_handler(Exception, global_exception_handler)
 
 # Request logging middleware (her request için timing ve ID)
 app.add_middleware(RequestLoggingMiddleware)
+
+# Audit middleware (her HTTP isteğini DB'ye yazar)
+@app.middleware("http")
+async def audit_middleware(request: Request, call_next):
+    start = time.monotonic()
+    response = await call_next(request)
+    duration_ms = int((time.monotonic() - start) * 1000)
+    # Persist audit (non-blocking, safe-fail)
+    try:
+        persist_audit_event(request, response, duration_ms)
+    except Exception:
+        pass
+    return response
 
 # CORS middleware - Frontend'in backend'e erişmesi için
 ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",")
@@ -171,6 +187,7 @@ atexit.register(lambda: scheduler.shutdown())
 
 # Router'ları ekle
 app.include_router(auth_router)  # FAZ 4: /auth endpoints (login, logout, refresh, users)
+app.include_router(audit_router)  # Register audit router
 app.include_router(router_cari)
 app.include_router(router_motorbot)  # içinde /sefer endpoints var
 # app.include_router(router_mbtrip)  # motorbot içinde
