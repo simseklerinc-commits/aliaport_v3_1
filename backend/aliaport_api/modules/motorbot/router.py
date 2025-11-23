@@ -2,7 +2,7 @@
 # motorbot.py
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload, joinedload
 
 from ...config.database import get_db
 from ...core import (
@@ -33,8 +33,10 @@ def list_motorbotlar(
         PaginatedResponse with motorbot list
     """
     try:
-        # Base query
-        query = db.query(Motorbot)
+        # Base query with eager loading (N+1 prevention)
+        query = db.query(Motorbot).options(
+            selectinload(Motorbot.trips)
+        )
         
         # Search filter
         if search:
@@ -81,7 +83,11 @@ def get_motorbot(motorbot_id: int, db: Session = Depends(get_db)):
     Returns:
         StandardResponse with motorbot data
     """
-    obj = db.get(Motorbot, motorbot_id)
+    # Eager loading ile N+1 problem çözümü (1 query with JOIN)
+    obj = db.query(Motorbot).options(
+        joinedload(Motorbot.trips)
+    ).filter(Motorbot.Id == motorbot_id).first()
+    
     if not obj:
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.MOTORBOT_NOT_FOUND),
@@ -259,8 +265,10 @@ def list_trips(
         PaginatedResponse with trip list
     """
     try:
-        # Base query
-        query = db.query(MbTrip)
+        # Base query with eager loading (N+1 prevention for motorbot relation)
+        query = db.query(MbTrip).options(
+            joinedload(MbTrip.motorbot)
+        )
         
         # MB filter
         if mb_kod:
@@ -306,7 +314,11 @@ def get_trip(trip_id: int, db: Session = Depends(get_db)):
     Returns:
         StandardResponse with trip data
     """
-    obj = db.get(MbTrip, trip_id)
+    # Eager loading ile N+1 problem çözümü (1 query with JOIN)
+    obj = db.query(MbTrip).options(
+        joinedload(MbTrip.motorbot)
+    ).filter(MbTrip.Id == trip_id).first()
+    
     if not obj:
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.SEFER_NOT_FOUND),

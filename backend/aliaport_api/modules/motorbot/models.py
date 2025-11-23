@@ -39,7 +39,12 @@ class Motorbot(Base):
     UpdatedAt = Column(DateTime, onupdate=func.now())
     UpdatedBy = Column(Integer, nullable=True)
 
-    trips = relationship("MbTrip", back_populates="motorbot")
+    # İlişkiler (lazy="raise" prevents accidental N+1 queries)
+    trips = relationship(
+        "MbTrip",
+        back_populates="motorbot",
+        lazy="raise"  # Forces explicit eager loading (dev safety)
+    )
 
 
 class MbTrip(Base):
@@ -70,4 +75,9 @@ class MbTrip(Base):
     UpdatedAt = Column(DateTime, onupdate=func.now())
     UpdatedBy = Column(Integer, nullable=True)
 
-    motorbot = relationship("Motorbot", back_populates="trips")
+    # İlişkiler (lazy="raise" prevents accidental N+1 queries)
+    motorbot = relationship(
+        "Motorbot",
+        back_populates="trips",
+        lazy="raise"  # Forces explicit eager loading (dev safety)
+    )
