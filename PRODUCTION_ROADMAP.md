@@ -976,7 +976,7 @@ Shared validation schemas (cari, iş emri, hizmet vs.)
 - [ ] Gelişmiş Formlar
   - [x] WorkOrderForm (create + basic fields + Zod schema) ✅ Tamamlandı (23 Kasım 2025)
   - [x] MotorbotTripForm (MbTrip create + zaman validasyonu) ✅ Tamamlandı (23 Kasım 2025)
-  - [ ] PriceListItemInlineForm (inline edit + optimistic update)
+  - [x] PriceListItemInlineForm (inline edit + optimistic update) ✅ Tamamlandı (23 Kasım 2025)
 - [ ] Icon/SVG sprite pipeline (build-time optimizasyon + tek HTTP isteği)
 - [ ] Tema dokümantasyonu (dark/light varyant rehberi + contrast matrisi)
 - [ ] Erişilebilirlik (WCAG 2.1 AA) hızlı tarama: odak halkası, aria-label, renk kontrastları
