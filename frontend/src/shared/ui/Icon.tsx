@@ -4,10 +4,10 @@
  * Kullanım: <Icon name="add" /> => <use href="#icon-add" />
  * Props: size (tailwind w/h), className ekleri, title içerik (erişilebilirlik).
  */
-import React from 'react';
+import { IconName } from './icon-names';
 
 interface IconProps {
-  name: string; // ikon adı (sprite içinde id "icon-[name]")
+  name: IconName; // ikon adı (type-safe, auto-generated)
   size?: number; // px (default 20)
   className?: string;
   title?: string; // erişilebilir başlık (decorative=false ise kullanılır)

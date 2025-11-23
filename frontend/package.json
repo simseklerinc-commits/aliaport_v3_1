@@ -66,7 +66,9 @@
       },
       "scripts": {
             "dev": "vite",
-            "prebuild": "node scripts/build-svg-sprite.js",
-            "build": "vite build"
+            "build:icons": "node scripts/build-icons.js",
+            "prebuild": "npm run build:icons",
+            "build": "vite build",
+            "predev": "npm run build:icons"
       }
 }
