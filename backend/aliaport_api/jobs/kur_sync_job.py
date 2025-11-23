@@ -47,28 +47,14 @@ async def kur_guncelleme_job():
             logger.warning(f"⚠️  TCMB API failed: {tcmb_error}, EVDS fallback deneniyor...")
             
             # Fallback to EVDS
-            try:
-                evds_api_key = os.getenv("EVDS_API_KEY")
-                if evds_api_key:
-                    evds_client = EVDSClient(api_key=evds_api_key)
-                    kurlar = evds_client.get_daily_rates()
-                    logger.info(f"✅ EVDS'den {len(kurlar)} kur alındı (fallback)")
-                else:
-                    logger.warning("⚠️ EVDS_API_KEY yok, mock data kullanılıyor (development)")
-                    # Mock data (development/testing için)
-                    kurlar = [
-                        {"doviz_kodu": "USD", "alis": 34.20, "satis": 34.30, "efektif_alis": 34.15, "efektif_satis": 34.35},
-                        {"doviz_kodu": "EUR", "alis": 37.40, "satis": 37.50, "efektif_alis": 37.35, "efektif_satis": 37.55},
-                        {"doviz_kodu": "GBP", "alis": 43.20, "satis": 43.30, "efektif_alis": 43.15, "efektif_satis": 43.35}
-                    ]
-            except Exception as evds_error:
-                logger.warning(f"⚠️ EVDS de başarısız: {evds_error}, mock data kullanılıyor")
-                # Mock data (development/testing için)
-                kurlar = [
-                    {"doviz_kodu": "USD", "alis": 34.20, "satis": 34.30, "efektif_alis": 34.15, "efektif_satis": 34.35},
-                    {"doviz_kodu": "EUR", "alis": 37.40, "satis": 37.50, "efektif_alis": 37.35, "efektif_satis": 37.55},
-                    {"doviz_kodu": "GBP", "alis": 43.20, "satis": 43.30, "efektif_alis": 43.15, "efektif_satis": 43.35}
-                ]
+            evds_api_key = os.getenv("EVDS_API_KEY")
+            if not evds_api_key:
+                logger.error("❌ EVDS_API_KEY environment variable tanımlı değil")
+                raise Exception("TCMB başarısız ve EVDS_API_KEY yok, kur güncellenemedi")
+            
+            evds_client = EVDSClient(api_key=evds_api_key)
+            kurlar = evds_client.get_daily_rates()
+            logger.info(f"✅ EVDS'den {len(kurlar)} kur alındı (fallback)")
         
         if not kurlar:
             raise Exception("TCMB ve EVDS API'lerinden kur alınamadı")
