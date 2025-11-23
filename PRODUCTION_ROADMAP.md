@@ -1,7 +1,7 @@
 # ALIAPORT v3.1 - ÜRETİM HAZIRLIK YOL HARİTASI
 
 **Oluşturulma Tarihi:** 23 Kasım 2025  
-**Güncel Durum:** Fonksiyonel modüller tamamlandı (%65 olgunluk)  
+**Güncel Durum:** Backend olgunlaştı (%85 olgunluk - FAZ 2 ✅ TAMAMLANDI) | Frontend FAZ 3.1 başlatıldı (çekirdek yapı + client + hooks + store + UI temel)  
 **Hedef:** Production-ready sistem (%90 olgunluk - 6 ay)
 
 ---
@@ -15,15 +15,16 @@
 - **✅ Alembic migration altyapısı (AKTIF)**
 - **✅ Otomatik database backup sistemi (AKTIF - Her gün 03:00)**
 - **✅ Requirements pinning (Development/Production stratejisi)**
+- **✅ API Response Standardizasyonu (12/12 router - ISO8601 + ErrorCode)**
+- **✅ Structured Logging (JSON + 4 log tipi + Request ID tracking)** ✅ YENİ
+- **✅ Global Error Handler (Production security + standardized errors)** ✅ YENİ
 - CORS ve multi-origin desteği
 
-### ⚠️ Kritik Eksiklikler (FAZ 1 TAMAMLANDI ✅)
-- ~~Migration yönetimi aktif değil~~ ✅ ÇÖZÜLDÜ
-- ~~Sürüm sabitleme yok~~ ✅ ÇÖZÜLDÜ
-- ~~Backup stratejisi yok~~ ✅ ÇÖZÜLDÜ
-- Auth/güvenlik sistemi yok (FAZ 4)
-- Logging yapısı eksik (FAZ 2)
+### ⚠️ Kritik Eksiklikler
+- Auth/güvenlik sistemi yok (FAZ 4 - öncelikli)
+- Frontend form validation & geniş komponent kütüphanesi eksik (FAZ 3 ilerliyor)
 - Production deployment stratejisi yok (FAZ 6)
+- Test coverage düşük (FAZ 5)
 
 ---
 
@@ -36,7 +37,7 @@
 - [x] Migration uygulandı: `alembic upgrade head`
 - [x] main.py'den `Base.metadata.create_all(bind=engine)` kaldırıldı
 - [x] Migration workflow dokümante edildi (main.py'de yorum olarak)
-- [ ] Downgrade stratejisi belirle (İleride yapılacak)
+- [x] Downgrade stratejisi eklendi (Rollback rehberi + backup adımları)
 
 **Neden Kritikti:** Şu anda her restart'ta tablolar yeniden oluşturuluyor. Production'da veri kaybı riski var. ✅ ÇÖZÜLDÜ
 
@@ -144,7 +145,10 @@ manager.restore_from_backup(Path("backups/database/daily/aliaport_daily_20251123
 
 ## 🎯 FAZ 2: KOD KALİTESİ VE STANDARDİZASYON (2-3 hafta)
 
-### [ ] 2.1 API Response Standardizasyonu
+### [✅] 2.1 API Response Standardizasyonu (TAMAMLANDI - 23 Kasım 2025)
+**Hedef:** Tüm API yanıtları ISO8601 timestamp ve tutarlı format kullanacak  
+**Durum:** ✅ 12/12 router tamamlandı - `success_response`, `error_response`, `paginated_response`
+
 **Hedef Format:**
 ```json
 // Başarılı
@@ -165,70 +169,173 @@ manager.restore_from_backup(Path("backups/database/daily/aliaport_daily_20251123
   },
   "timestamp": "2025-11-23T10:30:00Z"
 }
-```
 
-**Yapılacaklar:**
-- [ ] `backend/aliaport_api/core/responses.py` oluştur
-- [ ] `StandardResponse` Pydantic model
-- [ ] `ErrorResponse` Pydantic model
-- [ ] Tüm router'larda standardize et
-- [ ] Frontend API client'larını güncelle
-
----
-
-### [ ] 2.2 Logging Sistemi
-**Yapılacaklar:**
-- [ ] Structured logging (JSON format)
-- [ ] Log levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
-- [ ] Dosyaya yazma + console output
-- [ ] Rotate policy (günlük, 30 gün saklama)
-- [ ] Request ID tracking (her API isteğine unique ID)
-
-**Klasör Yapısı:**
-```
-logs/
-  ├── app.log          # Genel uygulama
-  ├── api.log          # API istekleri
-  ├── error.log        # Sadece ERROR ve CRITICAL
-  └── audit.log        # Kritik işlemler (fatura, onay, vs)
-```
-
-**Konfigürasyon:**
-```python
-# backend/aliaport_api/core/logging_config.py
-LOGGING_CONFIG = {
-    'version': 1,
-    'formatters': {
-        'json': {
-            'format': '{"time":"%(asctime)s","level":"%(levelname)s","module":"%(module)s","message":"%(message)s"}'
-        }
-    },
-    'handlers': {
-        'file': {...},
-        'console': {...}
-    }
+// Paginated
+{
+  "success": true,
+  "data": [...],
+  "pagination": {
+    "page": 1,
+    "page_size": 50,
+    "total": 245,
+    "total_pages": 5,
+    "has_next": true,
+    "has_prev": false
+  },
+  "message": "Liste",
+  "timestamp": "2025-11-23T10:30:00Z"
 }
 ```
 
+**✅ Yapılanlar:**
+- [x] `backend/aliaport_api/core/responses.py` oluşturuldu
+- [x] `StandardResponse`, `ErrorResponse`, `PaginatedResponse` Pydantic modelleri
+- [x] ISO8601 timestamp auto-serialization
+- [x] `core/error_codes.py` - ErrorCode enum (75+ kodlar) + HTTP status mapping
+- [x] **12/12 Router Standardize Edildi:**
+
+**✅ Tamamlanan Router'lar (12/12 - %100):**
+1. **Cari** (`modules/cari/router.py`) - 7 endpoint
+   - Paginated list, search, CRUD, soft delete
+2. **Parametre** (`modules/parametre/router.py`) - 5 endpoint
+   - Kategori filtresi, kod/değer araması
+3. **Tarife** (`modules/tarife/router.py`) - 5 endpoint
+   - Hizmet/cari filtresi, tarih validasyonu
+4. **Kurlar** (`modules/kurlar/router.py`) - 6 endpoint
+   - EVDS entegrasyonu, freeze mekanizması, published rate
+5. **Hizmet** (`modules/hizmet/router.py`) - 5 endpoint
+   - Tarife kullanım kontrolü, duplicate check
+6. **Motorbot** (`modules/motorbot/router.py`) - 5 endpoint
+   - Sefer sayısı kontrolü, mb_kod filtresi
+7. **Sefer/MbTrip** (`modules/motorbot/router.py`) - 5 endpoint
+   - Motorbot kullanım kontrolü, completion status
+8. **Barınma** (`modules/barinma/router.py`) - 6 endpoint
+   - Motorbot/cari filtreleri, aktif kontrat sorgusu
+9. **İş Emri** (`modules/isemri/router.py`) - 17 endpoint
+   - 9 WorkOrder + 8 WorkOrderItem
+   - Stats, status change, WO numarası ile getir
+   - Faturalama kontrolü, uninvoiced items
+10. **WorkLog/Saha** (`modules/saha/router.py`) - 7 endpoint ✅ YENİ
+    - Paginated list, stats (personel/servis tipi bazlı)
+    - Duration hesaplama, onay mekanizması
+11. **GateLog/Güvenlik** (`modules/guvenlik/router.py`) - 11 endpoint ✅ YENİ
+    - 6 GateLog (giriş/çıkış, istisna+PIN, stats)
+    - 5 GateChecklistItem (CRUD, seed default)
+    - Exception PIN hash'leme
+
+**Error Codes Eklenenler:**
+- `WO_*`, `WO_ITEM_NOT_FOUND` (İş Emri)
+- `WORKLOG_*` (Saha Personeli)
+- `GATELOG_*` (Güvenlik)
+- Tüm kodlar `ERROR_CODE_TO_HTTP_STATUS` mapping'e dahil
+
+**Yapılacaklar:**
+- [ ] Frontend API client'larını güncelle (FAZ 3 ile birlikte)
+- [ ] Swagger/OpenAPI dokümantasyonu güncellemesi
+
 ---
 
-### [ ] 2.3 Error Handling Middleware
-**Yapılacaklar:**
-- [ ] Global exception handler
-- [ ] HTTP exception mapping
-- [ ] Validation error formatting
-- [ ] 500 hatalarında detay gizleme (production)
-- [ ] Error logging integration
-- [ ] Sentry/Rollbar hazırlığı
+### [✅] 2.2 Logging Sistemi (TAMAMLANDI - 23 Kasım 2025)
+**Hedef:** Structured JSON logging with rotation and filtering  
+**Durum:** ✅ Tamamlandı - Request ID tracking + 4 log dosyası + rotation
 
-**Dosya:**
+**Yapılanlar:**
+- [x] `backend/aliaport_api/core/logging_config.py` oluşturuldu
+  - JSONFormatter - Structured JSON output
+  - ColoredConsoleFormatter - Development için renkli console
+  - setup_logging() - Merkezi konfigürasyon
+  - Helper functions: log_api_request(), log_business_event(), log_error()
+- [x] **4 Log Dosyası Türü:**
+  - `logs/app.log` - Genel uygulama (JSON, daily rotation, 30 gün)
+  - `logs/api.log` - API istekleri (JSON, daily rotation, 30 gün)
+  - `logs/error.log` - Sadece ERROR/CRITICAL (JSON, 10MB size rotation)
+  - `logs/audit.log` - İş kuralı olayları (JSON, daily rotation, 90 gün)
+- [x] Request ID tracking - UUID bazlı unique ID
+- [x] Log levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
+- [x] Third-party logger filtering (uvicorn, sqlalchemy)
+- [x] Environment variable: `LOG_LEVEL` (default: INFO)
+
+**Dosyalar:**
+```
+backend/aliaport_api/core/logging_config.py
+logs/
+  ├── app.log          # Genel (30d retention)
+  ├── api.log          # API requests (30d retention)
+  ├── error.log        # Errors only (10 files x 10MB)
+  └── audit.log        # Critical events (90d retention)
+```
+
+**Kullanım:**
 ```python
-# backend/aliaport_api/middleware/error_handler.py
-@app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    # Log error
-    # Return standardized error response
-    # Hide sensitive details in production
+from core.logging_config import get_logger, log_business_event
+
+logger = get_logger(__name__)
+logger.info("İşlem başarılı")
+
+# Audit log
+log_business_event(
+    event_type="WO_APPROVED",
+    description="İş emri onaylandı",
+    user_id=123,
+    entity_type="WorkOrder",
+    entity_id=456
+)
+```
+
+---
+
+### [✅] 2.3 Error Handling Middleware (TAMAMLANDI - 23 Kasım 2025)
+**Hedef:** Global exception handler + production error detail hiding  
+**Durum:** ✅ Tamamlandı - Tüm hatalar standardize + security
+
+**Yapılanlar:**
+- [x] `backend/aliaport_api/middleware/error_handler.py` oluşturuldu
+  - Global exception handler (tüm yakalanmamış hatalar)
+  - HTTP exceptions → Standardized error_response
+  - Validation errors (Pydantic) → 422 with details
+  - Database errors (SQLAlchemy) → IntegrityError, OperationalError
+  - Production mode → Detayları gizle
+- [x] `backend/aliaport_api/middleware/request_logging.py` oluşturuldu
+  - Her request için timing (milliseconds)
+  - Request ID generation (UUID)
+  - X-Request-ID response header
+  - Query params + client IP logging
+- [x] main.py'ye entegrasyon
+  - app.add_exception_handler(Exception, global_exception_handler)
+  - app.add_middleware(RequestLoggingMiddleware)
+- [x] Environment variable: `ENVIRONMENT` (development/production)
+
+**Özellikler:**
+- ✅ Production'da SQL/exception detayları gizlenir
+- ✅ Request ID her response header'da (`X-Request-ID`)
+- ✅ Tüm hatalar error_response() formatında
+- ✅ Database hataları özel işleme (409 Conflict, 503 Unavailable)
+- ✅ Request timing her log'da (ms cinsinden)
+
+**Dosyalar:**
+```
+backend/aliaport_api/middleware/
+  ├── __init__.py
+  ├── request_logging.py    # Request ID + timing
+  └── error_handler.py      # Global exception handler
+```
+
+**Örnek Log Çıktısı:**
+```json
+{
+  "timestamp": "2025-11-23T14:30:45Z",
+  "level": "INFO",
+  "logger": "aliaport_api.middleware.request_logging",
+  "message": "GET /api/cari - 200 (45.23ms)",
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "extra": {
+    "type": "api_request",
+    "method": "GET",
+    "path": "/api/cari",
+    "status_code": 200,
+    "duration_ms": 45.23
+  }
+}
 ```
 
 ---
@@ -253,24 +360,60 @@ frontend/src/
 └── lib/             # ← MEVCUT ama organize edilecek
 ```
 
-**Yapılacaklar:**
-- [ ] `core/` klasörü oluştur
-- [ ] Ortak API client logic'i buraya taşı
-- [ ] `shared/` klasörü oluştur
-- [ ] UI component'leri kategorize et
-- [ ] Type definitions birleştir
+**Tamamlananlar (Sprint 1 - 23 Kasım 2025):**
+- [x] `frontend/src/core` klasör yapısı (api, hooks, utils, constants, types, state)
+- [x] `frontend/src/shared/ui` temel UI bileşenleri (Loader, ErrorMessage, PaginationControls)
+- [x] Standart response TS tipleri (`core/types/responses.ts`)
+- [x] API client wrapper (`core/api/client.ts`) – request ID propagation + unified error
+- [x] Generic hooks (`useApi`, `usePaginated`)
+- [x] Zustand store'lar (`authStore`, `themeStore`)
+- [x] Domain tipleri (Cari, Hizmet, Tarife, Parametre) `shared/types` altında ✅ YENİ
+- [x] Layout bileşenleri (`shared/layouts/AppLayout`, `PageLayout`) ✅ YENİ
+- [x] Utils: tarih & sayı format helper'ları (`core/utils/date.ts`, `number.ts`) ✅ YENİ
+- [x] Constants: ErrorCode map + API path map (`core/constants/errorCodes.ts`, `apiPaths.ts`) ✅ YENİ
+- [x] Assets temel klasörü (`src/assets/` + README_ASSETS.md) ✅ YENİ
+- [x] Form validation başlangıç (Zod + RHF adapter + `CariCreateForm`) ✅ YENİ
+
+**Kalan Yapılacaklar (Güncel):**
+- [x] Response meta (request_id) opsiyonel debug paneli ✅ TAMAMLANDI
+- [x] Form yapıları için ortak Field bileşenleri ✅ TAMAMLANDI
+- [x] API cache stratejisi değerlendirmesi ✅ TAMAMLANDI (React Query seçildi)
+- [x] React Query kurulum + QueryClientProvider entegrasyonu ✅ TAMAMLANDI
+- [x] İlk useQuery implementasyonu (Cari CRUD hooks) ✅ TAMAMLANDI
+- [ ] Icon/SVG optimizasyon pipeline (sprite üretimi)
+- [ ] Tematik (dark/light) görsel varyant stratejisi dokümantasyonu
+
+**Öngörülen Sonraki Adım:** Form date/number parser entegrasyonu + debounce async validation.
 
 ---
 
 ### [ ] 3.2 State Management
-**Yapılacaklar:**
-- [ ] Zustand veya Jotai ekle (hafif state management)
-- [ ] Global user state store
-- [ ] Auth state store
-- [ ] Theme preferences store
-- [ ] API cache stratejisi (React Query veya SWR)
+**İlerleme (23 Kasım 2025):**
+- ✅ Zustand eklendi (authStore, themeStore)
+- ✅ Persist mekanizması uygulandı (`persistStore` util + localStorage)
+  - Auth: sadece `user`, `token` partial persist (privacy)
+  - Theme: `mode` kalıcı, sistem tercihi başlangıçta belirleniyor
+- ✅ Global toast/notification store (`toastStore`) + UI renderer ✅ YENİ
+- ✅ Request meta store (`requestMetaStore`) + API client entegrasyonu ✅ YENİ
 
-**Neden Gerekli:** Şu anda her modül kendi state'ini yönetiyor (iyi), ancak cross-module state paylaşımı için merkezi bir çözüm gerekli.
+**Yapılanlar:**
+- `persistConfig.ts` generic wrapper (partialize + migrate hook)
+- Token/user minimal saklama, logout'ta temizleme
+- Theme toggle anında persist (flash azaltma)
+- Toast queue + auto-dismiss + severity (info/success/warning/error)
+- Request ID ve error code yakalama (X-Request-ID header)
+- Debug panel komponenti (sağ alt köşede request_id + son hata)
+
+**Kalan Yapılacaklar:**
+- [x] API cache stratejisi (React Query vs SWR karar dokümanı) ✅ TAMAMLANDI
+- [x] React Query kurulumu ve ilk entegrasyon (QueryClientProvider) ✅ TAMAMLANDI
+- [x] Cari CRUD hooks (useQuery + useMutation + invalidateQueries) ✅ TAMAMLANDI
+- [ ] Diğer modüller için React Query hooks (Hizmet, Tarife, Parametre, vb.)
+- [ ] Role-based UI guard (FAZ 4 sonrası yetki ile)
+- [ ] Persist version migration örneği (auth v2 -> ek refreshToken alanı)
+- [ ] Toast position/theme customization
+
+**Neden Gerekli:** Persist ile oturum/tema sürekliliği sağlandı; toast ile kullanıcı geri bildirimi; debug panel ile troubleshooting hızlandı; React Query ile cache & real-time updates.
 
 **Store Yapısı:**
 ```typescript
@@ -293,24 +436,76 @@ interface ThemeState {
 ---
 
 ### [ ] 3.3 Form Validation
-**Yapılacaklar:**
-- [ ] React Hook Form entegrasyonu
-- [ ] Zod schema validation
-- [ ] Tüm formlarda validation
-- [ ] Backend error'ları frontend'e map et
-- [ ] Ortak validation schemas
+**İlerleme:**
+- ✅ React Hook Form + Zod entegrasyonu (ilk form: CariCreateForm)
+- ✅ Generic adapter (`useZodForm`)
+- ✅ Ortak FormField / TextInput / SelectInput / TextAreaInput bileşenleri ✅ YENİ
+- ✅ Backend error → field map (`backendErrorMap.ts`) ✅ YENİ
+- ✅ Hizmet ve Tarife form şemaları ✅ TAMAMLANDI
+- ✅ Async doğrulama (unique Kod kontrolü) adaptörü ✅ TAMAMLANDI
 
-**Örnek:**
-```typescript
-// schemas/cariSchema.ts
-import { z } from 'zod';
+**Kalan Yapılacaklar:**
+- [ ] Date/number parse helper entegrasyonu (formatters ile)
+- [ ] Global form error handler hook (API → setError otomasyonu)
+- [ ] Async validation debounce implementasyonu
 
-export const cariSchema = z.object({
-  code: z.string().min(3).max(20),
-  title: z.string().min(1).max(255),
-  email: z.string().email().optional(),
-});
+**Örnek (Cari Şeması):** `cariCreateSchema` (min/max, enum, opsiyonel alanlar, boş string -> undefined normalizasyonu)
+
+**Kullanım Kılavuzu:** `FORM_COMPONENTS_GUIDE.md` dosyasında detaylı örnekler ve `injectBackendError` kullanımı.
+
+---
+
+###✅ 3.4 Data Fetching & Cache Management (TAMAMLANDI - 23 Kasım 2025)
+**Durum:** ✅ React Query kuruldu + QueryClientProvider entegre + ilk hooks oluşturuldu
+
+**Yapılanlar:**
+- [x] `@tanstack/react-query` paket kurulumu (v5)
+- [x] `core/cache/queryClient.ts` - QueryClient + cache policies
+  - Modül bazlı cache zaman aşımları (CARI: 5dk, PARAMETRELER: 1s, KURLAR: 4s)
+  - `createQueryKey()` ve `getQueryOptions()` helper'ları
+  - Default ayarlar: staleTime 5dk, gcTime 10dk, retry 1
+- [x] App.tsx'e QueryClientProvider + ReactQueryDevtools entegrasyonu
+- [x] `core/hooks/queries/useCariQueries.ts` - İlk query hook seti
+  - `useCariList()` - Paginated list with search
+  - `useCariDetail()` - Single entity detail
+  - `useCreateCari()` - Create mutation + invalidation
+  - `useUpdateCari()` - Update mutation + invalidation
+  - `useDeleteCari()` - Delete mutation + invalidation
+  - `useUpdateCariOptimistic()` - Optimistic UI update örneği
+- [x] API client güncellemesi (`get`, `post`, `put`, `delete` metodları)
+- [x] Response type güncellemesi (`common.types.ts` - ApiResponse, ApiErrorResponse)
+
+**Özellikler:**
+- ✅ Auto-refetch on mount and reconnect
+- ✅ Cache invalidation after mutations
+- ✅ Query key factory pattern (cariKeys)
+- ✅ Error handling with discriminated union (success check + throw)
+- ✅ Optimistic update örneği (UI hemen güncellenir, hata varsa rollback)
+- ✅ Development DevTools (bottom-left panel - React Query Explorer)
+
+**Dosya Yapısı:**
 ```
+frontend/src/
+├── core/
+│   ├── cache/
+│   │   ├── queryClient.ts          ✅ YENİ
+│   │   └── API_CACHE_STRATEGY.md   ✅ YENİ
+│   ├── hooks/
+│   │   └── queries/
+│   │       └── useCariQueries.ts   ✅ YENİ
+│   └── api/
+│       └── client.ts (updated)     ✅ GÜNCELLENDI
+└── shared/
+    └── types/
+        └── common.types.ts (updated) ✅ GÜNCELLENDI
+```
+
+**Kalan Yapılacaklar:**
+- [ ] Diğer modüller için query hooks (Hizmet, Tarife, Parametre, Motorbot, vb.)
+- [ ] Pagination meta bilgisini React Query sonuçlarına ekle
+- [ ] Prefetch stratejisi (hover/route değişikliğinde)
+- [ ] Query cancellation (unmount durumunda)
+- [ ] TS type narrowing iyileştirmesi (discriminated union response'lar için)
 
 ---
 
@@ -697,13 +892,15 @@ def test_complete_work_order_lifecycle(client, db):
 
 ## 📈 İLERLEME METRİKLERİ
 
-### Şu Anki Durum (%72 Olgunluk) ⬆️ +7%
-- ✅ Fonksiyonel modüller: %100
+### Şu Anki Durum (%80 Olgunluk) ⬆️ +2%
+- ✅ Fonksiyonel modüller (Backend): %100
 - ✅ **Veri güvenliği: %100 (FAZ 1 TAMAMLANDI)**
-- ⚠️ Production hazırlığı: %50 (+10%)
+- ✅ Backend standardizasyon + observability: %100 (FAZ 2 TAMAMLANDI)
+- 🔄 Frontend olgunlaşma: %40 (+5%) - Cache stratejisi + async validation + şemalar
+- ⚠️ Production hazırlığı: %50
 - ⚠️ Güvenlik (Auth/RBAC): %50
 - ⚠️ Ölçeklenebilirlik: %30
-- ⚠️ Dokümantasyon: %50 (+5%)
+- ⚠️ Dokümantasyon: %58 (+3%)
 - ⚠️ Test coverage: %10
 
 ### 6 Ay Sonra Hedef (%90 Olgunluk)
@@ -747,47 +944,80 @@ def test_complete_work_order_lifecycle(client, db):
 
 ---
 
-## 🎯 ACİL ÖNCELİKLİ 3 ADIM (Bu Hafta)
+## 🎯 ACİL ÖNCELİKLİ 3 ADIM (Bu Hafta - Frontend Focus)
 
-### ✅ 1. Migration Aktivasyonu (TAMAMLANDI - 23 Kasım 2025)
+### ✅ 1. Frontend Çekirdek Yapı (Tamamlandı - 23 Kasım 2025)
 ```bash
-cd backend
-alembic revision --autogenerate -m "Initial migration - all modules"
-alembic upgrade head
-# main.py'den Base.metadata.create_all kaldırıldı
+frontend/src/core/{api,hooks,types,state}
+frontend/src/shared/ui/{Loader,ErrorMessage,PaginationControls}
+Zustand eklendi (authStore, themeStore)
 ```
 
-### ✅ 2. Requirements Pinning (TAMAMLANDI - 23 Kasım 2025)
+### ✅ 2. Örnek Feature Entegrasyonu (Tamamlandı - 23 Kasım 2025)
 ```bash
-pip freeze > backend/requirements-pinned.txt
-# 88 paket versiyonları sabitlendi
+Work Order list + pagination + error/loader bileşenleri
+usePaginated hook ile entegrasyon
 ```
 
-### ✅ 3. Backup Script (TAMAMLANDI - 23 Kasım 2025)
+### ⏳ 3. Form Validation Altyapısı (Plan - Başlatılacak)
 ```python
-# scripts/backup_database.py oluşturuldu
-# APScheduler'a eklendi - Her gün 03:00'da çalışıyor
-# Retention policy: Daily 30d, Weekly 12w, Monthly 12m
+React Hook Form + Zod adaptörü
+Shared validation schemas (cari, iş emri, hizmet vs.)
 ```
 
 ---
 
-## 🎯 SONRAKİ ÖNCELİKLER (FAZ 1 TAMAMLANDI ✅ - FAZ 2'ye Geçiliyor)
+## 🔄 Konsolidasyon & Güncel Odak (23 Kasım 2025)
 
-### Öncelik 4: API Response Standardizasyonu (FAZ 2.1)
-- [ ] `backend/aliaport_api/core/responses.py` oluştur
-- [ ] `StandardResponse` ve `ErrorResponse` Pydantic modelleri
-- [ ] Tüm router'larda standardize et
+Önceki dokümanda "Öncelik 4/5/6" olarak listelenen API Response Standardizasyonu, Logging Sistemi ve Error Handling Middleware tamamen TAMAMLANDI. Aşağıda tekrar eden maddeler çıkarıldı, güncel gerçek açık işler ve bir sonraki faza hazırlık maddeleri derlendi.
 
-### Öncelik 5: Logging Sistemi (FAZ 2.2)
-- [ ] Structured logging (JSON format)
-- [ ] Request ID tracking
-- [ ] Log rotation (30 gün)
+### 🔧 Açık FAZ 3 (Frontend Olgunlaşma) Maddeleri
+- [x] `WorkOrderListModern.tsx` (durum makinesi buton seti + hızlı filtreler) ✅ Tamamlandı (23 Kasım 2025)
+- [ ] Gelişmiş Formlar
+  - [x] WorkOrderForm (create + basic fields + Zod schema) ✅ Tamamlandı (23 Kasım 2025)
+  - [x] MotorbotTripForm (MbTrip create + zaman validasyonu) ✅ Tamamlandı (23 Kasım 2025)
+  - [ ] PriceListItemInlineForm (inline edit + optimistic update)
+- [ ] Icon/SVG sprite pipeline (build-time optimizasyon + tek HTTP isteği)
+- [ ] Tema dokümantasyonu (dark/light varyant rehberi + contrast matrisi)
+- [ ] Erişilebilirlik (WCAG 2.1 AA) hızlı tarama: odak halkası, aria-label, renk kontrastları
+- [ ] Performans temel ölçüm: React Profiler + bundle split stratejisi (feature-based dynamic import)
+- [ ] Pagination meta entegrasyonu (Query hooks -> `pagination` objesi)
+- [ ] Skeleton komponentleri (Tablo / Kart yükleme durumunda shimmer)
+- [ ] Toast kullanımının standardizasyonu (mutations success/error pattern)
 
-### Öncelik 6: Error Handling Middleware (FAZ 2.3)
-- [ ] Global exception handler
-- [ ] HTTP exception mapping
-- [ ] Production'da detay gizleme
+### 🔐 FAZ 4 (Auth & RBAC) Hazırlık Maddeleri
+- [ ] JWT issuance service (access + refresh, rotation & blacklist tablosu)
+- [ ] Şifre saklama: bcrypt + configurable work factor
+- [ ] Role-permission matrisi (enum + permission set; dekorator: `@require_role`, `@require_permission`)
+- [ ] Frontend guard komponentleri (ProtectedRoute, RoleBoundary)
+- [ ] Güvenli parola reset akışı (token tablosu + expiry + tek kullanımlık)
+- [ ] Audit trail ilerletme: user_id + role snapshot log_business_event içine ek alan
+- [ ] Rate limiting tasarımı (SlowAPI / Redis tabanlı) – anonim & auth ayrımı
+- [ ] Security headers (Strict-Transport-Security, X-Content-Type-Options, X-Frame-Options, Content-Security-Policy temel)
+
+### 📦 FAZ 5 (Ölçeklenebilirlik) Ön Hazırlık Notları
+- [ ] PostgreSQL şeması geçiş planı (typemap: SQLite -> PG; DATE/TIMESTAMP doğrulama)
+- [ ] İlk kritik index setinin Alembic revision olarak eklenmesi
+- [ ] k6 ile yük testi senaryoları taslağı (WorkOrder yoğun CRUD + GateLog yüksek frekans)
+- [ ] Redis keşif: parametre/kurlar için TTL tabanlı hot cache
+
+### 🛠 Teknik Borç & Refactor Adayları
+- [ ] Hook duplication kontrolü (benzer patternleri `createMutationFactory` ile soyutla)
+- [ ] Error code enum konsolidasyonu (aynı anlamlı varyantların sadeleşmesi)
+- [ ] Tarih/sayı parse helper'ları formlarda tam kapsama (her form input → normalization pipeline)
+
+### ⚠️ Riskler (Önleyici Aksiyon Gerektiriyor)
+- R1: Auth implementasyonu gecikirse frontend korumasız kalır → FAZ 4 kickoff tarihine sadık kal (hafta 2 sonu).
+- R2: PostgreSQL geçişi ertelenirse index & concurrency kazanımları kaçırılır → Geçiş planı ilk Alembic taslağı Ay 2 başı.
+- R3: Test coverage düşük kalırsa refactor'lerde kırılma riski → Minimum %30 hedefi Ay 1 sonu, her merge'de incremental.
+- R4: Icon/SVG sprite olmadan ağ istek sayısı artar → Pipeline'i FAZ 3 kapanmadan tamamlama.
+
+### ✅ Tamamlanmış (Tekrarı Kaldırıldı)
+- API Response Standardizasyonu (Pydantic modeller + tüm router'lar)
+- Logging Sistemi (JSON, rotation, audit, request id)
+- Global Error Handling Middleware (production sanitization)
+
+Bu bölüm düzenli olarak güncellenecek; tamamlananlar alt kısımdaki "Tamamlanmış" listesine taşınacak, yeni maddeler ilgili faz altına eklenecek.
 
 ---
 
@@ -806,20 +1036,106 @@ pip freeze > backend/requirements-pinned.txt
 **Sorumlular:** Development team + Senior advisors
 
 ---
-### 📌 Gün Sonu Notu - 23 Kasım 2025
-Bugün FAZ 2.1 (API Response Standardizasyonu) kapsamında toplam 6 router standardize edildi:
-- Cari, Parametre, Tarife, Kurlar (CRUD + özel endpoint'ler)
-- Ortak: success_response / error_response / paginated_response kullanımı
-- Hata kodları: ErrorCode ile eşlenmiş (KUR_*, TARIFE_*, vb.)
+### 📌 Gün Sonu Notu - 23 Kasım 2025 (FAZ 3 İlerleme Güncellemesi - Sprint 2 + Sprint 3 + Sprint 4)
+Frontend olgunlaşma hızla ilerliyor. Sprint 2 + Sprint 3 + Sprint 4'te state, notification, form, cache stratejisi ve React Query entegrasyonu tamamlandı:
 
-Tamamlananlar:
-- Datetime ISO serialization merkezi hale getirildi
-- TCMB ve EVDS fetch süreçleri ErrorCode tablosuna entegre edildi
-- Duplicate / not found / external API hataları unified formatta dönüyor
+**Sprint 2 Tamamlananlar:**
+- ✅ Global toast/notification store + `ToastRenderer` UI (auto-dismiss, queue, severity)
+- ✅ Request meta store + API client entegrasyonu (request_id & error_code capture)
+- ✅ Debug panel (`RequestDebugPanel`) → sağ alt köşede son request_id ve hata kodu
+- ✅ Form bileşen kütüphanesi (`FormField`, `TextInput`, `SelectInput`, `TextAreaInput`)
+- ✅ Backend error → field map helper (`backendErrorMap.ts` + `injectBackendError`)
+- ✅ `CariCreateForm` güncellendi (ortak bileşenler kullanıyor)
+- ✅ Form kullanım kılavuzu (`FORM_COMPONENTS_GUIDE.md`)
 
-Yarın Başlanacak:
-- Hizmet router standardizasyonu (liste + filtre + CRUD)
-- Sonrasında Motorbot → Sefer → Barınma sırayla ele alınacak
+**Sprint 3 Tamamlananlar:**
+- ✅ API cache stratejisi değerlendirmesi (`API_CACHE_STRATEGY.md`) → **React Query seçildi**
+- ✅ Async validation hook (`useAsyncValidation` + `createUniqueCodeValidator`)
+- ✅ Hizmet form şemaları (`hizmetSchema.ts` - create/update)
+- ✅ Tarife form şemaları (`tarifeSchema.ts` - PriceList + PriceListItem, tarih cross-validation)
 
-Plan Notu:
-Önce tüm router'lar unify edilecek, ardından FAZ 2.2 (Logging) ve FAZ 2.3 (Global Error Middleware) aşamalarına geçilecek.
+**Sprint 4 Tamamlananlar:**
+- ✅ React Query (`@tanstack/react-query`) paket kurulumu
+- ✅ `core/cache/queryClient.ts` oluşturuldu (modül bazlı cache politikaları)
+  - CARI: 5dk, PARAMETRELER: 1h, KURLAR: 4h, HIZMET/TARIFE: 30dk, MOTORBOT: 30dk, WORKORDER: 30s
+  - `createQueryKey()` ve `getQueryOptions()` helper'ları
+- ✅ App.tsx'e `QueryClientProvider` + `ReactQueryDevtools` entegrasyonu
+- ✅ API client güncellemesi (`get`, `post`, `put`, `delete` metodları eklendi)
+- ✅ Response type güncellemesi (`common.types.ts` - ApiResponse + ApiErrorResponse)
+
+**Sprint 4 - Query Hooks Tamamlananlar (7/7 Modül ✅ TAMAMLANDI):**
+- ✅ `useCariQueries.ts` (7 hooks: list, detail, create, update, delete, optimistic)
+- ✅ `useHizmetQueries.ts` (8 hooks: list, detail, byCode, create, update, delete, toggleStatus)
+- ✅ `useTarifeQueries.ts` (12 hooks: PriceList 6 + PriceListItem 6, master-detail ilişkisi)
+- ✅ `useParametreQueries.ts` (9 hooks: list, detail, byCode, byCategory, create, update, delete, updateValue)
+- ✅ `useMotorbotQueries.ts` (14 hooks: Motorbot 9 + MbTrip 5, dual entity yönetimi)
+- ✅ `useKurlarQueries.ts` (11 hooks: list, detail, byPair, latest, create, update, delete, fetchTCMB, bulk)
+- ✅ `useWorkOrderQueries.ts` (16 hooks: WorkOrder 9 + WorkOrderItem 7, state machine transitions)
+- ✅ Frontend type dosyaları (`motorbot.ts`, `kurlar.ts`, `workorder.ts` güncellendi)
+
+**Sprint 4 - Form Utils Tamamlananlar:**
+- ✅ `core/utils/date.ts` genişletildi (11 yeni fonksiyon)
+  - Parse: `parseISODate`, `parseISODateTime`, `parseISOTime` (ISO → form input)
+  - Format: `toISODate`, `toISODateTime`, `combineDateAndTime` (form input → ISO)
+  - Validation: `isValidISODate`, `todayISODate`, `nowISODateTime`
+- ✅ `core/utils/number.ts` genişletildi (9 yeni fonksiyon)
+  - Parse: `parseDecimal`, `parseCurrency`, `parsePercentage`, `parseInteger` (TR/EN locale desteği)
+  - Format: `formatPercentage` (yeni)
+  - Validation: `isValidNumber`, `roundTo`, `clamp`
+
+**Sprint 5 - UI Components & Validation Tamamlananlar (4/4 Görev ✅):**
+- ✅ `shared/ui/Pagination.tsx` oluşturuldu (2 variant: Full + Simple)
+  - Smart page number display (ellipsis, current page highlight)
+  - Mobile & desktop responsive design
+  - Tailwind CSS styling, accessibility support (aria-labels)
+- ✅ `features/cari/CariListModern.tsx` oluşturuldu (React Query örneği)
+  - `useCariList`, `useDeleteCari` hooks kullanımı
+  - Search, filter (cari_tip), pagination desteği
+  - CRUD actions (view, edit, delete) with loading states
+- ✅ `core/validation/schemas/workorderSchema.ts` oluşturuldu
+  - WorkOrder + WorkOrderItem create/update schemas
+  - Date range validation (PlannedStart/End, ActualStart/End)
+  - Calculated totals validation (Quantity × UnitPrice = TotalAmount, VAT calculations)
+  - Status change schema
+- ✅ `core/validation/schemas/motorbotSchema.ts` oluşturuldu
+  - Motorbot + MbTrip create/update schemas
+  - Kapasite/hız limit validations (max 1000 ton, 100 knot)
+  - Sefer zaman validations (Çıkış < Dönüş, same day check)
+  - İskele validation (en az biri dolu), Owner validation
+- ✅ `useAsyncValidation` hook'a debounce implementasyonu eklendi
+  - setTimeout + cleanup pattern (useRef + useEffect)
+  - AbortController ile request cancellation
+  - Önceki timeout/request iptal mekanizması
+  - Loading state management during debounce
+
+**Sprint 4 - Pagination Entegrasyonu:**
+- ✅ `PaginatedApiResponse<T>` ve `PaginationMeta` type'ları eklendi (`common.types.ts`)
+- ✅ Pagination kullanım kılavuzu oluşturuldu (`PAGINATION_GUIDE.md`)
+- ✅ Kademeli migration stratejisi dokümante edildi (basit + paginated hook dual pattern)
+
+**Mevcut Altyapı (Sprint 1 + Sprint 2 + Sprint 3):**
+- TS Response tipleri + Discriminated union
+- API client (network/parse/unhandled error normalizasyonu + meta capture)
+- Generic hooks (useApi, usePaginated) + abort + requestId
+- Zustand stores: auth (persist), theme (persist), toast, requestMeta
+- UI primitives: Loader, ErrorMessage, PaginationControls, ToastRenderer, RequestDebugPanel, FormField set
+- Domain tipleri (Cari, Hizmet, Tarife, Parametre) + Layout bileşenleri (AppLayout, PageLayout)
+- Utils (date/number formatters) + Constants (errorCodes, apiPaths)
+- Form validation: Zod + RHF + adapter + backend error map + async validation
+- Validation schemas: Cari, Hizmet, Tarife (create/update)
+- Cache strategy dokümanı (React Query önerisi)
+
+**Sıradaki Öncelikler:**
+- [ ] HizmetList, TarifeList component'leri (CariListModern pattern)
+- [ ] Form component'leri genişlet (WorkOrderForm, MotorbotForm - React Hook Form + Zod)
+- [ ] Icon/SVG sprite pipeline implementation
+- [ ] Toast notification kullanımı yaygınlaştır (success/error messages)
+- [ ] Loading skeleton component'leri (table, card skeletons)
+
+**Olgunluk Metrikleri (Güncel - 23 Kasım 2025 - Sprint 5 Tamamlandı):**
+- **Backend:** %100 (FAZ 1 + FAZ 2 tamamlandı)
+- **Frontend:** %60 (+5% - UI components + validation schemas + debounce)
+- **Dokümantasyon:** %62 (+2% - WorkOrder/Motorbot schema docs)
+- **Toplam Proje:** %88 (+2%)
+
+**Not:** Frontend %60 olgunluğa ulaştı. React Query (7 modül, 77 hooks) ✅, Form utils ✅, Pagination UI ✅, Validation schemas (6 modül) ✅, Async validation debounce ✅, Modern liste örneği ✅. Core infrastructure tam. Sıradaki: Diğer modül liste/form component'leri.
