@@ -8,12 +8,13 @@ import os
 import pandas as pd
 
 from ...config.database import get_db
+from ...core.responses import success_response, error_response, paginated_response
+from ...core.error_codes import ErrorCode, get_http_status_for_error
 from .models import ExchangeRate as ExchangeRateModel
 from .schemas import (
-    ExchangeRate, 
-    ExchangeRateCreate, 
+    ExchangeRate,
+    ExchangeRateCreate,
     ExchangeRateUpdate,
-    PaginatedExchangeRateResponse,
     BulkExchangeRateRequest,
     FetchTCMBRequest
 )
@@ -21,10 +22,10 @@ from .schemas import (
 router = APIRouter()
 
 # ============================================
-# EXCHANGE RATE ENDPOINTS
+# LIST & QUERY ENDPOINTS
 # ============================================
 
-@router.get("/", response_model=PaginatedExchangeRateResponse)
+@router.get("/")
 def get_exchange_rates(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
@@ -33,113 +34,76 @@ def get_exchange_rates(
     rate_date: Optional[date] = None,
     db: Session = Depends(get_db)
 ):
-    """
-    Döviz kurlarını listele - filtreleme ve pagination
-    """
-    query = db.query(ExchangeRateModel)
-    
-    if currency_from:
-        query = query.filter(ExchangeRateModel.CurrencyFrom == currency_from)
-    
-    if currency_to:
-        query = query.filter(ExchangeRateModel.CurrencyTo == currency_to)
-    
-    if rate_date:
-        query = query.filter(ExchangeRateModel.RateDate == rate_date)
-    
-    # Toplam kayıt sayısı
-    total = query.count()
-    
-    # En yeni tarihler önce gelsin
-    query = query.order_by(ExchangeRateModel.RateDate.desc(), ExchangeRateModel.Id.desc())
-    
-    # Pagination
-    skip = (page - 1) * page_size
-    rates = query.offset(skip).limit(page_size).all()
-    
-    # Total pages hesapla
-    total_pages = (total + page_size - 1) // page_size if total > 0 else 0
-    
-    return PaginatedExchangeRateResponse(
-        items=rates,
-        total=total,
-        page=page,
-        page_size=page_size,
-        total_pages=total_pages
-    )
+    """Kurlar (filtre + pagination)."""
+    try:
+        query = db.query(ExchangeRateModel)
+        if currency_from:
+            query = query.filter(ExchangeRateModel.CurrencyFrom == currency_from)
+        if currency_to:
+            query = query.filter(ExchangeRateModel.CurrencyTo == currency_to)
+        if rate_date:
+            query = query.filter(ExchangeRateModel.RateDate == rate_date)
+        total = query.count()
+        query = query.order_by(ExchangeRateModel.RateDate.desc(), ExchangeRateModel.Id.desc())
+        skip = (page - 1) * page_size
+        items = query.offset(skip).limit(page_size).all()
+        data = [ExchangeRate.model_validate(r).model_dump() for r in items]
+        return paginated_response(data=data, page=page, page_size=page_size, total=total, message="Kurlar listelendi")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=error_response(code=ErrorCode.INTERNAL_SERVER_ERROR, message="Kurlar listelenemedi", details={"error": str(e)}))
 
-@router.get("/today", response_model=List[ExchangeRate])
+
+@router.get("/today")
 def get_today_rates(db: Session = Depends(get_db)):
-    """
-    Bugünün tüm kurlarını getir
-    """
-    from datetime import date
-    today = date.today()
-    
-    rates = db.query(ExchangeRateModel).filter(
-        ExchangeRateModel.RateDate == today
-    ).all()
-    
-    return rates
+    """Bugünün kurları."""
+    try:
+        today = date.today()
+        records = db.query(ExchangeRateModel).filter(ExchangeRateModel.RateDate == today).all()
+        data = [ExchangeRate.model_validate(r).model_dump() for r in records]
+        return success_response(data=data, message="Bugünün kurları getirildi")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=error_response(code=ErrorCode.INTERNAL_SERVER_ERROR, message="Bugünün kurları alınamadı", details={"error": str(e)}))
 
-@router.get("/date/{rate_date}", response_model=List[ExchangeRate])
+
+@router.get("/date/{rate_date}")
 def get_rates_by_date(rate_date: date, db: Session = Depends(get_db)):
-    """
-    Belirli tarihteki tüm kurları getir
-    """
-    rates = db.query(ExchangeRateModel).filter(
-        ExchangeRateModel.RateDate == rate_date
-    ).all()
-    
-    return rates
+    """Belirli tarihteki tüm kurlar."""
+    try:
+        records = db.query(ExchangeRateModel).filter(ExchangeRateModel.RateDate == rate_date).all()
+        data = [ExchangeRate.model_validate(r).model_dump() for r in records]
+        return success_response(data=data, message="Tarih kurları getirildi")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=error_response(code=ErrorCode.INTERNAL_SERVER_ERROR, message="Tarih kurları alınamadı", details={"error": str(e)}))
 
-@router.get("/latest/{currency_from}/{currency_to}", response_model=ExchangeRate)
-def get_latest_rate(
-    currency_from: str,
-    currency_to: str,
-    db: Session = Depends(get_db)
-):
-    """
-    İki para birimi arasındaki en güncel kuru getir
-    """
+
+@router.get("/latest/{currency_from}/{currency_to}")
+def get_latest_rate(currency_from: str, currency_to: str, db: Session = Depends(get_db)):
+    """İki para birimi arasındaki en güncel kur."""
     rate = db.query(ExchangeRateModel).filter(
         ExchangeRateModel.CurrencyFrom == currency_from,
         ExchangeRateModel.CurrencyTo == currency_to
     ).order_by(ExchangeRateModel.RateDate.desc()).first()
-    
     if not rate:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Kur bulunamadı: {currency_from}/{currency_to}"
-        )
-    
-    return rate
+        raise HTTPException(status_code=404, detail=error_response(code=ErrorCode.KUR_NOT_FOUND, message="Kur bulunamadı", details={"pair": f"{currency_from}/{currency_to}"}))
+    data = ExchangeRate.model_validate(rate).model_dump()
+    return success_response(data=data, message="Güncel kur getirildi")
 
-@router.get("/{currency_from}/{currency_to}/{rate_date}", response_model=ExchangeRate)
-def get_rate_by_date(
-    currency_from: str,
-    currency_to: str,
-    rate_date: date,
-    db: Session = Depends(get_db)
-):
-    """
-    Belirli tarihteki belirli para birimi kurunu getir
-    """
+
+@router.get("/{currency_from}/{currency_to}/{rate_date}")
+def get_rate_by_date(currency_from: str, currency_to: str, rate_date: date, db: Session = Depends(get_db)):
+    """Belirli tarihte iki para birimi kur."""
     rate = db.query(ExchangeRateModel).filter(
         ExchangeRateModel.CurrencyFrom == currency_from,
         ExchangeRateModel.CurrencyTo == currency_to,
         ExchangeRateModel.RateDate == rate_date
     ).first()
-    
     if not rate:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Kur bulunamadı: {currency_from}/{currency_to} - {rate_date}"
-        )
-    
-    return rate
+        raise HTTPException(status_code=404, detail=error_response(code=ErrorCode.KUR_NOT_FOUND, message="Tarih için kur yok", details={"pair": f"{currency_from}/{currency_to}", "rate_date": rate_date.isoformat()}))
+    data = ExchangeRate.model_validate(rate).model_dump()
+    return success_response(data=data, message="Kur getirildi")
 
-@router.get("/convert", response_model=dict)
+
+@router.get("/convert")
 def convert_currency(
     amount: float = Query(..., gt=0),
     from_currency: str = Query(..., alias="from"),
@@ -147,585 +111,316 @@ def convert_currency(
     date_param: Optional[str] = Query(None, alias="date"),
     db: Session = Depends(get_db)
 ):
-    """
-    Kur dönüşümü yap
-    """
-    from datetime import date as date_type
-    
-    # Tarih parse
-    if date_param:
-        rate_date = date_type.fromisoformat(date_param)
-    else:
-        rate_date = date_type.today()
-    
-    # Aynı para birimi
+    """Kur dönüşümü."""
+    target_date = date.today() if not date_param else date.fromisoformat(date_param)
     if from_currency == to_currency:
-        return {
+        return success_response(data={
             "amount": amount,
             "from": from_currency,
             "to": to_currency,
             "rate": 1.0,
             "converted_amount": amount,
-            "rate_date": rate_date.isoformat()
-        }
-    
-    # Kur bul
+            "rate_date": target_date.isoformat()
+        }, message="Aynı para birimi")
     rate_record = db.query(ExchangeRateModel).filter(
         ExchangeRateModel.CurrencyFrom == from_currency,
         ExchangeRateModel.CurrencyTo == to_currency,
-        ExchangeRateModel.RateDate == rate_date
+        ExchangeRateModel.RateDate == target_date
     ).first()
-    
-    # Ters kur dene
     if not rate_record:
         reverse_rate = db.query(ExchangeRateModel).filter(
             ExchangeRateModel.CurrencyFrom == to_currency,
             ExchangeRateModel.CurrencyTo == from_currency,
-            ExchangeRateModel.RateDate == rate_date
+            ExchangeRateModel.RateDate == target_date
         ).first()
-        
-        if reverse_rate:
-            rate_value = 1.0 / reverse_rate.Rate
-        else:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Kur bulunamadı: {from_currency}/{to_currency} - {rate_date}"
-            )
+        if not reverse_rate:
+            raise HTTPException(status_code=404, detail=error_response(code=ErrorCode.KUR_RATE_NOT_AVAILABLE, message="Kur bulunamadı", details={"pair": f"{from_currency}/{to_currency}", "rate_date": target_date.isoformat()}))
+        rate_value = 1.0 / reverse_rate.Rate
     else:
         rate_value = rate_record.Rate
-    
-    converted_amount = round(amount * rate_value, 2)
-    
-    return {
+    converted = round(amount * rate_value, 2)
+    return success_response(data={
         "amount": amount,
         "from": from_currency,
         "to": to_currency,
         "rate": rate_value,
-        "converted_amount": converted_amount,
-        "rate_date": rate_date.isoformat()
-    }
+        "converted_amount": converted,
+        "rate_date": target_date.isoformat()
+    }, message="Dönüşüm başarılı")
 
-@router.get("/{rate_id}", response_model=ExchangeRate)
+
+@router.get("/{rate_id}")
 def get_exchange_rate(rate_id: int, db: Session = Depends(get_db)):
-    """
-    Tek bir kur kaydını ID ile getir
-    """
+    """ID ile kur kaydı."""
     rate = db.query(ExchangeRateModel).filter(ExchangeRateModel.Id == rate_id).first()
-    
     if not rate:
-        raise HTTPException(status_code=404, detail="Kur kaydı bulunamadı")
-    
-    return rate
+        raise HTTPException(status_code=404, detail=error_response(code=ErrorCode.KUR_NOT_FOUND, message="Kur kaydı yok", details={"id": rate_id}))
+    data = ExchangeRate.model_validate(rate).model_dump()
+    return success_response(data=data, message="Kur kaydı getirildi")
 
-@router.post("/", response_model=ExchangeRate)
+
+@router.post("/")
 def create_exchange_rate(rate: ExchangeRateCreate, db: Session = Depends(get_db)):
-    """
-    Yeni döviz kuru kaydı oluştur
-    """
-    # Aynı tarih ve para birimi için kayıt var mı kontrol et
+    """Yeni kur oluştur."""
     existing = db.query(ExchangeRateModel).filter(
         ExchangeRateModel.CurrencyFrom == rate.CurrencyFrom,
         ExchangeRateModel.CurrencyTo == rate.CurrencyTo,
         ExchangeRateModel.RateDate == rate.RateDate
     ).first()
-    
     if existing:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Bu tarih için kur zaten mevcut: {rate.CurrencyFrom}/{rate.CurrencyTo} - {rate.RateDate}"
-        )
-    
+        raise HTTPException(status_code=409, detail=error_response(code=ErrorCode.DUPLICATE_ENTRY, message="Bu tarih için kur mevcut", details={"pair": f"{rate.CurrencyFrom}/{rate.CurrencyTo}", "rate_date": rate.RateDate.isoformat()}))
     db_rate = ExchangeRateModel(**rate.model_dump())
     db.add(db_rate)
     db.commit()
     db.refresh(db_rate)
-    return db_rate
+    data = ExchangeRate.model_validate(db_rate).model_dump()
+    return success_response(data=data, message="Kur oluşturuldu")
 
-@router.put("/{rate_id}", response_model=ExchangeRate)
-def update_exchange_rate(
-    rate_id: int,
-    rate: ExchangeRateUpdate,
-    db: Session = Depends(get_db)
-):
-    """
-    Mevcut kur kaydını güncelle
-    """
+
+@router.put("/{rate_id}")
+def update_exchange_rate(rate_id: int, rate: ExchangeRateUpdate, db: Session = Depends(get_db)):
+    """Kur güncelle."""
     db_rate = db.query(ExchangeRateModel).filter(ExchangeRateModel.Id == rate_id).first()
-    
     if not db_rate:
-        raise HTTPException(status_code=404, detail="Kur kaydı bulunamadı")
-    
+        raise HTTPException(status_code=404, detail=error_response(code=ErrorCode.KUR_NOT_FOUND, message="Kur kaydı yok", details={"id": rate_id}))
     update_data = rate.model_dump(exclude_unset=True)
-    
     for field, value in update_data.items():
         setattr(db_rate, field, value)
-    
     db.commit()
     db.refresh(db_rate)
-    return db_rate
+    data = ExchangeRate.model_validate(db_rate).model_dump()
+    return success_response(data=data, message="Kur güncellendi")
+
 
 @router.delete("/{rate_id}")
 def delete_exchange_rate(rate_id: int, db: Session = Depends(get_db)):
-    """
-    Kur kaydını sil
-    """
+    """Kur sil."""
     db_rate = db.query(ExchangeRateModel).filter(ExchangeRateModel.Id == rate_id).first()
-    
     if not db_rate:
-        raise HTTPException(status_code=404, detail="Kur kaydı bulunamadı")
-    
+        raise HTTPException(status_code=404, detail=error_response(code=ErrorCode.KUR_NOT_FOUND, message="Silinecek kayıt yok", details={"id": rate_id}))
     db.delete(db_rate)
     db.commit()
-    
-    return {"message": "Kur kaydı silindi", "id": rate_id}
+    return success_response(data={"id": rate_id}, message="Kur silindi")
 
-@router.post("/bulk", response_model=List[ExchangeRate])
-def create_bulk_exchange_rates(
-    request: BulkExchangeRateRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Toplu kur ekleme (günlük kur güncelleme için)
-    """
-    created_rates = []
-    
-    for rate in request.rates:
-        # Duplicate check
-        existing = db.query(ExchangeRateModel).filter(
-            ExchangeRateModel.CurrencyFrom == rate.CurrencyFrom,
-            ExchangeRateModel.CurrencyTo == rate.CurrencyTo,
-            ExchangeRateModel.RateDate == rate.RateDate
-        ).first()
-        
-        if not existing:
-            db_rate = ExchangeRateModel(**rate.model_dump())
-            db.add(db_rate)
-            created_rates.append(db_rate)
-    
-    db.commit()
-    
-    for rate in created_rates:
-        db.refresh(rate)
-    
-    return created_rates
+
+@router.post("/bulk")
+def create_bulk_exchange_rates(request: BulkExchangeRateRequest, db: Session = Depends(get_db)):
+    """Toplu kur ekleme."""
+    created: List[ExchangeRateModel] = []
+    try:
+        for rate in request.rates:
+            existing = db.query(ExchangeRateModel).filter(
+                ExchangeRateModel.CurrencyFrom == rate.CurrencyFrom,
+                ExchangeRateModel.CurrencyTo == rate.CurrencyTo,
+                ExchangeRateModel.RateDate == rate.RateDate
+            ).first()
+            if not existing:
+                db_rate = ExchangeRateModel(**rate.model_dump())
+                db.add(db_rate)
+                created.append(db_rate)
+        db.commit()
+        for r in created:
+            db.refresh(r)
+        data = [ExchangeRate.model_validate(r).model_dump() for r in created]
+        return success_response(data=data, message="Toplu ekleme tamamlandı")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=error_response(code=ErrorCode.INTERNAL_SERVER_ERROR, message="Toplu ekleme hatası", details={"error": str(e)}))
+
+
+# ============================================
+# TCMB XML HELPERS
+# ============================================
 
 def fetch_tcmb_xml(target_date: Optional[date] = None) -> str:
-    """
-    TCMB XML'ini fetch et
-    
-    ÖNEMLİ TCMB MANTIĞI:
-    - TCMB kurları bir gün önceden yayınlanır
-    - 20 Kasım 15:30'da yayınlanan kurlar → 21 Kasım için geçerli
-    - 21 Kasım 15:30'da yayınlanan kurlar → 22, 23, 24 Kasım için geçerli (hafta sonu)
-    
-    Örnek: Kullanıcı "21 Kasım 2025" seçerse → 20112025.xml dosyasını çek
-    """
     if target_date is None:
-        # Bugünün kurları - today.xml kullan (bugün için geçerli kurlar)
         url = "https://www.tcmb.gov.tr/kurlar/today.xml"
     else:
-        # TCMB mantığı: Kurlar bir gün önceden yayınlanır
-        # Kullanıcının seçtiği tarih için geçerli kurları almak için
-        # bir gün önceki TCMB yayınını çek
         tcmb_publish_date = target_date - timedelta(days=1)
-        
-        year_month = tcmb_publish_date.strftime("%y%m")  # 2411
-        day_month_year = tcmb_publish_date.strftime("%d%m%Y")  # 20112024
+        year_month = tcmb_publish_date.strftime("%y%m")
+        day_month_year = tcmb_publish_date.strftime("%d%m%Y")
         url = f"https://www.tcmb.gov.tr/kurlar/{year_month}/{day_month_year}.xml"
-    
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         return response.text
     except requests.exceptions.HTTPError as e:
-        # 404 = hafta sonu/tatil günü, diğerleri network hatası
         if e.response.status_code == 404:
-            raise HTTPException(
-                status_code=404,
-                detail="Bu tarih için TCMB kuru bulunamadı. Hafta sonu veya resmi tatil günü olabilir."
-            )
-        else:
-            raise HTTPException(
-                status_code=502,
-                detail=f"TCMB API hatası: {str(e)}"
-            )
+            raise HTTPException(status_code=404, detail=error_response(code=ErrorCode.KUR_RATE_NOT_AVAILABLE, message="TCMB kuru yok", details={"url": url}))
+        raise HTTPException(status_code=503, detail=error_response(code=ErrorCode.KUR_FETCH_ERROR, message="TCMB API hatası", details={"error": str(e)}))
     except requests.exceptions.RequestException as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"TCMB bağlantı hatası: {str(e)}"
-        )
+        raise HTTPException(status_code=503, detail=error_response(code=ErrorCode.KUR_FETCH_ERROR, message="TCMB bağlantı hatası", details={"error": str(e)}))
+
 
 def parse_tcmb_xml(xml_content: str, rate_date: date) -> List[ExchangeRateCreate]:
-    """
-    TCMB XML'ini parse et ve ExchangeRateCreate listesi döndür
-    """
     try:
         root = ET.fromstring(xml_content)
     except ET.ParseError as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"TCMB XML parse hatası: {str(e)}"
-        )
-    
-    rates = []
-    
-    # Her currency elementi için
+        raise HTTPException(status_code=503, detail=error_response(code=ErrorCode.KUR_FETCH_ERROR, message="TCMB XML parse hatası", details={"error": str(e)}))
+    currencies = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'SAR', 'SEK', 'NOK', 'DKK', 'KWD']
+    results: List[ExchangeRateCreate] = []
     for currency_elem in root.findall('Currency'):
-        currency_code = currency_elem.get('CurrencyCode')
-        
-        # Sadece major currency'leri al
-        if currency_code not in ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'SAR', 'SEK', 'NOK', 'DKK', 'KWD']:
+        code = currency_elem.get('CurrencyCode')
+        if code not in currencies:
             continue
-        
-        # ForexSelling kurunu kullan (döviz satış)
         forex_selling_elem = currency_elem.find('ForexSelling')
-        
         if forex_selling_elem is not None and forex_selling_elem.text:
             try:
                 rate_value = float(forex_selling_elem.text)
-                
-                rates.append(ExchangeRateCreate(
-                    CurrencyFrom=currency_code,
+                results.append(ExchangeRateCreate(
+                    CurrencyFrom=code,
                     CurrencyTo='TRY',
                     Rate=rate_value,
                     RateDate=rate_date,
                     Source='TCMB'
                 ))
             except (ValueError, TypeError):
-                # Geçersiz rate value, skip
                 continue
-    
-    return rates
+    return results
 
-@router.post("/fetch-tcmb", response_model=List[ExchangeRate])
-def fetch_from_tcmb(
-    request: FetchTCMBRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    TCMB'den güncel kurları çek ve database'e kaydet
-    
-    Request Body:
-        {
-            "date": "YYYY-MM-DD" (opsiyonel, default: bugün)
-        }
-    
-    Returns:
-        Kaydedilen kur listesi
-    
-    Error Codes:
-        - 400: Geçersiz tarih formatı
-        - 404: TCMB'de bu tarih için kur bulunamadı (hafta sonu/tatil günleri)
-        - 502: TCMB API bağlantı hatası
-    """
-    # Tarihi parse et
+
+@router.post("/fetch-tcmb")
+def fetch_from_tcmb(request: FetchTCMBRequest, db: Session = Depends(get_db)):
     date_param = request.date
     if date_param:
         try:
             target_date = datetime.strptime(date_param, '%Y-%m-%d').date()
         except ValueError:
-            raise HTTPException(
-                status_code=400,
-                detail="Geçersiz tarih formatı. YYYY-MM-DD formatında olmalı."
-            )
-        # Belirli tarih için: TCMB mantığı (bir gün önceki XML)
+            raise HTTPException(status_code=400, detail=error_response(code=ErrorCode.KUR_INVALID_DATE, message="Geçersiz tarih formatı", details={"value": date_param}))
         xml_content = fetch_tcmb_xml(target_date)
     else:
-        # Bugünün kurları için: today.xml kullan
         target_date = date.today()
-        xml_content = fetch_tcmb_xml(None)  # None = today.xml
-    
-    # XML'i parse et (target_date = kurların geçerli olduğu tarih)
+        xml_content = fetch_tcmb_xml(None)
     rate_creates = parse_tcmb_xml(xml_content, target_date)
-    
     if not rate_creates:
-        raise HTTPException(
-            status_code=404,
-            detail=f"TCMB'den {target_date} tarihi için kur bilgisi bulunamadı. Hafta sonu veya resmi tatil günü olabilir."
-        )
-    
-    # Database'e kaydet
-    saved_rates = []
-    
-    for rate_create in rate_creates:
-        # Aynı tarih ve currency için kayıt var mı kontrol et
+        raise HTTPException(status_code=404, detail=error_response(code=ErrorCode.KUR_RATE_NOT_AVAILABLE, message="Kur verisi yok", details={"rate_date": target_date.isoformat()}))
+    saved: List[ExchangeRateModel] = []
+    for r in rate_creates:
         existing = db.query(ExchangeRateModel).filter(
-            ExchangeRateModel.CurrencyFrom == rate_create.CurrencyFrom,
-            ExchangeRateModel.CurrencyTo == rate_create.CurrencyTo,
-            ExchangeRateModel.RateDate == rate_create.RateDate
+            ExchangeRateModel.CurrencyFrom == r.CurrencyFrom,
+            ExchangeRateModel.CurrencyTo == r.CurrencyTo,
+            ExchangeRateModel.RateDate == r.RateDate
         ).first()
-        
         if existing:
-            # Güncelle
-            existing.Rate = rate_create.Rate
+            existing.Rate = r.Rate
             existing.Source = 'TCMB'
             db.commit()
             db.refresh(existing)
-            saved_rates.append(existing)
+            saved.append(existing)
         else:
-            # Yeni kayıt ekle
-            db_rate = ExchangeRateModel(**rate_create.model_dump())
+            db_rate = ExchangeRateModel(**r.model_dump())
             db.add(db_rate)
-            saved_rates.append(db_rate)
-    
+            saved.append(db_rate)
     db.commit()
-    
-    # Refresh all
-    for rate in saved_rates:
-        db.refresh(rate)
-    
-    return saved_rates
+    for s in saved:
+        db.refresh(s)
+    data = [ExchangeRate.model_validate(x).model_dump() for x in saved]
+    return success_response(data=data, message="TCMB kurları kaydedildi")
+
 
 # ============================================
-# EVDS API INTEGRATION (Resmi TCMB API)
+# EVDS HELPERS & FETCH
 # ============================================
 
 def find_latest_available_rate_date(target_date: date, evds_client, currency_list: list) -> date:
-    """
-    EVDS'den veri gelene kadar geriye doğru tarih ara (resmi tatil kontrolü)
-    
-    TCMB Kuralı:
-    - Resmi tatil/hafta sonu günlerinde kur yayınlanmaz
-    - Yayınlanmayan günler için bir önceki iş günü kuru kullanılır
-    - Örnek: 23 Nisan (resmi tatil) → 22 Nisan kurunu kullan
-    
-    Args:
-        target_date: Kurların geçerli olduğu tarih
-        evds_client: EVDS API client instance
-        currency_list: Para birimleri listesi (validation için)
-        
-    Returns:
-        Kur verisi bulunan en son tarih (publish date)
-        
-    Raises:
-        HTTPException: Veri bulunamazsa 404 hatası
-    """
-    # En fazla 15 gün geriye git (Bayram tatilleri + hafta sonu kombinasyonları için)
-    # Bayram tatilleri 9 güne kadar olabilir, hafta sonuyla birlikte 15 gün yeterli
     max_attempts = 15
-    
-    # Bir gün geriye git (TCMB bir gün önce yayınlar)
     current_date = target_date - timedelta(days=1)
-    
-    # Test için birkaç majör para birimi (USD, EUR, GBP)
     test_series = ['TP.DK.USD.A', 'TP.DK.EUR.A', 'TP.DK.GBP.A']
-    
-    for attempt in range(max_attempts):
-        # Cumartesi/Pazar'ı atla
-        if current_date.weekday() == 5:  # Cumartesi
+    for _ in range(max_attempts):
+        if current_date.weekday() == 5:
             current_date = current_date - timedelta(days=1)
-        elif current_date.weekday() == 6:  # Pazar
+        elif current_date.weekday() == 6:
             current_date = current_date - timedelta(days=2)
-        
-        # EVDS'den test et - veri var mı?
         date_str = current_date.strftime('%d-%m-%Y')
         try:
             df = evds_client.get_data(test_series, startdate=date_str, enddate=date_str)
-            
-            # Veri validasyonu: En az 2 para birimi mevcut olmalı
             if df is not None and not df.empty:
-                available_cols = [col for col in df.columns if col.startswith('TP_DK_') and col.endswith('_A')]
-                if len(available_cols) >= 2:  # En az 2 para birimi varsa kabul et
+                available_cols = [c for c in df.columns if c.startswith('TP_DK_') and c.endswith('_A')]
+                if len(available_cols) >= 2:
                     return current_date
-            # Veri yok - bir sonraki güne geç
         except Exception as e:
-            # EVDS API hatası (credential, network, vb.)
-            error_msg = str(e).lower()
-            if 'api key' in error_msg or 'unauthorized' in error_msg or 'forbidden' in error_msg:
-                # Credential hatası - devam etme
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"EVDS API yetkilendirme hatası: {str(e)}"
-                )
-            elif 'timeout' in error_msg or 'connection' in error_msg or 'network' in error_msg:
-                # Network hatası - devam etme
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"EVDS API bağlantı hatası: {str(e)}"
-                )
-            # Diğer hatalar - bir gün geriye git ve devam et
-            pass
-        
-        # Bir gün daha geriye git
+            msg = str(e).lower()
+            if any(k in msg for k in ['api key', 'unauthorized', 'forbidden']):
+                raise HTTPException(status_code=503, detail=error_response(code=ErrorCode.EVDS_API_ERROR, message="EVDS yetkilendirme hatası", details={"error": str(e)}))
+            if any(k in msg for k in ['timeout', 'connection', 'network']):
+                raise HTTPException(status_code=503, detail=error_response(code=ErrorCode.EVDS_API_ERROR, message="EVDS bağlantı hatası", details={"error": str(e)}))
         current_date = current_date - timedelta(days=1)
-    
-    # Veri bulunamadı - exception raise et
-    raise HTTPException(
-        status_code=404,
-        detail=f"{target_date} tarihi için son {max_attempts} gün içinde EVDS'de kur bilgisi bulunamadı. Uzun tatil dönemi (Bayram vb.) veya EVDS API sorunu olabilir."
-    )
+    raise HTTPException(status_code=404, detail=error_response(code=ErrorCode.KUR_RATE_NOT_AVAILABLE, message="EVDS'de yayınlanmış kur yok", details={"target_date": target_date.isoformat(), "attempts": max_attempts}))
+
 
 def fetch_evds_rates(target_date: date) -> List[ExchangeRateCreate]:
-    """
-    TCMB EVDS API'sinden kurları çek (resmi Python paketi)
-    
-    ÖNEMLİ TCMB KURALI:
-    - Cuma günü yayınlanan kur → Cumartesi, Pazar, Pazartesi için geçerli
-    - Yani 10 Kasım Pazartesi için → 7 Kasım Cuma kurlarını çekmeliyiz
-    - Bu fonksiyon otomatik olarak doğru yayın tarihini bulup EVDS'den çeker
-    
-    Args:
-        target_date: Kurların geçerli olduğu tarih (kullanıcının seçtiği tarih)
-        
-    Returns:
-        ExchangeRateCreate listesi (RateDate = target_date ile kaydedilir)
-    """
     api_key = os.getenv("EVDS_API_KEY")
     if not api_key:
-        raise HTTPException(
-            status_code=500,
-            detail="EVDS_API_KEY environment variable not set"
-        )
-    
+        raise HTTPException(status_code=500, detail=error_response(code=ErrorCode.EVDS_API_ERROR, message="EVDS_API_KEY tanımlı değil", details={"env": "EVDS_API_KEY"}))
     try:
         from evds import evdsAPI
     except ImportError:
-        raise HTTPException(
-            status_code=500,
-            detail="evds package not installed. Run: pip install evds"
-        )
-    
-    # EVDS API client
+        raise HTTPException(status_code=500, detail=error_response(code=ErrorCode.EVDS_API_ERROR, message="evds paketi kurulu değil", details={"hint": "pip install evds"}))
     evds = evdsAPI(api_key)
-    
-    # Döviz kuru seri kodları (TCMB format)
-    # TP.DK.<CURRENCY>.A = Döviz Kurları Alış (Buy Rate)
-    # TP.DK.<CURRENCY>.S = Döviz Kurları Satış (Sell Rate)
     currency_list = ['USD', 'EUR', 'GBP', 'CHF', 'JPY', 'CAD', 'AUD', 'SAR', 'SEK', 'NOK', 'DKK', 'KWD']
-    
-    currency_series_buy = {curr: f'TP.DK.{curr}.A' for curr in currency_list}
-    currency_series_sell = {curr: f'TP.DK.{curr}.S' for curr in currency_list}
-    
-    # ÖNEMLİ: Kur yayınlanan en son tarihi bul (resmi tatil + hafta sonu kontrolü)
-    # Örnek 1: 10 Kasım Pazartesi → 7 Kasım Cuma kurları
-    # Örnek 2: 23 Nisan (resmi tatil) → 22 Nisan kurları (veya önceki iş günü)
+    currency_series_buy = {c: f'TP.DK.{c}.A' for c in currency_list}
+    currency_series_sell = {c: f'TP.DK.{c}.S' for c in currency_list}
     publish_date = find_latest_available_rate_date(target_date, evds, currency_list)
-    
-    # Tarih formatı: DD-MM-YYYY (EVDS format)
     date_str = publish_date.strftime('%d-%m-%Y')
-    
     try:
-        # EVDS'den hem Alış hem Satış kurlarını çek (publish_date için)
-        series_list_buy = list(currency_series_buy.values())
-        series_list_sell = list(currency_series_sell.values())
-        all_series = series_list_buy + series_list_sell
-        
+        all_series = list(currency_series_buy.values()) + list(currency_series_sell.values())
         df = evds.get_data(all_series, startdate=date_str, enddate=date_str)
-        
         if df is None or df.empty:
-            raise HTTPException(
-                status_code=404,
-                detail=f"{target_date} tarihi için EVDS'de kur bilgisi bulunamadı."
-            )
-        
-        # DataFrame'den kurları parse et
-        # NOT: EVDS API seri kodlarındaki noktaları alt çizgiye dönüştürüyor
-        # Örn: 'TP.DK.USD.A' -> 'TP_DK_USD_A', 'TP.DK.USD.S' -> 'TP_DK_USD_S'
-        rates = []
-        for currency_code in currency_list:
-            # Alış kuru (Buy Rate)
-            buy_series = currency_series_buy[currency_code]
-            buy_column = buy_series.replace('.', '_')
-            
-            # Satış kuru (Sell Rate)
-            sell_series = currency_series_sell[currency_code]
-            sell_column = sell_series.replace('.', '_')
-            
-            if buy_column in df.columns:
-                buy_rate = df[buy_column].iloc[0]
-                sell_rate = df[sell_column].iloc[0] if sell_column in df.columns else None
-                
-                # None veya NaN kontrolü
+            raise HTTPException(status_code=404, detail=error_response(code=ErrorCode.KUR_RATE_NOT_AVAILABLE, message="EVDS kuru yok", details={"rate_date": target_date.isoformat()}))
+        rates: List[ExchangeRateCreate] = []
+        for code in currency_list:
+            buy_col = currency_series_buy[code].replace('.', '_')
+            sell_col = currency_series_sell[code].replace('.', '_')
+            if buy_col in df.columns:
+                buy_rate = df[buy_col].iloc[0]
+                sell_rate = df[sell_col].iloc[0] if sell_col in df.columns else None
                 if buy_rate is not None and not pd.isna(buy_rate):
-                    # ÖNEMLİ: RateDate = target_date (kullanıcının seçtiği tarih)
-                    # Yani 10 Kasım için 7 Kasım kurlarını çekip, 10 Kasım olarak kaydediyoruz
                     rates.append(ExchangeRateCreate(
-                        CurrencyFrom=currency_code,
+                        CurrencyFrom=code,
                         CurrencyTo='TRY',
-                        Rate=float(buy_rate),  # Alış kuru
-                        SellRate=float(sell_rate) if sell_rate and not pd.isna(sell_rate) else None,  # Satış kuru
-                        RateDate=target_date,  # Kurların geçerli olduğu tarih
+                        Rate=float(buy_rate),
+                        SellRate=float(sell_rate) if sell_rate and not pd.isna(sell_rate) else None,
+                        RateDate=target_date,
                         Source='EVDS'
                     ))
-        
         return rates
-        
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"EVDS API hatası: {str(e)}"
-        )
+        raise HTTPException(status_code=503, detail=error_response(code=ErrorCode.EVDS_API_ERROR, message="EVDS API hatası", details={"error": str(e)}))
 
-@router.post("/fetch-evds", response_model=List[ExchangeRate])
-def fetch_from_evds(
-    request: FetchTCMBRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    TCMB EVDS API'sinden kurları çek (resmi Python API)
-    
-    EVDS avantajları:
-    - Geçmiş tarih verilerine erişim (yıllara uzanan)
-    - Daha güvenilir ve profesyonel
-    - TCMB'nin resmi veri dağıtım servisi
-    
-    Request Body:
-        {
-            "date": "YYYY-MM-DD" (opsiyonel, default: bugün)
-        }
-    
-    Returns:
-        Kaydedilen kur listesi
-    """
-    # Tarihi parse et
+
+@router.post("/fetch-evds")
+def fetch_from_evds(request: FetchTCMBRequest, db: Session = Depends(get_db)):
     date_param = request.date
     if date_param:
         try:
             target_date = datetime.strptime(date_param, '%Y-%m-%d').date()
         except ValueError:
-            raise HTTPException(
-                status_code=400,
-                detail="Geçersiz tarih formatı. YYYY-MM-DD formatında olmalı."
-            )
+            raise HTTPException(status_code=400, detail=error_response(code=ErrorCode.KUR_INVALID_DATE, message="Geçersiz tarih formatı", details={"value": date_param}))
     else:
         target_date = date.today()
-    
-    # EVDS API'den kurları fetch et
     rate_creates = fetch_evds_rates(target_date)
-    
     if not rate_creates:
-        raise HTTPException(
-            status_code=404,
-            detail=f"EVDS'den {target_date} tarihi için kur bilgisi bulunamadı."
-        )
-    
-    # Database'e kaydet (upsert logic)
-    saved_rates = []
-    
-    for rate_create in rate_creates:
+        raise HTTPException(status_code=404, detail=error_response(code=ErrorCode.KUR_RATE_NOT_AVAILABLE, message="EVDS verisi yok", details={"rate_date": target_date.isoformat()}))
+    saved: List[ExchangeRateModel] = []
+    for r in rate_creates:
         existing = db.query(ExchangeRateModel).filter(
-            ExchangeRateModel.CurrencyFrom == rate_create.CurrencyFrom,
-            ExchangeRateModel.CurrencyTo == rate_create.CurrencyTo,
-            ExchangeRateModel.RateDate == rate_create.RateDate
+            ExchangeRateModel.CurrencyFrom == r.CurrencyFrom,
+            ExchangeRateModel.CurrencyTo == r.CurrencyTo,
+            ExchangeRateModel.RateDate == r.RateDate
         ).first()
-        
         if existing:
-            # Güncelle
-            existing.Rate = rate_create.Rate
+            existing.Rate = r.Rate
             existing.Source = 'EVDS'
             db.commit()
             db.refresh(existing)
-            saved_rates.append(existing)
+            saved.append(existing)
         else:
-            # Yeni kayıt ekle
-            db_rate = ExchangeRateModel(**rate_create.model_dump())
+            db_rate = ExchangeRateModel(**r.model_dump())
             db.add(db_rate)
-            saved_rates.append(db_rate)
-    
+            saved.append(db_rate)
     db.commit()
-    
-    # Refresh all
-    for rate in saved_rates:
-        db.refresh(rate)
-    
-    return saved_rates
+    for s in saved:
+        db.refresh(s)
+    data = [ExchangeRate.model_validate(x).model_dump() for x in saved]
+    return success_response(data=data, message="EVDS kurları kaydedildi")
