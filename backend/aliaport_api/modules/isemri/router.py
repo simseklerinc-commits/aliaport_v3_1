@@ -4,7 +4,7 @@ WorkOrder ve WorkOrderItem CRUD endpoints
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload, joinedload
 from typing import List, Optional
 from datetime import datetime
 import uuid
@@ -47,7 +47,10 @@ def get_work_orders(
     """
     İş emirlerini listele (filtreleme ve pagination)
     """
-    query = db.query(models_isemri.WorkOrder).filter(models_isemri.WorkOrder.is_active == True)
+    # Eager loading ile N+1 problem çözümü (1 main query + 1 batch IN query)
+    query = db.query(models_isemri.WorkOrder).options(
+        selectinload(models_isemri.WorkOrder.items)
+    ).filter(models_isemri.WorkOrder.is_active == True)
     
     # Filtreleme
     if search:
@@ -136,7 +139,10 @@ def get_work_order(work_order_id: int, db: Session = Depends(get_db)):
     """
     Tek iş emri detayı
     """
-    work_order = db.query(models_isemri.WorkOrder).filter(
+    # Eager loading ile N+1 problem çözümü (1 query with JOIN)
+    work_order = db.query(models_isemri.WorkOrder).options(
+        joinedload(models_isemri.WorkOrder.items)
+    ).filter(
         models_isemri.WorkOrder.id == work_order_id,
         models_isemri.WorkOrder.is_active == True
     ).first()
@@ -160,7 +166,10 @@ def get_work_order_by_number(wo_number: str, db: Session = Depends(get_db)):
     """
     İş emri numarası ile getir
     """
-    work_order = db.query(models_isemri.WorkOrder).filter(
+    # Eager loading ile N+1 problem çözümü (1 query with JOIN)
+    work_order = db.query(models_isemri.WorkOrder).options(
+        joinedload(models_isemri.WorkOrder.items)
+    ).filter(
         models_isemri.WorkOrder.wo_number == wo_number,
         models_isemri.WorkOrder.is_active == True
     ).first()
@@ -188,7 +197,10 @@ def get_work_orders_by_cari(
     """
     Cariye göre iş emirleri
     """
-    query = db.query(models_isemri.WorkOrder).filter(
+    # Eager loading ile N+1 problem çözümü (1 main query + 1 batch IN query)
+    query = db.query(models_isemri.WorkOrder).options(
+        selectinload(models_isemri.WorkOrder.items)
+    ).filter(
         models_isemri.WorkOrder.cari_code == cari_code,
         models_isemri.WorkOrder.is_active == True
     )

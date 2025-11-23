@@ -115,8 +115,13 @@ class WorkOrder(Base):
     updated_by = Column(Integer, nullable=True)
     updated_by_name = Column(String(100), nullable=True)
     
-    # İlişkiler
-    items = relationship("WorkOrderItem", back_populates="work_order", cascade="all, delete-orphan")
+    # İlişkiler (lazy="raise" prevents accidental N+1 queries)
+    items = relationship(
+        "WorkOrderItem",
+        back_populates="work_order",
+        cascade="all, delete-orphan",
+        lazy="raise"  # Forces explicit eager loading (dev safety)
+    )
 
 
 class WorkOrderItem(Base):
@@ -171,5 +176,9 @@ class WorkOrderItem(Base):
     created_by = Column(Integer, nullable=True)
     created_by_name = Column(String(100), nullable=True)
     
-    # İlişkiler
-    work_order = relationship("WorkOrder", back_populates="items")
+    # İlişkiler (lazy="raise" prevents accidental N+1 queries)
+    work_order = relationship(
+        "WorkOrder",
+        back_populates="items",
+        lazy="raise"  # Forces explicit eager loading (dev safety)
+    )
