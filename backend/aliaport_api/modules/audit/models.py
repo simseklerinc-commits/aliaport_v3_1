@@ -19,4 +19,4 @@ class AuditEvent(Base):
     ip = Column(String(64), nullable=True)
     user_agent = Column(String(300), nullable=True)
     extra = Column(JSON, nullable=True)
-    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    created_at = Column(DateTime, nullable=False, server_default=func.now(), index=True)

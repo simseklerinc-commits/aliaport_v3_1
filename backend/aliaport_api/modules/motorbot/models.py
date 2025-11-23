@@ -22,14 +22,14 @@ class Motorbot(Base):
     __table_args__ = {"extend_existing": True}
 
     Id = Column(Integer, primary_key=True)
-    Kod = Column(String(50), unique=True, nullable=False)
+    Kod = Column(String(50), unique=True, nullable=False, index=True)
     Ad = Column(String(200), nullable=False)
     Plaka = Column(String(20), nullable=True)
     KapasiteTon = Column(Numeric(10, 2), nullable=True)
     MaxHizKnot = Column(Numeric(6, 2), nullable=True)
     OwnerCariId = Column(Integer, ForeignKey("Cari.Id"), nullable=True)
     OwnerCariKod = Column(String(50), nullable=True)
-    Durum = Column(String(20), nullable=False, default="AKTIF")
+    Durum = Column(String(20), nullable=False, default="AKTIF", index=True)
     AlisTarihi = Column(Date, nullable=True)
     Notlar = Column(String, nullable=True)
     
@@ -47,9 +47,9 @@ class MbTrip(Base):
     __table_args__ = {"extend_existing": True}
 
     Id = Column(Integer, primary_key=True)
-    MotorbotId = Column(Integer, ForeignKey("Motorbot.Id"), nullable=False)
+    MotorbotId = Column(Integer, ForeignKey("Motorbot.Id"), nullable=False, index=True)
 
-    SeferTarihi = Column(Date, nullable=False)
+    SeferTarihi = Column(Date, nullable=False, index=True)
     CikisZamani = Column(DateTime, nullable=True)
     DonusZamani = Column(DateTime, nullable=True)
     KalkisIskele = Column(String(100), nullable=True)
@@ -61,7 +61,7 @@ class MbTrip(Base):
     YukAciklama = Column(String(200), nullable=True)
     Notlar = Column(String, nullable=True)
 
-    Durum = Column(String(20), nullable=False, default="PLANLANDI")
+    Durum = Column(String(20), nullable=False, default="PLANLANDI", index=True)
     FaturaDurumu = Column(String(20), nullable=True)
 
     # Otomatik timestamp alanları
