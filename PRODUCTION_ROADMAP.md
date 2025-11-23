@@ -981,7 +981,11 @@ Shared validation schemas (cari, iş emri, hizmet vs.)
 - [x] Tema dokümantasyonu (dark/light varyant rehberi + contrast matrisi) ✅ Tamamlandı (23 Kasım 2025) (`frontend/README_THEME.md` eklendi)
 - [x] Erişilebilirlik (WCAG 2.1 AA) hızlı tarama: odak halkası, aria-label, renk kontrastları ✅ Tamamlandı (23 Kasım 2025) (`frontend/README_A11Y.md` eklendi)
 - [x] Performans temel ölçüm: React Profiler + bundle split stratejisi (feature-based dynamic import) ✅ Tamamlandı (23 Kasım 2025) (`frontend/README_PERFORMANCE.md`, `src/core/utils/lazy.ts` eklendi)
-- [ ] Pagination meta entegrasyonu (Query hooks -> `pagination` objesi)
+- [x] Pagination meta entegrasyonu ✅ Tamamlandı (23 Kasım 2025)
+  - Generic hook altyapısı: `frontend/src/core/hooks/queries/usePaginatedQuery.ts`
+  - Specialization: `useCariListPaginated`
+  - Component migration: `CariListModern.tsx` (data.items + SimplePagination)
+  - Dokümantasyon: `frontend/PAGINATION_GUIDE.md` güncellendi (Generic pattern + checklist)
 - [ ] Skeleton komponentleri (Tablo / Kart yükleme durumunda shimmer)
 - [ ] Toast kullanımının standardizasyonu (mutations success/error pattern)
 

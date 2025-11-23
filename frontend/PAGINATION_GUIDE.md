@@ -44,6 +44,46 @@ export interface PaginationMeta {
 
 ### Query Hook Pattern (WITH Pagination)
 
+### Generic Hook Altyapısı (Önerilen Standart)
+
+Tekil modül bazlı paginated hook'ları tekrar tekrar yazmak yerine `core/hooks/queries/usePaginatedQuery.ts` içinde generik bir altyapı oluşturuldu.
+
+```typescript
+// core/hooks/queries/usePaginatedQuery.ts
+export function usePaginatedQuery<TItem, TFilters extends Record<string, unknown>>({
+  module,   // Örn: 'CARI' (cache & policy anahtarı)
+  path,     // Örn: '/cari'
+  filters,  // Örn: { page, page_size, search }
+}: UsePaginatedQueryParams<TFilters, TItem>) {
+  return useQuery<PaginatedQueryResult<TItem>, ErrorResponse>({
+    queryKey: createQueryKey(module, 'list', filters),
+    queryFn: async () => {
+      const response = await apiClient.get<PaginatedApiResponse<TItem>>(path, filters);
+      if (!response.success) throw response;
+      return { items: response.data, pagination: response.pagination };
+    },
+    ...getQueryOptions(module),
+  });
+}
+
+// Modül özel kolaylaştırıcı (specialization)
+export function useCariListPaginated(filters: { page?: number; page_size?: number; search?: string; cari_tip?: string } = {}) {
+  return usePaginatedQuery<Cari, { page?: number; page_size?: number; search?: string; cari_tip?: string }>({
+    module: 'CARI',
+    path: '/cari',
+    filters,
+  });
+}
+```
+
+Avantajlar:
+- Tekrarlayan kod azalır (queryFn + response mapping tek yerde)
+- Cache policy modül bazlı kolay yönetilir (`getQueryOptions(module)`)
+- Yeni modül eklemek için yalnızca specialization fonksiyonu yeterlidir
+- Test edilebilirlik artar (tek generic hook + hafif wrapper)
+
+Kullanım Önerisi: Mevcut tüm `useXList` hook'ları için kademeli olarak `useXListPaginated` specialization oluşturulacak; eski basit hook'lar geçiş bitene kadar korunur.
+
 ```typescript
 import type { PaginatedApiResponse, PaginationMeta } from '../../../shared/types/common.types';
 
@@ -220,9 +260,13 @@ queryFn: async () => {
 
 **Kademeli Geçiş (Yaklaşım 1):**
 1. `PaginatedApiResponse` ve `PaginationMeta` type'larını ekle ✅
-2. Yeni component'lerde `*Paginated` hook'ları kullan
-3. Eski component'ler basit hook'ları kullanmaya devam etsin
-4. İleride tüm hook'ları paginated versiyona migrate et
+2. Generic `usePaginatedQuery` altyapısını ekle ✅
+3. Modül bazlı specialization: `useCariListPaginated` ✅
+4. İlk hedef listeyi migrate et: `CariListModern` ✅
+5. Pagination UI bileşeni entegre et (SimplePagination / Pagination) ✅
+6. Diğer liste component'lerinde kullanım için checklist uygula ⏳
+7. Eski basit hook'ları süreli olarak koru (geri uyumluluk) ⏳
+8. Son faz: Tüm tüketen component'lerde `data`→`data.items` dönüşümü yapıldıktan sonra basit hook'ları kaldır ⏳
 
 Bu yaklaşım breaking change yaratmadan pagination desteği ekler ve mevcut kodu bozmaz.
 
@@ -273,6 +317,21 @@ export function Pagination({ pagination, onPageChange }: PaginationProps) {
 ### Status: READY
 
 ✅ Type definitions eklendi (`PaginatedApiResponse`, `PaginationMeta`)  
-✅ Pattern dokümante edildi  
-⏳ Hook migration (ihtiyaç duyuldukça uygulanacak)  
-⏳ Pagination UI component (ihtiyaç duyuldukça oluşturulacak)
+✅ Generic hook altyapısı (`usePaginatedQuery.ts`)  
+✅ İlk specialization (`useCariListPaginated`)  
+✅ CariListModern migrate edildi (items + pagination meta)  
+✅ Pagination UI component (Simple + Full)  
+⏳ Diğer modül listelerinin kademeli migration'ı  
+⏳ Basit hook'ların deprecate planı
+
+### Migration Checklist (Component Bazlı)
+1. Eski hook import'u kaldır: `useXList` → `useXListPaginated`
+2. State: `const [page,setPage] = useState(1)` ekle (yoksa)
+3. Query çağrısı: `const { data } = useXListPaginated({ page, page_size: 20, ...filters })`
+4. Data erişimi: `data.items` (Eski `data` array idi)
+5. Boş durum kontrolü: `if (!data || data.items.length === 0)`
+6. Pagination UI ekle: `<SimplePagination pagination={data.pagination} onPageChange={setPage} />`
+7. Search / Filter değişimlerinde `setPage(1)` ile sıfırla
+8. Mutation sonrası: invalidate key (queryKey değişmez – filters aynı kalır)
+9. Test: Page değişiminde network çağrısı tetikleniyor mu? (`React Query Devtools`)
+10. Erişilebilirlik: Pagination butonlarında `aria-disabled` ve `aria-current` doğrula

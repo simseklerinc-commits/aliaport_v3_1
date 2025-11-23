@@ -11,7 +11,8 @@
  */
 
 import { useState } from 'react';
-import { useCariList, useDeleteCari } from '../../../core/hooks/queries/useCariQueries';
+import { useDeleteCari } from '../../../core/hooks/queries/useCariQueries';
+import { useCariListPaginated } from '../../../core/hooks/queries/usePaginatedQuery';
 import { SimplePagination } from '../../../shared/ui/Pagination';
 import { Loader } from '../../../shared/ui/Loader';
 import { ErrorMessage } from '../../../shared/ui/ErrorMessage';
@@ -29,7 +30,11 @@ export function CariListModern({ onEdit, onView, onCreate }: CariListModernProps
   const [cariTipFilter, setCariTipFilter] = useState<string>('');
 
   // React Query hooks
-  const { data: cariData, isLoading, error } = useCariList({
+  const {
+    data: paginatedData,
+    isLoading,
+    error,
+  } = useCariListPaginated({
     page,
     page_size: 20,
     search,
@@ -65,14 +70,14 @@ export function CariListModern({ onEdit, onView, onCreate }: CariListModernProps
   };
 
   if (isLoading) {
-    return <Loader message="Cari listesi yükleniyor..." />;
+    return <Loader label="Cari listesi yükleniyor" />;
   }
 
   if (error) {
     return <ErrorMessage message={error.error.message} />;
   }
 
-  if (!cariData || cariData.length === 0) {
+  if (!paginatedData || paginatedData.items.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500 mb-4">
@@ -170,7 +175,7 @@ export function CariListModern({ onEdit, onView, onCreate }: CariListModernProps
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {cariData.map((cari) => (
+              {paginatedData.items.map((cari) => (
                 <tr key={cari.Id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {cari.CariKod}
@@ -262,9 +267,14 @@ export function CariListModern({ onEdit, onView, onCreate }: CariListModernProps
           </table>
         </div>
 
-        {/* Pagination - backend pagination desteği eklendiğinde aktif olacak */}
-        {/* Şu an basit liste döndüğü için pagination yok */}
-        {/* Pagination metadata backend'den geldiğinde SimplePagination component'i kullanılabilir */}
+        {/* Pagination */}
+        {paginatedData && (
+          <SimplePagination
+            pagination={paginatedData.pagination}
+            onPageChange={(newPage) => setPage(newPage)}
+            className="border-t border-gray-200"
+          />
+        )}
       </div>
     </div>
   );
