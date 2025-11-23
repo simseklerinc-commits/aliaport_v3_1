@@ -804,3 +804,22 @@ pip freeze > backend/requirements-pinned.txt
 **Son Güncelleme:** 23 Kasım 2025  
 **Sonraki Review:** Her ay sonu  
 **Sorumlular:** Development team + Senior advisors
+
+---
+### 📌 Gün Sonu Notu - 23 Kasım 2025
+Bugün FAZ 2.1 (API Response Standardizasyonu) kapsamında toplam 6 router standardize edildi:
+- Cari, Parametre, Tarife, Kurlar (CRUD + özel endpoint'ler)
+- Ortak: success_response / error_response / paginated_response kullanımı
+- Hata kodları: ErrorCode ile eşlenmiş (KUR_*, TARIFE_*, vb.)
+
+Tamamlananlar:
+- Datetime ISO serialization merkezi hale getirildi
+- TCMB ve EVDS fetch süreçleri ErrorCode tablosuna entegre edildi
+- Duplicate / not found / external API hataları unified formatta dönüyor
+
+Yarın Başlanacak:
+- Hizmet router standardizasyonu (liste + filtre + CRUD)
+- Sonrasında Motorbot → Sefer → Barınma sırayla ele alınacak
+
+Plan Notu:
+Önce tüm router'lar unify edilecek, ardından FAZ 2.2 (Logging) ve FAZ 2.3 (Global Error Middleware) aşamalarına geçilecek.
