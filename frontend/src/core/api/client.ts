@@ -1,4 +1,6 @@
 import { ApiResponse, ErrorResponse, isErrorResponse } from "../types/responses";
+import { tokenStorage } from "@/features/auth/utils/tokenStorage";
+import { authService } from "@/features/auth/services/authService";
 
 interface RequestOptions extends RequestInit {
   query?: Record<string, string | number | boolean | undefined>;
@@ -22,12 +24,18 @@ export class ApiClient {
   /**
    * Generic request wrapper
    */
-  async request<T = unknown>(path: string, options: RequestOptions = {}): Promise<ApiResponse<T>> {
+  async request<T = unknown>(path: string, options: RequestOptions = {}, retry: boolean = false): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${path}${buildQuery(options.query)}`;
     const headers: HeadersInit = {
       "Content-Type": "application/json",
       ...(options.headers || {})
     };
+
+    // Inject Authorization header if access token present and not expired
+    const accessToken = tokenStorage.getAccessToken();
+    if (!options.skipAuth && accessToken && !tokenStorage.isTokenExpired()) {
+      headers["Authorization"] = `Bearer ${accessToken}`;
+    }
 
     const init: RequestInit = {
       method: options.method || (options.body ? "POST" : "GET"),
@@ -55,6 +63,20 @@ export class ApiClient {
       const parseErr = this.toParseError(requestId);
       this.captureErrorMeta(parseErr);
       return parseErr;
+    }
+
+    // Handle 401 - attempt refresh once
+    if (response.status === 401 && !retry && !options.skipAuth) {
+      const refreshToken = tokenStorage.getRefreshToken();
+      if (refreshToken) {
+        try {
+          const refreshed = await authService.refreshToken(refreshToken);
+          tokenStorage.saveTokens(refreshed.access_token, refreshed.refresh_token, refreshed.expires_in);
+          return this.request<T>(path, options, true); // retry once
+        } catch {
+          tokenStorage.clearTokens();
+        }
+      }
     }
 
     if (!response.ok) {

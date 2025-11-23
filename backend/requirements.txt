@@ -35,3 +35,10 @@ tzdata==2025.2
 tzlocal==5.3.1
 urllib3==2.5.0
 uvicorn==0.38.0
+
+# Authentication & Security (FAZ 4)
+passlib==1.7.4
+bcrypt==4.0.1
+python-jose[cryptography]==3.3.0
+python-multipart==0.0.17
+slowapi==0.1.8

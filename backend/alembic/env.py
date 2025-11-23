@@ -38,6 +38,7 @@ from aliaport_api.modules.kurlar.models import ExchangeRate
 from aliaport_api.modules.parametre.models import Parametre
 from aliaport_api.modules.saha.models import WorkLog
 from aliaport_api.modules.guvenlik.models import GateLog, GateChecklistItem
+from aliaport_api.modules.auth.models import User, Role, Permission  # FAZ 4: Auth models
 
 target_metadata = Base.metadata
 

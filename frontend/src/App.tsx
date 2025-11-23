@@ -1,4 +1,8 @@
 import React, { useState } from "react";
+import { AuthProvider } from "@/features/auth/context/AuthContext";
+import { LoginForm } from "@/features/auth/components/LoginForm";
+import { useAuth } from "@/features/auth/context/AuthContext";
+import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute";
 import { CariModule as CariModuleNew } from "./features/cari";
 import { MotorbotModule as MotorbotModuleNew } from "./features/motorbot";
 import { HizmetModule as HizmetModuleNew } from "./features/hizmet";
@@ -179,7 +183,8 @@ const subMenus = {
   },
 };
 
-export default function App() {
+// Küçük bir üst seviye wrapper: Auth ile sarılmış gerçek uygulama
+function InnerApp() {
   const [currentPage, setCurrentPage] = useState<string>("menu");
   const [currentModule, setCurrentModule] = useState<string | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(themes[0]);
@@ -274,6 +279,7 @@ export default function App() {
     return "Aliaport Liman Yönetimi";
   };
 
+  const { isAuthenticated, logout, user } = useAuth();
   return (
     <QueryClientProvider client={queryClient}>
       <div className={`dark min-h-screen ${currentTheme.colors.bg} ${currentTheme.colors.text} flex`}>
@@ -320,10 +326,30 @@ export default function App() {
           showBackButton={navigationHistory.length > 0}
           onBackClick={handleGoBack}
         />
+        {/* Auth Durumu */}
+        <div className="absolute top-2 right-2 flex items-center gap-3 z-50">
+          {isAuthenticated && user && (
+            <>
+              <span className="text-xs bg-black/40 text-white px-2 py-1 rounded">{user.email} · {user.roles.map(r=>r.name).join(', ')}</span>
+              <button onClick={logout} className="text-xs px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700">Çıkış</button>
+            </>
+          )}
+        </div>
 
         {/* Content */}
         <div className="flex-1 overflow-auto">
-          {currentPage === "menu" && <SidebarMainMenu theme={currentTheme} />}
+          {currentPage === "menu" && (
+            <>
+              {!isAuthenticated && (
+                <div className="p-6">
+                  <div className="mb-6 max-w-sm">
+                    <LoginForm />
+                  </div>
+                </div>
+              )}
+              {isAuthenticated && <SidebarMainMenu theme={currentTheme} />}
+            </>
+          )}
           
           {currentPage === "submenu" && currentModule && subMenus[currentModule as keyof typeof subMenus] && (
             <div className="p-6">
@@ -341,9 +367,11 @@ export default function App() {
           
           {/* Cari Module - NEW FEATURE-BASED */}
           {currentPage === "cari-module" && (
-            <div className="p-6">
-              <CariModuleNew />
-            </div>
+            <ProtectedRoute roles={["OPERASYON","SISTEM_YONETICISI","READONLY"]}>
+              <div className="p-6">
+                <CariModuleNew />
+              </div>
+            </ProtectedRoute>
           )}
 
           {/* Cari Ekstre & Bakiye */}
@@ -353,9 +381,11 @@ export default function App() {
 
           {/* Motorbot Module */}
           {currentPage === "motorbot-module" && (
-            <div className="p-6">
-              <MotorbotModuleNew />
-            </div>
+            <ProtectedRoute roles={["OPERASYON","SISTEM_YONETICISI","SAHA","READONLY"]}>
+              <div className="p-6">
+                <MotorbotModuleNew />
+              </div>
+            </ProtectedRoute>
           )}
 
           {/* Sefer Module */}
@@ -380,76 +410,98 @@ export default function App() {
 
           {/* Hizmet Module */}
           {currentPage === "hizmet-module" && (
-            <div className="p-6">
-              <HizmetModuleNew />
-            </div>
+            <ProtectedRoute roles={["OPERASYON","SISTEM_YONETICISI","FINANS","READONLY"]}>
+              <div className="p-6">
+                <HizmetModuleNew />
+              </div>
+            </ProtectedRoute>
           )}
 
           {/* Tarife Module - NEW FEATURE-BASED */}
           {currentPage === "tarife-module" && (
-            <div className="p-6">
-              <TarifeModuleNew />
-            </div>
+            <ProtectedRoute roles={["FINANS","SISTEM_YONETICISI"]}>
+              <div className="p-6">
+                <TarifeModuleNew />
+              </div>
+            </ProtectedRoute>
           )}
 
           {/* Kurlar */}
           {currentPage === "kurlar" && (
-            <div className="p-6">
-              <KurlarModuleNew />
-            </div>
+            <ProtectedRoute roles={["FINANS","SISTEM_YONETICISI","READONLY"]}>
+              <div className="p-6">
+                <KurlarModuleNew />
+              </div>
+            </ProtectedRoute>
           )}
 
           {/* Parametreler */}
           {currentPage === "parametreler" && (
-            <div className="p-6">
-              <ParametrelerModuleNew />
-            </div>
+            <ProtectedRoute roles={["SISTEM_YONETICISI"]}>
+              <div className="p-6">
+                <ParametrelerModuleNew />
+              </div>
+            </ProtectedRoute>
           )}
 
           {/* Barınma Module - Liste */}
           {currentPage === "barinma-motorbot-liste" && (
-            <div className="p-6">
-              <BarinmaModuleNew initialPage="list" />
-            </div>
+            <ProtectedRoute roles={["OPERASYON","SISTEM_YONETICISI","READONLY"]}>
+              <div className="p-6">
+                <BarinmaModuleNew initialPage="list" />
+              </div>
+            </ProtectedRoute>
           )}
 
           {/* Barınma Module - Kontrat Giriş */}
           {currentPage === "kontrat-giris" && (
-            <div className="p-6">
-              <BarinmaModuleNew initialPage="create" />
-            </div>
+            <ProtectedRoute roles={["OPERASYON","SISTEM_YONETICISI"]}>
+              <div className="p-6">
+                <BarinmaModuleNew initialPage="create" />
+              </div>
+            </ProtectedRoute>
           )}
 
           {/* İŞ EMRİ MODULE - Tüm iş emri sayfaları için tek modül */}
           {(currentPage === "is-emri-talep" || currentPage === "is-emri-onay" || currentPage === "is-emri-liste") && (
-            <div className="p-6">
-              <IsemriModuleNew />
-            </div>
+            <ProtectedRoute roles={["SAHA","OPERASYON","SISTEM_YONETICISI"]}>
+              <div className="p-6">
+                <IsemriModuleNew />
+              </div>
+            </ProtectedRoute>
           )}
 
           {/* Dijital Arşiv - Tüm belge sayfaları */}
           {(currentPage === "firma-belge" || currentPage === "personel-belge" || 
             currentPage === "arac-belge" || currentPage === "motorbot-belge") && (
-            <div className="p-6">
-              <DijitalArsivModule />
-            </div>
+            <ProtectedRoute roles={["OPERASYON","SISTEM_YONETICISI","READONLY"]}>
+              <div className="p-6">
+                <DijitalArsivModule />
+              </div>
+            </ProtectedRoute>
           )}
 
           {/* Raporlar */}
           {currentPage === "raporlar" && (
-            <div className="p-6">
-              <RaporlarModule />
-            </div>
+            <ProtectedRoute roles={["FINANS","OPERASYON","SISTEM_YONETICISI","READONLY"]}>
+              <div className="p-6">
+                <RaporlarModule />
+              </div>
+            </ProtectedRoute>
           )}
 
           {/* Saha Personeli */}
           {currentPage === "saha-personel" && (
-            <SahaPersonelModule />
+            <ProtectedRoute roles={["SAHA","OPERASYON","SISTEM_YONETICISI","READONLY"]}>
+              <SahaPersonelModule />
+            </ProtectedRoute>
           )}
 
           {/* Güvenlik */}
           {currentPage === "guvenlik" && (
-            <GuvenlikModule />
+            <ProtectedRoute roles={["GUVENLIK","SISTEM_YONETICISI"]}>
+              <GuvenlikModule />
+            </ProtectedRoute>
           )}
 
           {/* PLACEHOLDER MODULES - All other pages */}
@@ -492,3 +544,11 @@ export default function App() {
     </QueryClientProvider>
   );
 } 
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <InnerApp />
+    </AuthProvider>
+  );
+}

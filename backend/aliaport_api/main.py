@@ -3,8 +3,12 @@
 Aliaport Liman Yönetim Sistemi - Ana Uygulama
 FastAPI backend application
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from dotenv import load_dotenv
 import os
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -42,6 +46,7 @@ from .modules.barinma.models import BarinmaContract
 from .modules.isemri.models import WorkOrder, WorkOrderItem
 from .modules.saha.models import WorkLog
 from .modules.guvenlik.models import GateLog, GateChecklistItem
+from .modules.auth.models import User, Role, Permission  # FAZ 4: Authentication models
 
 # Routers
 from .modules.cari import router as router_cari
@@ -55,12 +60,24 @@ from .modules.barinma import router as router_barinma
 from .modules.isemri import router as router_isemri
 from .modules.saha import router as router_saha
 from .modules.guvenlik import router as router_guvenlik
+from .modules.auth import auth_router  # FAZ 4: Authentication endpoints
 
 # Middleware
 from .middleware.request_logging import RequestLoggingMiddleware
 from .middleware.error_handler import global_exception_handler
 
 app = FastAPI(title="Aliaport v3.1 - Liman Yönetim Sistemi", version="3.1.0")
+
+# ============================================
+# RATE LIMITING
+# ============================================
+limiter = Limiter(key_func=get_remote_address, default_limits=["300/minute"])  # genel üst limit
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, lambda request, exc: (
+    logger.warning(f"Rate limit exceeded: {request.client.host}"),
+    ("Too Many Requests", 429)
+)[1])
+app.add_middleware(SlowAPIMiddleware)
 
 logger.info("Aliaport v3.1 starting up...")
 
@@ -79,13 +96,35 @@ app.add_exception_handler(Exception, global_exception_handler)
 app.add_middleware(RequestLoggingMiddleware)
 
 # CORS middleware - Frontend'in backend'e erişmesi için
+ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replit için tüm originlere izin
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET","POST","PUT","DELETE","OPTIONS"],
+    allow_headers=["Authorization","Content-Type","Accept"],
+    expose_headers=["x-request-id"],
+    max_age=3600,
 )
+
+# ============================================
+# SECURITY HEADERS MIDDLEWARE
+# ============================================
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    # Temel güvenlik başlıkları
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=()"  # gerekirse genişlet
+    # Dev ortamında CSP esnek; prod'da sıkılaştırılmalı
+    csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+    response.headers["Content-Security-Policy"] = csp
+    # HTTPS production için
+    if os.getenv("ENABLE_HSTS","0") == "1":
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+    return response
 
 # ============================================
 # DATABASE MIGRATIONS
@@ -131,6 +170,7 @@ atexit.register(lambda: scheduler.shutdown())
 # ============================================
 
 # Router'ları ekle
+app.include_router(auth_router)  # FAZ 4: /auth endpoints (login, logout, refresh, users)
 app.include_router(router_cari)
 app.include_router(router_motorbot)  # içinde /sefer endpoints var
 # app.include_router(router_mbtrip)  # motorbot içinde
@@ -151,6 +191,7 @@ def root():
         "app": "Aliaport v3.1",
         "message": "Liman Yönetim Sistemi API",
         "endpoints": {
+            "auth": "/auth",  # FAZ 4: Authentication endpoints
             "cari": "/api/cari",
             "motorbot": "/api/motorbot",
             "mb_trip": "/api/mb-trip",
