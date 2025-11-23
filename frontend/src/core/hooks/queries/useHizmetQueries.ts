@@ -12,6 +12,7 @@ import { createQueryKey, getQueryOptions } from '../../cache/queryClient';
 import { apiClient } from '../../api/client';
 import type { Hizmet, CreateHizmetPayload, UpdateHizmetPayload } from '../../../shared/types/hizmet';
 import type { ErrorResponse } from '../../types/responses';
+import { useToastMutation, toastMessages } from '../useToastMutation';
 
 // =====================
 // Query Keys
@@ -59,7 +60,7 @@ export function useHizmetList(params: { page?: number; page_size?: number; searc
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as Hizmet[];
     },
     ...getQueryOptions('HIZMET'),
   });
@@ -86,7 +87,7 @@ export function useHizmetDetail(id: number, options?: { enabled?: boolean }) {
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as Hizmet;
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('HIZMET'),
@@ -111,7 +112,7 @@ export function useHizmetByCode(kod: string, options?: { enabled?: boolean }) {
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as Hizmet;
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('HIZMET'),
@@ -142,18 +143,18 @@ export function useHizmetByCode(kod: string, options?: { enabled?: boolean }) {
  */
 export function useCreateHizmet() {
   const queryClient = useQueryClient();
-
-  return useMutation<Hizmet, ErrorResponse, CreateHizmetPayload>({
+  return useToastMutation<Hizmet, CreateHizmetPayload>({
     mutationFn: async (payload) => {
       const response = await apiClient.post<Hizmet>('/hizmet', payload);
-      if (!response.success) {
-        throw response;
-      }
-      return response.data;
+      if (!response.success) throw response;
+      return response.data as Hizmet;
     },
     onSuccess: () => {
-      // Tüm hizmet listelerini invalidate et (fresh refetch tetikle)
       queryClient.invalidateQueries({ queryKey: hizmetKeys.lists() });
+    },
+    messages: {
+      ...toastMessages.create('Hizmet'),
+      success: (data) => `Hizmet oluşturuldu: ${data.Kod}`,
     },
   });
 }
@@ -177,28 +178,22 @@ export function useCreateHizmet() {
  */
 export function useUpdateHizmet() {
   const queryClient = useQueryClient();
-
-  return useMutation<
-    Hizmet,
-    ErrorResponse,
-    { id: number; data: UpdateHizmetPayload }
-  >({
+  return useToastMutation<Hizmet, { id: number; data: UpdateHizmetPayload }>({
     mutationFn: async ({ id, data }) => {
       const response = await apiClient.put<Hizmet>(`/hizmet/${id}`, data);
-      if (!response.success) {
-        throw response;
-      }
-      return response.data;
+      if (!response.success) throw response;
+      return response.data as Hizmet;
     },
     onSuccess: (data, variables) => {
-      // İlgili hizmet detayını invalidate et
       queryClient.invalidateQueries({ queryKey: hizmetKeys.detail(variables.id) });
-      // Kod ile cache'i de invalidate et
       if (data.Kod) {
         queryClient.invalidateQueries({ queryKey: hizmetKeys.byCode(data.Kod) });
       }
-      // Tüm hizmet listelerini invalidate et
       queryClient.invalidateQueries({ queryKey: hizmetKeys.lists() });
+    },
+    messages: {
+      ...toastMessages.update('Hizmet'),
+      success: (data) => `Hizmet güncellendi: ${data.Kod}`,
     },
   });
 }
@@ -219,20 +214,19 @@ export function useUpdateHizmet() {
  */
 export function useDeleteHizmet() {
   const queryClient = useQueryClient();
-
-  return useMutation<void, ErrorResponse, number>({
+  return useToastMutation<void, number>({
     mutationFn: async (id) => {
       const response = await apiClient.delete<void>(`/hizmet/${id}`);
-      if (!response.success) {
-        throw response;
-      }
-      return response.data;
+      if (!response.success) throw response;
+      return undefined;
     },
     onSuccess: (_, id) => {
-      // İlgili hizmet detayını invalidate et
       queryClient.invalidateQueries({ queryKey: hizmetKeys.detail(id) });
-      // Tüm hizmet listelerini invalidate et
       queryClient.invalidateQueries({ queryKey: hizmetKeys.lists() });
+    },
+    messages: {
+      ...toastMessages.delete('Hizmet'),
+      success: () => 'Hizmet silindi',
     },
   });
 }
@@ -260,7 +254,7 @@ export function useToggleHizmetStatus() {
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as Hizmet;
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: hizmetKeys.detail(variables.id) });
