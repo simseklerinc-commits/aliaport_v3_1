@@ -151,37 +151,32 @@ async def security_headers(request: Request, call_next):
 # To create new migration: `alembic revision --autogenerate -m "description"`
 
 # ============================================
-# SCHEDULER - Otomatik Görevler
+# SCHEDULER - Background Jobs (FAZ 5)
 # ============================================
+# APScheduler ile background jobs (kur update, log archiving, vb.)
 
-# Backup fonksiyonunu import et
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from scripts.backup_database import scheduled_backup
+@app.on_event("startup")
+async def startup_event():
+    """Uygulama başlangıcında scheduler ve job'ları başlat"""
+    from .core.scheduler import start_scheduler
+    from .jobs import register_jobs
+    
+    # Scheduler'ı başlat
+    start_scheduler()
+    
+    # Job'ları kaydet (kur sync, audit archive, vb.)
+    register_jobs()
+    
+    logger.info("✅ Background jobs initialized")
 
-# Background scheduler oluştur
-scheduler = BackgroundScheduler(timezone="Europe/Istanbul")
 
-# Günlük backup - Her gün saat 03:00'da
-scheduler.add_job(
-    scheduled_backup,
-    trigger='cron',
-    hour=3,
-    minute=0,
-    id='daily_database_backup',
-    name='Günlük Database Backup',
-    replace_existing=True
-)
-
-# Scheduler'ı başlat
-try:
-    scheduler.start()
-    logger.info("✅ APScheduler başlatıldı - Günlük backup: 03:00")
-except Exception as e:
-    logger.error(f"❌ Scheduler başlatma hatası: {e}")
-
-# Uygulama kapanırken scheduler'ı durdur
-import atexit
-atexit.register(lambda: scheduler.shutdown())
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Uygulama kapanışında scheduler'ı gracefully durdur"""
+    from .core.scheduler import shutdown_scheduler
+    
+    shutdown_scheduler()
+    logger.info("✅ Application shutdown complete")
 
 # ============================================
 
