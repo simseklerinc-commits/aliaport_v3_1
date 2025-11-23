@@ -10,6 +10,7 @@ import pandas as pd
 from ...config.database import get_db
 from ...core.responses import success_response, error_response, paginated_response
 from ...core.error_codes import ErrorCode, get_http_status_for_error
+from ...core.cache import cache_key, cached_get_or_set, cache
 from .models import ExchangeRate as ExchangeRateModel
 from .schemas import (
     ExchangeRate,
@@ -55,38 +56,47 @@ def get_exchange_rates(
 
 @router.get("/today")
 def get_today_rates(db: Session = Depends(get_db)):
-    """Bugünün kurları."""
+    """Bugünün kurları (TTL cache 300s)."""
     try:
         today = date.today()
-        records = db.query(ExchangeRateModel).filter(ExchangeRateModel.RateDate == today).all()
-        data = [ExchangeRate.model_validate(r).model_dump() for r in records]
-        return success_response(data=data, message="Bugünün kurları getirildi")
+        key = cache_key("kurlar:today", date=today.isoformat())
+        def fetch():
+            recs = db.query(ExchangeRateModel).filter(ExchangeRateModel.RateDate == today).all()
+            return [ExchangeRate.model_validate(r).model_dump() for r in recs]
+        data, hit = cached_get_or_set(key, ttl_seconds=300, fetcher=fetch)
+        return success_response(data=data, message="Bugünün kurları getirildi" + (" (cache)" if hit else ""))
     except Exception as e:
         raise HTTPException(status_code=500, detail=error_response(code=ErrorCode.INTERNAL_SERVER_ERROR, message="Bugünün kurları alınamadı", details={"error": str(e)}))
 
 
 @router.get("/date/{rate_date}")
 def get_rates_by_date(rate_date: date, db: Session = Depends(get_db)):
-    """Belirli tarihteki tüm kurlar."""
+    """Belirli tarihteki tüm kurlar (TTL cache 300s)."""
     try:
-        records = db.query(ExchangeRateModel).filter(ExchangeRateModel.RateDate == rate_date).all()
-        data = [ExchangeRate.model_validate(r).model_dump() for r in records]
-        return success_response(data=data, message="Tarih kurları getirildi")
+        key = cache_key("kurlar:date", date=rate_date.isoformat())
+        def fetch():
+            recs = db.query(ExchangeRateModel).filter(ExchangeRateModel.RateDate == rate_date).all()
+            return [ExchangeRate.model_validate(r).model_dump() for r in recs]
+        data, hit = cached_get_or_set(key, ttl_seconds=300, fetcher=fetch)
+        return success_response(data=data, message="Tarih kurları getirildi" + (" (cache)" if hit else ""))
     except Exception as e:
         raise HTTPException(status_code=500, detail=error_response(code=ErrorCode.INTERNAL_SERVER_ERROR, message="Tarih kurları alınamadı", details={"error": str(e)}))
 
 
 @router.get("/latest/{currency_from}/{currency_to}")
 def get_latest_rate(currency_from: str, currency_to: str, db: Session = Depends(get_db)):
-    """İki para birimi arasındaki en güncel kur."""
-    rate = db.query(ExchangeRateModel).filter(
-        ExchangeRateModel.CurrencyFrom == currency_from,
-        ExchangeRateModel.CurrencyTo == currency_to
-    ).order_by(ExchangeRateModel.RateDate.desc()).first()
-    if not rate:
-        raise HTTPException(status_code=404, detail=error_response(code=ErrorCode.KUR_NOT_FOUND, message="Kur bulunamadı", details={"pair": f"{currency_from}/{currency_to}"}))
-    data = ExchangeRate.model_validate(rate).model_dump()
-    return success_response(data=data, message="Güncel kur getirildi")
+    """İki para birimi arasındaki en güncel kur (TTL cache 300s)."""
+    key = cache_key("kurlar:latest", cfrom=currency_from, cto=currency_to)
+    def fetch():
+        r = db.query(ExchangeRateModel).filter(
+            ExchangeRateModel.CurrencyFrom == currency_from,
+            ExchangeRateModel.CurrencyTo == currency_to
+        ).order_by(ExchangeRateModel.RateDate.desc()).first()
+        if not r:
+            raise HTTPException(status_code=404, detail=error_response(code=ErrorCode.KUR_NOT_FOUND, message="Kur bulunamadı", details={"pair": f"{currency_from}/{currency_to}"}))
+        return ExchangeRate.model_validate(r).model_dump()
+    data, hit = cached_get_or_set(key, ttl_seconds=300, fetcher=fetch)
+    return success_response(data=data, message="Güncel kur getirildi" + (" (cache)" if hit else ""))
 
 
 @router.get("/{currency_from}/{currency_to}/{rate_date}")
@@ -173,6 +183,7 @@ def create_exchange_rate(rate: ExchangeRateCreate, db: Session = Depends(get_db)
     db.add(db_rate)
     db.commit()
     db.refresh(db_rate)
+    cache.invalidate("kurlar:")
     data = ExchangeRate.model_validate(db_rate).model_dump()
     return success_response(data=data, message="Kur oluşturuldu")
 
@@ -188,6 +199,7 @@ def update_exchange_rate(rate_id: int, rate: ExchangeRateUpdate, db: Session = D
         setattr(db_rate, field, value)
     db.commit()
     db.refresh(db_rate)
+    cache.invalidate("kurlar:")
     data = ExchangeRate.model_validate(db_rate).model_dump()
     return success_response(data=data, message="Kur güncellendi")
 
@@ -200,6 +212,7 @@ def delete_exchange_rate(rate_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail=error_response(code=ErrorCode.KUR_NOT_FOUND, message="Silinecek kayıt yok", details={"id": rate_id}))
     db.delete(db_rate)
     db.commit()
+    cache.invalidate("kurlar:")
     return success_response(data={"id": rate_id}, message="Kur silindi")
 
 
@@ -221,6 +234,7 @@ def create_bulk_exchange_rates(request: BulkExchangeRateRequest, db: Session = D
         db.commit()
         for r in created:
             db.refresh(r)
+        cache.invalidate("kurlar:")
         data = [ExchangeRate.model_validate(r).model_dump() for r in created]
         return success_response(data=data, message="Toplu ekleme tamamlandı")
     except Exception as e:
@@ -313,6 +327,7 @@ def fetch_from_tcmb(request: FetchTCMBRequest, db: Session = Depends(get_db)):
     db.commit()
     for s in saved:
         db.refresh(s)
+    cache.invalidate("kurlar:")
     data = [ExchangeRate.model_validate(x).model_dump() for x in saved]
     return success_response(data=data, message="TCMB kurları kaydedildi")
 
@@ -422,5 +437,6 @@ def fetch_from_evds(request: FetchTCMBRequest, db: Session = Depends(get_db)):
     db.commit()
     for s in saved:
         db.refresh(s)
+    cache.invalidate("kurlar:")
     data = [ExchangeRate.model_validate(x).model_dump() for x in saved]
     return success_response(data=data, message="EVDS kurları kaydedildi")
