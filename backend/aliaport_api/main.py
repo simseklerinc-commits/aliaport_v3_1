@@ -62,6 +62,7 @@ from .modules.saha import router as router_saha
 from .modules.guvenlik import router as router_guvenlik
 from .modules.auth import auth_router  # FAZ 4: Authentication endpoints
 from .modules.audit.router import router as audit_router
+from .core.monitoring import router as monitoring_router  # FAZ 6: Monitoring
 
 # Middleware
 from .middleware.request_logging import RequestLoggingMiddleware
@@ -181,6 +182,7 @@ async def shutdown_event():
 # ============================================
 
 # Router'ları ekle
+app.include_router(monitoring_router)  # FAZ 6: /health, /ready, /metrics, /status
 app.include_router(auth_router)  # FAZ 4: /auth endpoints (login, logout, refresh, users)
 app.include_router(audit_router)  # Register audit router
 app.include_router(router_cari)
@@ -203,6 +205,12 @@ def root():
         "app": "Aliaport v3.1",
         "message": "Liman Yönetim Sistemi API",
         "endpoints": {
+            "monitoring": {
+                "health": "/health",
+                "ready": "/ready",
+                "metrics": "/metrics",
+                "status": "/status"
+            },
             "auth": "/auth",  # FAZ 4: Authentication endpoints
             "cari": "/api/cari",
             "motorbot": "/api/motorbot",
@@ -220,6 +228,8 @@ def root():
     }
 
 
+# Legacy health endpoint (backward compatibility)
 @app.get("/health")
-def health_check():
+def health_check_legacy():
+    """Deprecated: Use root /health instead""":
     return {"status": "healthy", "database": "sqlite"}
