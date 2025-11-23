@@ -32,6 +32,9 @@ import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { SidebarMainMenu } from "./components/SidebarMainMenu";
 import { SubMenu } from "./components/SubMenu";
+import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { queryClient } from './core/cache/queryClient';
 
 const subMenus = {
   "is-emri": {
@@ -272,15 +275,16 @@ export default function App() {
   };
 
   return (
-    <div className={`dark min-h-screen ${currentTheme.colors.bg} ${currentTheme.colors.text} flex`}>
-      <Toaster position="top-right" richColors />
-      {/* Debug Info */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed top-20 right-4 z-50 bg-black/90 text-white p-3 rounded text-xs">
-          <p>Current Page: {currentPage}</p>
-          <p>Current Module: {currentModule || 'null'}</p>
-        </div>
-      )}
+    <QueryClientProvider client={queryClient}>
+      <div className={`dark min-h-screen ${currentTheme.colors.bg} ${currentTheme.colors.text} flex`}>
+        <Toaster position="top-right" richColors />
+        {/* Debug Info */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="fixed top-20 right-4 z-50 bg-black/90 text-white p-3 rounded text-xs">
+            <p>Current Page: {currentPage}</p>
+            <p>Current Module: {currentModule || 'null'}</p>
+          </div>
+        )}
       
       <ThemeSelector currentTheme={currentTheme} onThemeChange={setCurrentTheme} />
       
@@ -480,6 +484,11 @@ export default function App() {
           )}
         </div>
       </div>
-    </div>
+      
+      {/* React Query Devtools - development only */}
+      {process.env.NODE_ENV === 'development' && (
+        <ReactQueryDevtools initialIsOpen={false} />
+      )}
+    </QueryClientProvider>
   );
 } 

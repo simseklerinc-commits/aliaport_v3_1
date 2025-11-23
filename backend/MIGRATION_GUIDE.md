@@ -375,6 +375,95 @@ alembic merge -m "merge A and B" feature_a feature_b
 
 ---
 
+## ♻️ Downgrade & Rollback Stratejisi (FAZ1 Eksikliği Tamamlandı ✅)
+
+Production ortamında şema geriye alma işlemleri veri kaybı risklidir. Aşağıdaki adımlar standart rollback sürecidir.
+
+### 1. Ön Hazırlık (Dry-Run)
+```bash
+# Mevcut versiyon kaydı
+alembic current
+
+# Uygulanmamış migration var mı?
+alembic history --verbose | findstr "(head)"
+```
+
+### 2. Backup Alma (Zorunlu)
+SQLite:
+```bash
+sqlite3 database/aliaport.db ".backup backups/database/manual/aliaport_before_downgrade_$(date +%Y%m%d_%H%M%S).db"
+```
+PostgreSQL (geçiş sonrası plan):
+```bash
+pg_dump --format=custom --file=aliaport_before_downgrade_$(date +%Y%m%d_%H%M%S).dump $DATABASE_URL
+```
+
+### 3. Hedef Versiyonu Belirleme
+```bash
+# Son 5 migration'ı listele
+alembic history -n 5
+
+# Belirli revision'a geri dönmek için not al (örn: a7402674e1d7)
+```
+
+### 4. Downgrade Uygulama
+```bash
+# Tek adım geri:
+alembic downgrade -1
+
+# Belirli rev'e geri:
+alembic downgrade a7402674e1d7
+```
+
+### 5. Sağlık Kontrolü
+```bash
+# Uygulama start
+uvicorn aliaport_api.main:app --reload
+
+# Basit sorgu
+sqlite3 database/aliaport.db "SELECT COUNT(*) FROM sqlite_master;"
+```
+
+### 6. Geri Alma (Rollback) / İleri Düzeltme
+Eğer downgrade sonrası uygulama hata verirse:
+```bash
+# Backup'tan geri yükle (SQLite)
+cp backups/database/manual/aliaport_before_downgrade_YYYYMMDD_HHMMSS.db database/aliaport.db
+
+# Ardından tekrar upgrade
+alembic upgrade head
+```
+
+### 7. Veri Dönüşümü İçeren Rollback
+Schema ile birlikte riskli veri transformasyonu varsa:
+1. Migration dosyasına tersine çevirme (downgrade) SQL'leri eklenmiş olmalı.
+2. Büyük silme işlemleri yerine mantıksal (is_active flag) kullan.
+3. Geri alma sonrası tutarlılık kontrol script'i çalıştır.
+```bash
+python scripts/consistency_check.py  # (ileride eklenecek)
+```
+
+### 8. CI/CD Entegrasyonu (Plan)
+Pipeline adımları (öneri):
+```yaml
+- name: Record current revision
+    run: alembic current
+- name: Run migrations (upgrade)
+    run: alembic upgrade head
+- name: Smoke test
+    run: pytest -q tests/smoke
+```
+
+### Risk Azaltma İlkeleri
+- Downgrade işlemini yoğun kullanım dışı saatlerde yap.
+- Her migration dosyasında downgrade tanımlı değilse production'a almadan ekle.
+- Veri kaybı potansiyeli olan ALTER / DROP işlemlerinde önce soft strategy uygula.
+- Tek seferde >2 adım downgrade yapmaktan kaçın.
+
+Bu bölüm eklenerek FAZ1 "Downgrade stratejisi belirsiz" eksikliği kapatıldı.
+
+---
+
 **Hazırlayan**: GitHub Copilot  
 **Tarih**: 22 Kasım 2025  
 **Versiyon**: 1.0

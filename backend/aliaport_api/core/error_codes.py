@@ -119,6 +119,7 @@ class ErrorCode(str, Enum):
     WO_MISSING_REQUIRED_FIELD = "WO_MISSING_REQUIRED_FIELD"
     WO_CANNOT_DELETE = "WO_CANNOT_DELETE"
     WO_ALREADY_INVOICED = "WO_ALREADY_INVOICED"
+    WO_ITEM_NOT_FOUND = "WO_ITEM_NOT_FOUND"
     
     # ============================================
     # WORKLOG MODÜLÜ
@@ -208,6 +209,7 @@ ERROR_CODE_TO_HTTP_STATUS = {
     ErrorCode.KUR_NOT_FOUND: 404,
     ErrorCode.PARAMETRE_NOT_FOUND: 404,
     ErrorCode.WO_NOT_FOUND: 404,
+    ErrorCode.WO_ITEM_NOT_FOUND: 404,
     ErrorCode.WORKLOG_NOT_FOUND: 404,
     ErrorCode.GATELOG_NOT_FOUND: 404,
     ErrorCode.ARCHIVE_NOT_FOUND: 404,

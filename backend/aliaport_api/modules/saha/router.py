@@ -9,22 +9,24 @@ from typing import List, Optional
 from datetime import datetime, date
 
 from ...config.database import get_db
+from ...core.responses import success_response, error_response, paginated_response
+from ...core.error_codes import ErrorCode, get_http_status_for_error
 from .models import WorkLog
 from .schemas import WorkLogCreate, WorkLogUpdate, WorkLogResponse, WorkLogStats
 
 router = APIRouter(prefix="/api/worklog", tags=["Saha Personeli"])
 
 
-@router.get("/", response_model=List[WorkLogResponse])
+@router.get("/")
 def get_worklogs(
-    skip: int = 0,
-    limit: int = 100,
-    work_order_id: Optional[int] = None,
-    sefer_id: Optional[int] = None,
-    personnel_name: Optional[str] = None,
-    is_approved: Optional[int] = None,
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    page: int = Query(1, ge=1, description="Sayfa numarası"),
+    page_size: int = Query(50, ge=1, le=500, description="Sayfa başına kayıt"),
+    work_order_id: Optional[int] = Query(None, description="İş emri ID filtresi"),
+    sefer_id: Optional[int] = Query(None, description="Sefer ID filtresi"),
+    personnel_name: Optional[str] = Query(None, description="Personel adı araması"),
+    is_approved: Optional[int] = Query(None, description="Onay durumu (0/1)"),
+    date_from: Optional[date] = Query(None, description="Başlangıç tarihi"),
+    date_to: Optional[date] = Query(None, description="Bitiş tarihi"),
     db: Session = Depends(get_db)
 ):
     """WorkLog kayıtlarını listele (filtreleme ile)"""
@@ -43,14 +45,27 @@ def get_worklogs(
     if date_to:
         query = query.filter(WorkLog.time_start <= datetime.combine(date_to, datetime.max.time()))
     
-    query = query.order_by(WorkLog.created_at.desc())
-    return query.offset(skip).limit(limit).all()
+    # Total count
+    total = query.count()
+    
+    # Sıralama ve pagination
+    worklogs = query.order_by(WorkLog.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    
+    # Serialize
+    items = [WorkLogResponse.model_validate(log) for log in worklogs]
+    
+    return paginated_response(
+        items=items,
+        page=page,
+        page_size=page_size,
+        total=total
+    )
 
 
-@router.get("/stats", response_model=WorkLogStats)
+@router.get("/stats")
 def get_worklog_stats(
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    date_from: Optional[date] = Query(None, description="Başlangıç tarihi"),
+    date_to: Optional[date] = Query(None, description="Bitiş tarihi"),
     db: Session = Depends(get_db)
 ):
     """WorkLog istatistikleri"""
@@ -89,26 +104,37 @@ def get_worklog_stats(
         by_service_type[stype]["count"] += 1
         by_service_type[stype]["hours"] += round((log.duration_minutes or 0) / 60, 2)
     
-    return {
-        "total_logs": total_logs,
-        "pending_approval": pending_approval,
-        "approved": approved,
-        "total_hours": total_hours,
-        "by_personnel": by_personnel,
-        "by_service_type": by_service_type
-    }
+    stats_data = WorkLogStats(
+        total_logs=total_logs,
+        pending_approval=pending_approval,
+        approved=approved,
+        total_hours=total_hours,
+        by_personnel=by_personnel,
+        by_service_type=by_service_type
+    )
+    
+    return success_response(data=stats_data, message="WorkLog istatistikleri")
 
 
-@router.get("/{worklog_id}", response_model=WorkLogResponse)
+@router.get("/{worklog_id}")
 def get_worklog(worklog_id: int, db: Session = Depends(get_db)):
     """Tekil WorkLog kaydı getir"""
     log = db.query(WorkLog).filter(WorkLog.id == worklog_id).first()
     if not log:
-        raise HTTPException(status_code=404, detail="WorkLog bulunamadı")
-    return log
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.WORKLOG_NOT_FOUND),
+            detail=error_response(
+                error_code=ErrorCode.WORKLOG_NOT_FOUND,
+                message="WorkLog bulunamadı",
+                details={"worklog_id": worklog_id}
+            )
+        )
+    
+    log_data = WorkLogResponse.model_validate(log)
+    return success_response(data=log_data, message="WorkLog detayı")
 
 
-@router.post("/", response_model=WorkLogResponse)
+@router.post("/", status_code=201)
 def create_worklog(log_data: WorkLogCreate, db: Session = Depends(get_db)):
     """Yeni WorkLog kaydı oluştur"""
     new_log = WorkLog(**log_data.model_dump())
@@ -120,15 +146,24 @@ def create_worklog(log_data: WorkLogCreate, db: Session = Depends(get_db)):
     db.add(new_log)
     db.commit()
     db.refresh(new_log)
-    return new_log
+    
+    log_response = WorkLogResponse.model_validate(new_log)
+    return success_response(data=log_response, message="WorkLog oluşturuldu")
 
 
-@router.put("/{worklog_id}", response_model=WorkLogResponse)
+@router.put("/{worklog_id}")
 def update_worklog(worklog_id: int, log_data: WorkLogUpdate, db: Session = Depends(get_db)):
     """WorkLog kaydını güncelle"""
     log = db.query(WorkLog).filter(WorkLog.id == worklog_id).first()
     if not log:
-        raise HTTPException(status_code=404, detail="WorkLog bulunamadı")
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.WORKLOG_NOT_FOUND),
+            detail=error_response(
+                error_code=ErrorCode.WORKLOG_NOT_FOUND,
+                message="WorkLog bulunamadı",
+                details={"worklog_id": worklog_id}
+            )
+        )
     
     # Sadece None olmayan alanları güncelle
     update_data = log_data.model_dump(exclude_unset=True)
@@ -146,7 +181,9 @@ def update_worklog(worklog_id: int, log_data: WorkLogUpdate, db: Session = Depen
     log.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(log)
-    return log
+    
+    log_response = WorkLogResponse.model_validate(log)
+    return success_response(data=log_response, message="WorkLog güncellendi")
 
 
 @router.delete("/{worklog_id}")
@@ -154,11 +191,19 @@ def delete_worklog(worklog_id: int, db: Session = Depends(get_db)):
     """WorkLog kaydını sil"""
     log = db.query(WorkLog).filter(WorkLog.id == worklog_id).first()
     if not log:
-        raise HTTPException(status_code=404, detail="WorkLog bulunamadı")
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.WORKLOG_NOT_FOUND),
+            detail=error_response(
+                error_code=ErrorCode.WORKLOG_NOT_FOUND,
+                message="WorkLog bulunamadı",
+                details={"worklog_id": worklog_id}
+            )
+        )
     
     db.delete(log)
     db.commit()
-    return {"message": "WorkLog silindi", "id": worklog_id}
+    
+    return success_response(data=None, message="WorkLog silindi")
 
 
 @router.post("/{worklog_id}/approve")
@@ -170,7 +215,14 @@ def approve_worklog(
     """WorkLog kaydını onayla"""
     log = db.query(WorkLog).filter(WorkLog.id == worklog_id).first()
     if not log:
-        raise HTTPException(status_code=404, detail="WorkLog bulunamadı")
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.WORKLOG_NOT_FOUND),
+            detail=error_response(
+                error_code=ErrorCode.WORKLOG_NOT_FOUND,
+                message="WorkLog bulunamadı",
+                details={"worklog_id": worklog_id}
+            )
+        )
     
     log.is_approved = 1
     log.approved_by = approved_by
@@ -179,4 +231,6 @@ def approve_worklog(
     
     db.commit()
     db.refresh(log)
-    return {"message": "WorkLog onaylandı", "log": log}
+    
+    log_response = WorkLogResponse.model_validate(log)
+    return success_response(data=log_response, message="WorkLog onaylandı")

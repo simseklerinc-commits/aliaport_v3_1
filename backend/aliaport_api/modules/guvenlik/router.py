@@ -10,6 +10,8 @@ from datetime import datetime, date
 import hashlib
 
 from ...config.database import get_db
+from ...core.responses import success_response, error_response, paginated_response
+from ...core.error_codes import ErrorCode, get_http_status_for_error
 from .models import GateLog, GateChecklistItem
 from .schemas import (
     GateLogCreate, GateLogCreateWithException, GateLogResponse,
@@ -24,16 +26,16 @@ router = APIRouter(prefix="/api/gatelog", tags=["Güvenlik"])
 # GATE LOG ENDPOINTS
 # ============================================
 
-@router.get("/", response_model=List[GateLogResponse])
+@router.get("/")
 def get_gate_logs(
-    skip: int = 0,
-    limit: int = 100,
-    entry_type: Optional[str] = None,
-    work_order_id: Optional[int] = None,
-    is_approved: Optional[bool] = None,
-    is_exception: Optional[bool] = None,
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    page: int = Query(1, ge=1, description="Sayfa numarası"),
+    page_size: int = Query(50, ge=1, le=500, description="Sayfa başına kayıt"),
+    entry_type: Optional[str] = Query(None, description="Giriş tipi (GIRIS/CIKIS)"),
+    work_order_id: Optional[int] = Query(None, description="İş emri ID filtresi"),
+    is_approved: Optional[bool] = Query(None, description="Onay durumu"),
+    is_exception: Optional[bool] = Query(None, description="İstisna durumu"),
+    date_from: Optional[date] = Query(None, description="Başlangıç tarihi"),
+    date_to: Optional[date] = Query(None, description="Bitiş tarihi"),
     db: Session = Depends(get_db)
 ):
     """Kapı giriş/çıkış kayıtlarını listele"""
@@ -52,14 +54,27 @@ def get_gate_logs(
     if date_to:
         query = query.filter(GateLog.gate_time <= datetime.combine(date_to, datetime.max.time()))
     
-    query = query.order_by(GateLog.gate_time.desc())
-    return query.offset(skip).limit(limit).all()
+    # Total count
+    total = query.count()
+    
+    # Sıralama ve pagination
+    gate_logs = query.order_by(GateLog.gate_time.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    
+    # Serialize
+    items = [GateLogResponse.model_validate(log) for log in gate_logs]
+    
+    return paginated_response(
+        items=items,
+        page=page,
+        page_size=page_size,
+        total=total
+    )
 
 
-@router.get("/stats", response_model=GateStats)
+@router.get("/stats")
 def get_gate_stats(
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    date_from: Optional[date] = Query(None, description="Başlangıç tarihi"),
+    date_to: Optional[date] = Query(None, description="Bitiş tarihi"),
     db: Session = Depends(get_db)
 ):
     """Güvenlik istatistikleri"""
@@ -92,27 +107,38 @@ def get_gate_stats(
         recent_query = recent_query.filter(GateLog.gate_time >= datetime.combine(date_from, datetime.min.time()))
     recent_logs = recent_query.all()
     
-    return {
-        "total_entries": total_entries,
-        "total_exits": total_exits,
-        "approved_count": approved_count,
-        "rejected_count": rejected_count,
-        "exception_count": exception_count,
-        "by_wo_status": by_wo_status,
-        "recent_logs": recent_logs
-    }
+    stats_data = GateStats(
+        total_entries=total_entries,
+        total_exits=total_exits,
+        approved_count=approved_count,
+        rejected_count=rejected_count,
+        exception_count=exception_count,
+        by_wo_status=by_wo_status,
+        recent_logs=[GateLogResponse.model_validate(l) for l in recent_logs]
+    )
+    
+    return success_response(data=stats_data, message="Güvenlik istatistikleri")
 
 
-@router.get("/{log_id}", response_model=GateLogResponse)
+@router.get("/{log_id}")
 def get_gate_log(log_id: int, db: Session = Depends(get_db)):
     """Tekil GateLog kaydı getir"""
     log = db.query(GateLog).filter(GateLog.id == log_id).first()
     if not log:
-        raise HTTPException(status_code=404, detail="GateLog bulunamadı")
-    return log
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.GATELOG_NOT_FOUND),
+            detail=error_response(
+                error_code=ErrorCode.GATELOG_NOT_FOUND,
+                message="GateLog bulunamadı",
+                details={"log_id": log_id}
+            )
+        )
+    
+    log_data = GateLogResponse.model_validate(log)
+    return success_response(data=log_data, message="GateLog detayı")
 
 
-@router.post("/", response_model=GateLogResponse)
+@router.post("/", status_code=201)
 def create_gate_log(log_data: GateLogCreate, db: Session = Depends(get_db)):
     """Yeni kapı giriş/çıkış kaydı oluştur"""
     new_log = GateLog(**log_data.model_dump())
@@ -120,10 +146,12 @@ def create_gate_log(log_data: GateLogCreate, db: Session = Depends(get_db)):
     db.add(new_log)
     db.commit()
     db.refresh(new_log)
-    return new_log
+    
+    log_response = GateLogResponse.model_validate(new_log)
+    return success_response(data=log_response, message="GateLog oluşturuldu")
 
 
-@router.post("/exception", response_model=GateLogResponse)
+@router.post("/exception", status_code=201)
 def create_gate_log_with_exception(log_data: GateLogCreateWithException, db: Session = Depends(get_db)):
     """İstisna ile kapı giriş/çıkış kaydı oluştur"""
     # PIN'i hash'le (güvenlik için)
@@ -137,7 +165,9 @@ def create_gate_log_with_exception(log_data: GateLogCreateWithException, db: Ses
     db.add(new_log)
     db.commit()
     db.refresh(new_log)
-    return new_log
+    
+    log_response = GateLogResponse.model_validate(new_log)
+    return success_response(data=log_response, message="İstisna ile GateLog oluşturuldu")
 
 
 @router.delete("/{log_id}")
@@ -145,21 +175,29 @@ def delete_gate_log(log_id: int, db: Session = Depends(get_db)):
     """GateLog kaydını sil"""
     log = db.query(GateLog).filter(GateLog.id == log_id).first()
     if not log:
-        raise HTTPException(status_code=404, detail="GateLog bulunamadı")
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.GATELOG_NOT_FOUND),
+            detail=error_response(
+                error_code=ErrorCode.GATELOG_NOT_FOUND,
+                message="GateLog bulunamadı",
+                details={"log_id": log_id}
+            )
+        )
     
     db.delete(log)
     db.commit()
-    return {"message": "GateLog silindi", "id": log_id}
+    
+    return success_response(data=None, message="GateLog silindi")
 
 
 # ============================================
 # CHECKLIST ENDPOINTS
 # ============================================
 
-@router.get("/checklist/items", response_model=List[GateChecklistItemResponse])
+@router.get("/checklist/items")
 def get_checklist_items(
-    wo_type: Optional[str] = None,
-    is_active: Optional[bool] = None,
+    wo_type: Optional[str] = Query(None, description="İş emri tipi filtresi"),
+    is_active: Optional[bool] = Query(None, description="Aktif durum filtresi"),
     db: Session = Depends(get_db)
 ):
     """Checklist itemlarını listele"""
@@ -170,11 +208,13 @@ def get_checklist_items(
     if is_active is not None:
         query = query.filter(GateChecklistItem.is_active == is_active)
     
-    query = query.order_by(GateChecklistItem.wo_type, GateChecklistItem.display_order)
-    return query.all()
+    items = query.order_by(GateChecklistItem.wo_type, GateChecklistItem.display_order).all()
+    
+    items_data = [GateChecklistItemResponse.model_validate(item) for item in items]
+    return success_response(data=items_data, message="Checklist itemları")
 
 
-@router.post("/checklist/items", response_model=GateChecklistItemResponse)
+@router.post("/checklist/items", status_code=201)
 def create_checklist_item(item_data: GateChecklistItemCreate, db: Session = Depends(get_db)):
     """Yeni checklist item oluştur"""
     new_item = GateChecklistItem(**item_data.model_dump())
@@ -182,10 +222,12 @@ def create_checklist_item(item_data: GateChecklistItemCreate, db: Session = Depe
     db.add(new_item)
     db.commit()
     db.refresh(new_item)
-    return new_item
+    
+    item_response = GateChecklistItemResponse.model_validate(new_item)
+    return success_response(data=item_response, message="Checklist item oluşturuldu")
 
 
-@router.put("/checklist/items/{item_id}", response_model=GateChecklistItemResponse)
+@router.put("/checklist/items/{item_id}")
 def update_checklist_item(
     item_id: int,
     item_data: GateChecklistItemUpdate,
@@ -194,7 +236,14 @@ def update_checklist_item(
     """Checklist item güncelle"""
     item = db.query(GateChecklistItem).filter(GateChecklistItem.id == item_id).first()
     if not item:
-        raise HTTPException(status_code=404, detail="Checklist item bulunamadı")
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.NOT_FOUND),
+            detail=error_response(
+                error_code=ErrorCode.NOT_FOUND,
+                message="Checklist item bulunamadı",
+                details={"item_id": item_id}
+            )
+        )
     
     update_data = item_data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -203,7 +252,9 @@ def update_checklist_item(
     item.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(item)
-    return item
+    
+    item_response = GateChecklistItemResponse.model_validate(item)
+    return success_response(data=item_response, message="Checklist item güncellendi")
 
 
 @router.delete("/checklist/items/{item_id}")
@@ -211,11 +262,19 @@ def delete_checklist_item(item_id: int, db: Session = Depends(get_db)):
     """Checklist item sil"""
     item = db.query(GateChecklistItem).filter(GateChecklistItem.id == item_id).first()
     if not item:
-        raise HTTPException(status_code=404, detail="Checklist item bulunamadı")
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.NOT_FOUND),
+            detail=error_response(
+                error_code=ErrorCode.NOT_FOUND,
+                message="Checklist item bulunamadı",
+                details={"item_id": item_id}
+            )
+        )
     
     db.delete(item)
     db.commit()
-    return {"message": "Checklist item silindi", "id": item_id}
+    
+    return success_response(data=None, message="Checklist item silindi")
 
 
 @router.post("/checklist/seed")
@@ -254,4 +313,8 @@ def seed_default_checklist(db: Session = Depends(get_db)):
             created_count += 1
     
     db.commit()
-    return {"message": f"{created_count} checklist item oluşturuldu"}
+    
+    return success_response(
+        data={"created_count": created_count},
+        message=f"{created_count} checklist item oluşturuldu"
+    )

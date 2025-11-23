@@ -9,12 +9,24 @@ from dotenv import load_dotenv
 import os
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import date
-import logging
 import sys
 from pathlib import Path
 
 # .env dosyasını yükle
 load_dotenv()
+
+# Logging setup (önce başlatılmalı)
+from .core.logging_config import setup_logging, get_logger
+
+# Setup logging
+setup_logging(
+    log_dir=Path("logs"),
+    log_level=os.getenv("LOG_LEVEL", "INFO"),
+    enable_console=True,
+    enable_json=True
+)
+
+logger = get_logger(__name__)
 
 # Config
 from .config.database import Base, engine
@@ -44,11 +56,27 @@ from .modules.isemri import router as router_isemri
 from .modules.saha import router as router_saha
 from .modules.guvenlik import router as router_guvenlik
 
-# Logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Middleware
+from .middleware.request_logging import RequestLoggingMiddleware
+from .middleware.error_handler import global_exception_handler
 
 app = FastAPI(title="Aliaport v3.1 - Liman Yönetim Sistemi", version="3.1.0")
+
+logger.info("Aliaport v3.1 starting up...")
+
+# ============================================
+# EXCEPTION HANDLERS
+# ============================================
+
+# Global exception handler
+app.add_exception_handler(Exception, global_exception_handler)
+
+# ============================================
+# MIDDLEWARE
+# ============================================
+
+# Request logging middleware (her request için timing ve ID)
+app.add_middleware(RequestLoggingMiddleware)
 
 # CORS middleware - Frontend'in backend'e erişmesi için
 app.add_middleware(
