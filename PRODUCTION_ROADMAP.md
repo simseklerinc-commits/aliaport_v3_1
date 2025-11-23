@@ -971,32 +971,33 @@ Shared validation schemas (cari, iş emri, hizmet vs.)
 
 Önceki dokümanda "Öncelik 4/5/6" olarak listelenen API Response Standardizasyonu, Logging Sistemi ve Error Handling Middleware tamamen TAMAMLANDI. Aşağıda tekrar eden maddeler çıkarıldı, güncel gerçek açık işler ve bir sonraki faza hazırlık maddeleri derlendi.
 
-### 🔧 Açık FAZ 3 (Frontend Olgunlaşma) Maddeleri
-- [x] `WorkOrderListModern.tsx` (durum makinesi buton seti + hızlı filtreler) ✅ Tamamlandı (23 Kasım 2025)
-- [ ] Gelişmiş Formlar
-  - [x] WorkOrderForm (create + basic fields + Zod schema) ✅ Tamamlandı (23 Kasım 2025)
-  - [x] MotorbotTripForm (MbTrip create + zaman validasyonu) ✅ Tamamlandı (23 Kasım 2025)
-  - [x] PriceListItemInlineForm (inline edit + optimistic update) ✅ Tamamlandı (23 Kasım 2025)
-  - [x] Icon/SVG sprite pipeline (build-time optimizasyon + tek HTTP isteği) ✅ Tamamlandı (23 Kasım 2025)
-- [x] Tema dokümantasyonu (dark/light varyant rehberi + contrast matrisi) ✅ Tamamlandı (23 Kasım 2025) (`frontend/README_THEME.md` eklendi)
-- [x] Erişilebilirlik (WCAG 2.1 AA) hızlı tarama: odak halkası, aria-label, renk kontrastları ✅ Tamamlandı (23 Kasım 2025) (`frontend/README_A11Y.md` eklendi)
-- [x] Performans temel ölçüm: React Profiler + bundle split stratejisi (feature-based dynamic import) ✅ Tamamlandı (23 Kasım 2025) (`frontend/README_PERFORMANCE.md`, `src/core/utils/lazy.ts` eklendi)
-- [x] Pagination meta entegrasyonu ✅ Tamamlandı (23 Kasım 2025)
-  - Generic hook altyapısı: `frontend/src/core/hooks/queries/usePaginatedQuery.ts`
-  - Specialization: `useCariListPaginated`
-  - Component migration: `CariListModern.tsx` (data.items + SimplePagination)
-  - Dokümantasyon: `frontend/PAGINATION_GUIDE.md` güncellendi (Generic pattern + checklist)
-- [x] Skeleton komponentleri ✅ Tamamlandı (23 Kasım 2025)
-  - Bileşenler: `Skeleton`, `LineSkeleton`, `CardSkeleton`, `TableSkeleton`
-  - Dosya: `frontend/src/shared/ui/Skeleton.tsx`
-  - Entegrasyon: `CariListModern` loading durumu skeleton ile değiştirildi
-  - Dokümantasyon: `frontend/README_SKELETON.md` eklendi (a11y + performans notları)
-- [x] Toast kullanım standardizasyonu ✅ Tamamlandı (23 Kasım 2025)
-  - Wrapper hook: `useToastMutation` (otomatik success/error toast)
-  - Shortcut mesajlar: `toastMessages.create|update|delete(entity)`
-  - Cari CRUD refaktörü: create/update/delete mutation'ları toast entegrasyonlu
-  - Dokümantasyon: `frontend/README_TOAST.md` (pattern, a11y, refaktör planı)
-- [ ] Toast kullanımının standardizasyonu (mutations success/error pattern)
+### ✅ FAZ 3 TAMAMLANDI (23 Kasım 2025)
+- [x] `WorkOrderListModern.tsx` (durum makinesi buton seti + hızlı filtreler) ✅
+- [x] Gelişmiş Formlar ✅
+  - WorkOrderForm (create + basic fields + Zod schema)
+  - MotorbotTripForm (MbTrip create + zaman validasyonu)
+  - PriceListItemInlineForm (inline edit + optimistic update)
+- [x] Icon/SVG sprite pipeline (build-time optimizasyon + tek HTTP isteği) ✅
+  - 21 SVG icon (add, edit, delete, search, view, chevron-*, filter, etc.)
+  - Auto-generated TypeScript types (icon-names.ts)
+  - Build script (scripts/build-icons.js)
+  - Single HTTP request (~3KB gzipped)
+  - README_ICONS.md dokümantasyonu
+- [x] Modern Liste Komponentleri ✅
+  - ParametreListModern.tsx (kategori filtreleme + 14 themed badge)
+  - KurlarListModern.tsx (TCMB sync + currency pairs + frozen status)
+  - MotorbotListModern.tsx (sefer istatistikleri + durum select)
+- [x] Barınma Modülü React Query Hooks ✅
+  - useBarinmaQueries.ts (7 hooks: list, detail, active, create, update, end, delete)
+  - Toast notifications (contract number display)
+  - Cache invalidation strategy
+- [x] Tema dokümantasyonu (dark/light varyant + contrast matrisi) ✅
+- [x] Erişilebilirlik (WCAG 2.1 AA) dokümantasyonu ✅
+- [x] Performans ölçüm stratejisi (React Profiler + bundle split) ✅
+- [x] Pagination meta entegrasyonu (generic hook + SimplePagination) ✅
+- [x] Skeleton komponentleri (4 variant + loading states) ✅
+- [x] Toast standardizasyonu (6 modül, 28+ mutation) ✅
+  - Hizmet, Tarife, Motorbot, Parametre, Kurlar, WorkOrder, Barınma
 
 ### 🔐 FAZ 4 (Auth & RBAC) Hazırlık Maddeleri
 - [ ] JWT issuance service (access + refresh, rotation & blacklist tablosu)
