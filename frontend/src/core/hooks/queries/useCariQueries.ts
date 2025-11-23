@@ -12,6 +12,7 @@ import { createQueryKey, getQueryOptions } from '../../cache/queryClient';
 import { apiClient } from '../../api/client';
 import type { Cari, CreateCariPayload, UpdateCariPayload } from '../../../shared/types/cari';
 import type { ErrorResponse } from '../../types/responses';
+import { useToastMutation, toastMessages } from '../useToastMutation';
 
 // =====================
 // Query Keys
@@ -60,7 +61,7 @@ export function useCariList(params: { page?: number; page_size?: number; search?
         throw response; // Throw error to trigger React Query error state
       }
       // Backend PaginatedResponse: { success: true, data: T[], pagination: {...} }
-      return response.data;
+      return response.data as Cari[];
     },
     ...getQueryOptions('CARI'),
   });
@@ -87,7 +88,7 @@ export function useCariDetail(id: number, options?: { enabled?: boolean }) {
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as Cari;
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('CARI'),
@@ -118,18 +119,18 @@ export function useCariDetail(id: number, options?: { enabled?: boolean }) {
  */
 export function useCreateCari() {
   const queryClient = useQueryClient();
-
-  return useMutation<Cari, ErrorResponse, CreateCariPayload>({
+  return useToastMutation<Cari, CreateCariPayload>({
     mutationFn: async (payload) => {
       const response = await apiClient.post<Cari>('/cari', payload);
-      if (!response.success) {
-        throw response;
-      }
-      return response.data;
+      if (!response.success) throw response;
+      return response.data as Cari;
     },
     onSuccess: () => {
-      // Tüm cari listelerini invalidate et (fresh refetch tetikle)
       queryClient.invalidateQueries({ queryKey: cariKeys.lists() });
+    },
+    messages: {
+      ...toastMessages.create('Cari'),
+      success: (data) => `Cari oluşturuldu: ${data.CariKod}`,
     },
   });
 }
@@ -153,24 +154,19 @@ export function useCreateCari() {
  */
 export function useUpdateCari() {
   const queryClient = useQueryClient();
-
-  return useMutation<
-    Cari,
-    ErrorResponse,
-    { id: number; data: UpdateCariPayload }
-  >({
+  return useToastMutation<Cari, { id: number; data: UpdateCariPayload }>({
     mutationFn: async ({ id, data }) => {
       const response = await apiClient.put<Cari>(`/cari/${id}`, data);
-      if (!response.success) {
-        throw response;
-      }
-      return response.data;
+      if (!response.success) throw response;
+      return response.data as Cari;
     },
     onSuccess: (_, variables) => {
-      // İlgili cari detayını invalidate et
       queryClient.invalidateQueries({ queryKey: cariKeys.detail(variables.id) });
-      // Tüm cari listelerini invalidate et
       queryClient.invalidateQueries({ queryKey: cariKeys.lists() });
+    },
+    messages: {
+      ...toastMessages.update('Cari'),
+      success: (data) => `Cari güncellendi: ${data.CariKod}`,
     },
   });
 }
@@ -191,20 +187,20 @@ export function useUpdateCari() {
  */
 export function useDeleteCari() {
   const queryClient = useQueryClient();
-
-  return useMutation<void, ErrorResponse, number>({
+  return useToastMutation<void, number>({
     mutationFn: async (id) => {
       const response = await apiClient.delete<void>(`/cari/${id}`);
-      if (!response.success) {
-        throw response;
-      }
-      return response.data;
+      if (!response.success) throw response;
+      return undefined;
     },
     onSuccess: (_, id) => {
-      // İlgili cari detayını invalidate et
       queryClient.invalidateQueries({ queryKey: cariKeys.detail(id) });
-      // Tüm cari listelerini invalidate et
       queryClient.invalidateQueries({ queryKey: cariKeys.lists() });
+    },
+    messages: {
+      ...toastMessages.delete('Cari'),
+      success: () => 'Cari kaydı silindi',
+      error: (err) => err.error?.message || 'Cari silinemedi.',
     },
   });
 }
@@ -238,7 +234,7 @@ export function useUpdateCariOptimistic() {
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as Cari;
     },
     // Mutation başlamadan önce - snapshot al
     onMutate: async ({ id, data }) => {

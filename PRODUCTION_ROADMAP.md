@@ -991,6 +991,11 @@ Shared validation schemas (cari, iş emri, hizmet vs.)
   - Dosya: `frontend/src/shared/ui/Skeleton.tsx`
   - Entegrasyon: `CariListModern` loading durumu skeleton ile değiştirildi
   - Dokümantasyon: `frontend/README_SKELETON.md` eklendi (a11y + performans notları)
+- [x] Toast kullanım standardizasyonu ✅ Tamamlandı (23 Kasım 2025)
+  - Wrapper hook: `useToastMutation` (otomatik success/error toast)
+  - Shortcut mesajlar: `toastMessages.create|update|delete(entity)`
+  - Cari CRUD refaktörü: create/update/delete mutation'ları toast entegrasyonlu
+  - Dokümantasyon: `frontend/README_TOAST.md` (pattern, a11y, refaktör planı)
 - [ ] Toast kullanımının standardizasyonu (mutations success/error pattern)
 
 ### 🔐 FAZ 4 (Auth & RBAC) Hazırlık Maddeleri
