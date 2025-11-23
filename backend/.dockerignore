@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+aliaport.db
+test_*.db
+
+# Logs
+logs/
+*.log
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Tests
+tests/
+test_*.py
+
+# Temporary
+*.tmp
+*.temp
+.tmp/
+
+# Backups (mount olarak bind edilecek)
+backups/
+
+# Development files
+requirements.txt
+requirements-dev.txt
+BACKUP_GUIDE.md
+MIGRATION_GUIDE.md
+REQUIREMENTS_GUIDE.md
+debug_*.py

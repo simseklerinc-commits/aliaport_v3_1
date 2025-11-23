@@ -1,0 +1,42 @@
+version: '3.8'
+
+# Development override for docker-compose.yml
+# Kullanım: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: DEBUG
+      DATABASE_URL: postgresql://aliaport:dev123@db:5432/aliaport
+    volumes:
+      - ./backend:/app  # Live code reload
+    command: uvicorn aliaport_api.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    volumes:
+      - ./frontend:/app  # Live code reload
+      - /app/node_modules  # Preserve node_modules
+    command: npm run dev -- --host 0.0.0.0
+    ports:
+      - "5173:5173"  # Vite dev server
+    environment:
+      - VITE_API_URL=http://localhost:8000
+
+  db:
+    environment:
+      POSTGRES_PASSWORD: dev123
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
