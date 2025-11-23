@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useHizmetList } from '../../../core/hooks/queries/useHizmetQueries';
-import { useDeleteHizmet } from '../../../core/hooks/queries/useHizmetQueries';
+import { useDeleteHizmet, useHizmetListPaginated } from '../../../core/hooks/queries/useHizmetQueries';
+import type { PaginatedQueryResult } from '../../../core/hooks/queries/usePaginatedQuery';
 import { SimplePagination } from '../../../shared/ui/Pagination';
 import { TableSkeleton } from '../../../shared/ui/Skeleton';
 import { ErrorMessage } from '../../../shared/ui/ErrorMessage';
 import type { Hizmet } from '../../../shared/types/hizmet';
+import { StatusBadge } from '../../../shared/ui/StatusBadge';
 
 interface HizmetListModernProps {
   onEdit?: (hizmet: Hizmet) => void;
@@ -12,13 +13,16 @@ interface HizmetListModernProps {
   onCreate?: () => void;
 }
 
-// NOT: Şu an backend paginated response data bölümünü dönüyor; pagination meta generic hook ile ileride eklenebilir.
 export function HizmetListModern({ onEdit, onView, onCreate }: HizmetListModernProps) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [grupKodFilter, setGrupKodFilter] = useState('');
 
-  const { data, isLoading, error } = useHizmetList({ page, page_size: 20, search, grup_kod: grupKodFilter || undefined });
+  const queryResult = useHizmetListPaginated({ page, page_size: 20, search, grup_kod: grupKodFilter || undefined });
+  const paginatedData = queryResult.data as PaginatedQueryResult<Hizmet> | undefined;
+  const isLoading = queryResult.isLoading;
+  const error = queryResult.error;
+
   const deleteMutation = useDeleteHizmet();
 
   const handleSearchChange = (value: string) => {
@@ -55,7 +59,7 @@ export function HizmetListModern({ onEdit, onView, onCreate }: HizmetListModernP
     return <ErrorMessage message={error.error.message} />;
   }
 
-  if (!data || data.length === 0) {
+  if (!paginatedData || paginatedData.items.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500 mb-4">{search ? 'Arama sonucu bulunamadı' : 'Henüz hizmet kaydı yok'}</p>
@@ -120,7 +124,7 @@ export function HizmetListModern({ onEdit, onView, onCreate }: HizmetListModernP
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {data.map((h) => (
+              {paginatedData.items.map((h) => (
                 <tr key={h.Id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{h.Kod}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{h.Ad}</td>
@@ -161,12 +165,13 @@ export function HizmetListModern({ onEdit, onView, onCreate }: HizmetListModernP
             </tbody>
           </table>
         </div>
-        {/* NOT: Pagination meta henüz kullanılmıyor, backend meta entegrasyonu sonrası güncellenecek */}
-        <SimplePagination
-          pagination={{ page, page_size: 20, total: data.length, total_pages: 1, has_next: false, has_prev: page > 1 }}
-          onPageChange={(newPage) => setPage(newPage)}
-          className="border-t border-gray-200"
-        />
+        {paginatedData && (
+          <SimplePagination
+            pagination={paginatedData.pagination}
+            onPageChange={(newPage) => setPage(newPage)}
+            className="border-t border-gray-200"
+          />
+        )}
       </div>
     </div>
   );

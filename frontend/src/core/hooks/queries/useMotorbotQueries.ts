@@ -7,9 +7,10 @@
  * @see core/api/client.ts - Base API client
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createQueryKey, getQueryOptions } from '../../cache/queryClient';
 import { apiClient } from '../../api/client';
+import { useToastMutation } from '@/core/hooks/useToastMutation';
 import type {
   Motorbot,
   CreateMotorbotPayload,
@@ -175,16 +176,20 @@ export function useMotorbotByCode(kod: string, options?: { enabled?: boolean }) 
 export function useCreateMotorbot() {
   const queryClient = useQueryClient();
 
-  return useMutation<Motorbot, ErrorResponse, CreateMotorbotPayload>({
+  return useToastMutation<Motorbot, CreateMotorbotPayload>({
     mutationFn: async (payload) => {
       const response = await apiClient.post<Motorbot>('/motorbot', payload);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as Motorbot;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: motorbotKeys.lists() });
+    },
+    messages: {
+      success: (data) => `Motorbot oluşturuldu: ${data.Kod}`,
+      error: 'Motorbot oluşturulurken hata oluştu',
     },
   });
 }
@@ -207,17 +212,13 @@ export function useCreateMotorbot() {
 export function useUpdateMotorbot() {
   const queryClient = useQueryClient();
 
-  return useMutation<
-    Motorbot,
-    ErrorResponse,
-    { id: number; data: UpdateMotorbotPayload }
-  >({
+  return useToastMutation<Motorbot, { id: number; data: UpdateMotorbotPayload }>({
     mutationFn: async ({ id, data }) => {
       const response = await apiClient.put<Motorbot>(`/motorbot/${id}`, data);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as Motorbot;
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: motorbotKeys.detail(variables.id) });
@@ -227,6 +228,10 @@ export function useUpdateMotorbot() {
       queryClient.invalidateQueries({ queryKey: motorbotKeys.lists() });
       // İlgili sefer listesini de invalidate et
       queryClient.invalidateQueries({ queryKey: motorbotKeys.trips(variables.id) });
+    },
+    messages: {
+      success: (data) => `Motorbot güncellendi: ${data.Kod}`,
+      error: 'Motorbot güncellenirken hata oluştu',
     },
   });
 }
@@ -248,19 +253,23 @@ export function useUpdateMotorbot() {
 export function useDeleteMotorbot() {
   const queryClient = useQueryClient();
 
-  return useMutation<void, ErrorResponse, number>({
+  return useToastMutation<void, number>({
     mutationFn: async (id) => {
       const response = await apiClient.delete<void>(`/motorbot/${id}`);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as void;
     },
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: motorbotKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: motorbotKeys.lists() });
       queryClient.invalidateQueries({ queryKey: motorbotKeys.trips(id) });
       queryClient.invalidateQueries({ queryKey: motorbotKeys.all() });
+    },
+    messages: {
+      success: 'Motorbot silindi',
+      error: 'Motorbot silinirken hata oluştu',
     },
   });
 }
@@ -280,17 +289,13 @@ export function useDeleteMotorbot() {
 export function useUpdateMotorbotStatus() {
   const queryClient = useQueryClient();
 
-  return useMutation<
-    Motorbot,
-    ErrorResponse,
-    { id: number; durum: 'AKTIF' | 'PASIF' | 'BAKIMDA' }
-  >({
+  return useToastMutation<Motorbot, { id: number; durum: 'AKTIF' | 'PASIF' | 'BAKIMDA' }>({
     mutationFn: async ({ id, durum }) => {
       const response = await apiClient.put<Motorbot>(`/motorbot/${id}`, { Durum: durum });
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as Motorbot;
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: motorbotKeys.detail(variables.id) });
@@ -298,6 +303,10 @@ export function useUpdateMotorbotStatus() {
         queryClient.invalidateQueries({ queryKey: motorbotKeys.byCode(data.Kod) });
       }
       queryClient.invalidateQueries({ queryKey: motorbotKeys.lists() });
+    },
+    messages: {
+      success: (data, vars) => `Motorbot durumu güncellendi (${vars.durum}): ${data.Kod}`,
+      error: 'Motorbot durumu güncellenirken hata oluştu',
     },
   });
 }
@@ -414,17 +423,21 @@ export function useMotorbotTrips(motorbotId: number, options?: { enabled?: boole
 export function useCreateMbTrip() {
   const queryClient = useQueryClient();
 
-  return useMutation<MbTrip, ErrorResponse, CreateMbTripPayload>({
+  return useToastMutation<MbTrip, CreateMbTripPayload>({
     mutationFn: async (payload) => {
       const response = await apiClient.post<MbTrip>('/motorbot/trip', payload);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as MbTrip;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: mbTripKeys.lists() });
       queryClient.invalidateQueries({ queryKey: motorbotKeys.trips(data.MotorbotId) });
+    },
+    messages: {
+      success: (data) => `Sefer oluşturuldu: ${data.SeferTarihi}`,
+      error: 'Sefer oluşturulurken hata oluştu',
     },
   });
 }
@@ -447,22 +460,22 @@ export function useCreateMbTrip() {
 export function useUpdateMbTrip() {
   const queryClient = useQueryClient();
 
-  return useMutation<
-    MbTrip,
-    ErrorResponse,
-    { id: number; data: UpdateMbTripPayload }
-  >({
+  return useToastMutation<MbTrip, { id: number; data: UpdateMbTripPayload }>({
     mutationFn: async ({ id, data }) => {
       const response = await apiClient.put<MbTrip>(`/motorbot/trip/${id}`, data);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as MbTrip;
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: mbTripKeys.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: motorbotKeys.trips(data.MotorbotId) });
       queryClient.invalidateQueries({ queryKey: mbTripKeys.lists() });
+    },
+    messages: {
+      success: (data) => `Sefer güncellendi: ${data.SeferTarihi}`,
+      error: 'Sefer güncellenirken hata oluştu',
     },
   });
 }
@@ -484,18 +497,22 @@ export function useUpdateMbTrip() {
 export function useDeleteMbTrip() {
   const queryClient = useQueryClient();
 
-  return useMutation<void, ErrorResponse, number>({
+  return useToastMutation<void, number>({
     mutationFn: async (id) => {
       const response = await apiClient.delete<void>(`/motorbot/trip/${id}`);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as void;
     },
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: mbTripKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: mbTripKeys.lists() });
       queryClient.invalidateQueries({ queryKey: mbTripKeys.all() });
+    },
+    messages: {
+      success: 'Sefer silindi',
+      error: 'Sefer silinirken hata oluştu',
     },
   });
 }

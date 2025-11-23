@@ -7,9 +7,10 @@
  * @see core/api/client.ts - Base API client
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createQueryKey, getQueryOptions } from '../../cache/queryClient';
 import { apiClient } from '../../api/client';
+import { useToastMutation } from '@/core/hooks/useToastMutation';
 import type { Parametre, CreateParametrePayload, UpdateParametrePayload } from '../../../shared/types/parametre';
 import type { ErrorResponse } from '../../types/responses';
 
@@ -171,13 +172,13 @@ export function useParametreByCategory(kategori: string, options?: { enabled?: b
 export function useCreateParametre() {
   const queryClient = useQueryClient();
 
-  return useMutation<Parametre, ErrorResponse, CreateParametrePayload>({
+  return useToastMutation<Parametre, CreateParametrePayload>({
     mutationFn: async (payload) => {
       const response = await apiClient.post<Parametre>('/parametre', payload);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as Parametre;
     },
     onSuccess: (data) => {
       // Tüm parametre listelerini invalidate et
@@ -186,6 +187,10 @@ export function useCreateParametre() {
       if (data.Kategori) {
         queryClient.invalidateQueries({ queryKey: parametreKeys.byCategory(data.Kategori) });
       }
+    },
+    messages: {
+      success: (data) => `Parametre oluşturuldu: ${data.Kod}`,
+      error: 'Parametre oluşturulurken hata oluştu',
     },
   });
 }
@@ -208,17 +213,13 @@ export function useCreateParametre() {
 export function useUpdateParametre() {
   const queryClient = useQueryClient();
 
-  return useMutation<
-    Parametre,
-    ErrorResponse,
-    { id: number; data: UpdateParametrePayload }
-  >({
+  return useToastMutation<Parametre, { id: number; data: UpdateParametrePayload }>({
     mutationFn: async ({ id, data }) => {
       const response = await apiClient.put<Parametre>(`/parametre/${id}`, data);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as Parametre;
     },
     onSuccess: (data, variables) => {
       // İlgili parametre detayını invalidate et
@@ -233,6 +234,10 @@ export function useUpdateParametre() {
       }
       // Tüm parametre listelerini invalidate et
       queryClient.invalidateQueries({ queryKey: parametreKeys.lists() });
+    },
+    messages: {
+      success: (data) => `Parametre güncellendi: ${data.Kod}`,
+      error: 'Parametre güncellenirken hata oluştu',
     },
   });
 }
@@ -254,13 +259,13 @@ export function useUpdateParametre() {
 export function useDeleteParametre() {
   const queryClient = useQueryClient();
 
-  return useMutation<void, ErrorResponse, number>({
+  return useToastMutation<void, number>({
     mutationFn: async (id) => {
       const response = await apiClient.delete<void>(`/parametre/${id}`);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as void;
     },
     onSuccess: (_, id) => {
       // İlgili parametre detayını invalidate et
@@ -268,6 +273,10 @@ export function useDeleteParametre() {
       // Tüm parametre listelerini invalidate et (kategori bilgisi bilinmediği için tümü)
       queryClient.invalidateQueries({ queryKey: parametreKeys.lists() });
       queryClient.invalidateQueries({ queryKey: parametreKeys.all() });
+    },
+    messages: {
+      success: 'Parametre silindi',
+      error: 'Parametre silinirken hata oluştu',
     },
   });
 }
@@ -287,17 +296,13 @@ export function useDeleteParametre() {
 export function useUpdateParametreValue() {
   const queryClient = useQueryClient();
 
-  return useMutation<
-    Parametre,
-    ErrorResponse,
-    { id: number; deger: string }
-  >({
+  return useToastMutation<Parametre, { id: number; deger: string }>({
     mutationFn: async ({ id, deger }) => {
       const response = await apiClient.put<Parametre>(`/parametre/${id}`, { Deger: deger });
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as Parametre;
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: parametreKeys.detail(variables.id) });
@@ -308,6 +313,10 @@ export function useUpdateParametreValue() {
         queryClient.invalidateQueries({ queryKey: parametreKeys.byCategory(data.Kategori) });
       }
       queryClient.invalidateQueries({ queryKey: parametreKeys.lists() });
+    },
+    messages: {
+      success: (data) => `Parametre değeri güncellendi: ${data.Kod} = ${data.Deger}`,
+      error: 'Parametre değeri güncellenirken hata oluştu',
     },
   });
 }

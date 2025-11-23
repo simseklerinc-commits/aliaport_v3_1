@@ -8,9 +8,10 @@
  * @see core/api/client.ts - Base API client
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createQueryKey, getQueryOptions } from '../../cache/queryClient';
 import { apiClient } from '../../api/client';
+import { useToastMutation } from '@/core/hooks/useToastMutation';
 import type {
   WorkOrder,
   CreateWorkOrderPayload,
@@ -210,17 +211,21 @@ export function useWorkOrderStats(options?: { enabled?: boolean }) {
 export function useCreateWorkOrder() {
   const queryClient = useQueryClient();
 
-  return useMutation<WorkOrder, ErrorResponse, CreateWorkOrderPayload>({
+  return useToastMutation<WorkOrder, CreateWorkOrderPayload>({
     mutationFn: async (payload) => {
       const response = await apiClient.post<WorkOrder>('/isemri', payload);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as WorkOrder;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workOrderKeys.lists() });
       queryClient.invalidateQueries({ queryKey: workOrderKeys.stats() });
+    },
+    messages: {
+      success: (data) => `İş emri oluşturuldu: ${data.WoNumber}`,
+      error: 'İş emri oluşturulurken hata oluştu',
     },
   });
 }
@@ -243,17 +248,13 @@ export function useCreateWorkOrder() {
 export function useUpdateWorkOrder() {
   const queryClient = useQueryClient();
 
-  return useMutation<
-    WorkOrder,
-    ErrorResponse,
-    { id: number; data: UpdateWorkOrderPayload }
-  >({
+  return useToastMutation<WorkOrder, { id: number; data: UpdateWorkOrderPayload }>({
     mutationFn: async ({ id, data }) => {
       const response = await apiClient.put<WorkOrder>(`/isemri/${id}`, data);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as WorkOrder;
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: workOrderKeys.detail(variables.id) });
@@ -263,6 +264,10 @@ export function useUpdateWorkOrder() {
       queryClient.invalidateQueries({ queryKey: workOrderKeys.items(variables.id) });
       queryClient.invalidateQueries({ queryKey: workOrderKeys.lists() });
       queryClient.invalidateQueries({ queryKey: workOrderKeys.stats() });
+    },
+    messages: {
+      success: (data) => `İş emri güncellendi: ${data.WoNumber}`,
+      error: 'İş emri güncellenirken hata oluştu',
     },
   });
 }
@@ -284,13 +289,13 @@ export function useUpdateWorkOrder() {
 export function useDeleteWorkOrder() {
   const queryClient = useQueryClient();
 
-  return useMutation<void, ErrorResponse, number>({
+  return useToastMutation<void, number>({
     mutationFn: async (id) => {
       const response = await apiClient.delete<void>(`/isemri/${id}`);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as void;
     },
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: workOrderKeys.detail(id) });
@@ -298,6 +303,10 @@ export function useDeleteWorkOrder() {
       queryClient.invalidateQueries({ queryKey: workOrderKeys.lists() });
       queryClient.invalidateQueries({ queryKey: workOrderKeys.stats() });
       queryClient.invalidateQueries({ queryKey: workOrderKeys.all() });
+    },
+    messages: {
+      success: 'İş emri silindi',
+      error: 'İş emri silinirken hata oluştu',
     },
   });
 }
@@ -324,17 +333,13 @@ export function useDeleteWorkOrder() {
 export function useChangeWorkOrderStatus() {
   const queryClient = useQueryClient();
 
-  return useMutation<
-    WorkOrder,
-    ErrorResponse,
-    { id: number; status: WorkOrderStatusChange }
-  >({
+  return useToastMutation<WorkOrder, { id: number; status: WorkOrderStatusChange }>({
     mutationFn: async ({ id, status }) => {
       const response = await apiClient.post<WorkOrder>(`/isemri/${id}/status`, status);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as WorkOrder;
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: workOrderKeys.detail(variables.id) });
@@ -343,6 +348,10 @@ export function useChangeWorkOrderStatus() {
       }
       queryClient.invalidateQueries({ queryKey: workOrderKeys.lists() });
       queryClient.invalidateQueries({ queryKey: workOrderKeys.stats() });
+    },
+    messages: {
+      success: (data) => `İş emri durumu güncellendi: ${data.WoNumber} → ${data.Status}`,
+      error: 'İş emri durumu değiştirilirken hata oluştu',
     },
   });
 }
@@ -465,19 +474,23 @@ export function useWorkOrderItems(workOrderId: number, options?: { enabled?: boo
 export function useCreateWorkOrderItem() {
   const queryClient = useQueryClient();
 
-  return useMutation<WorkOrderItem, ErrorResponse, CreateWorkOrderItemPayload>({
+  return useToastMutation<WorkOrderItem, CreateWorkOrderItemPayload>({
     mutationFn: async (payload) => {
       const response = await apiClient.post<WorkOrderItem>('/isemri/item', payload);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as WorkOrderItem;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: workOrderItemKeys.lists() });
       queryClient.invalidateQueries({ queryKey: workOrderKeys.items(data.WorkOrderId) });
       // Parent WorkOrder'ın da güncellenmesi gerekebilir (toplam tutar vs.)
       queryClient.invalidateQueries({ queryKey: workOrderKeys.detail(data.WorkOrderId) });
+    },
+    messages: {
+      success: (data) => `İş emri kalemi oluşturuldu: ${data.WoNumber} - ${data.ItemType}`,
+      error: 'İş emri kalemi oluşturulurken hata oluştu',
     },
   });
 }
@@ -500,17 +513,13 @@ export function useCreateWorkOrderItem() {
 export function useUpdateWorkOrderItem() {
   const queryClient = useQueryClient();
 
-  return useMutation<
-    WorkOrderItem,
-    ErrorResponse,
-    { id: number; data: UpdateWorkOrderItemPayload }
-  >({
+  return useToastMutation<WorkOrderItem, { id: number; data: UpdateWorkOrderItemPayload }>({
     mutationFn: async ({ id, data }) => {
       const response = await apiClient.put<WorkOrderItem>(`/isemri/item/${id}`, data);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as WorkOrderItem;
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: workOrderItemKeys.detail(variables.id) });
@@ -518,6 +527,10 @@ export function useUpdateWorkOrderItem() {
       queryClient.invalidateQueries({ queryKey: workOrderItemKeys.lists() });
       // Parent WorkOrder'ı da invalidate et
       queryClient.invalidateQueries({ queryKey: workOrderKeys.detail(data.WorkOrderId) });
+    },
+    messages: {
+      success: (data) => `İş emri kalemi güncellendi: ${data.WoNumber} - ${data.ItemType}`,
+      error: 'İş emri kalemi güncellenirken hata oluştu',
     },
   });
 }
@@ -539,13 +552,13 @@ export function useUpdateWorkOrderItem() {
 export function useDeleteWorkOrderItem() {
   const queryClient = useQueryClient();
 
-  return useMutation<void, ErrorResponse, number>({
+  return useToastMutation<void, number>({
     mutationFn: async (id) => {
       const response = await apiClient.delete<void>(`/isemri/item/${id}`);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as void;
     },
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: workOrderItemKeys.detail(id) });
@@ -553,6 +566,10 @@ export function useDeleteWorkOrderItem() {
       queryClient.invalidateQueries({ queryKey: workOrderItemKeys.all() });
       // Parent WorkOrder items'ı da invalidate et (WorkOrderId bilinmediği için all)
       queryClient.invalidateQueries({ queryKey: workOrderKeys.all() });
+    },
+    messages: {
+      success: 'İş emri kalemi silindi',
+      error: 'İş emri kalemi silinirken hata oluştu',
     },
   });
 }

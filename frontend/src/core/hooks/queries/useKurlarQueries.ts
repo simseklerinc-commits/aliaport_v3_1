@@ -7,9 +7,10 @@
  * @see core/api/client.ts - Base API client
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createQueryKey, getQueryOptions } from '../../cache/queryClient';
 import { apiClient } from '../../api/client';
+import { useToastMutation } from '@/core/hooks/useToastMutation';
 import type {
   ExchangeRate,
   CreateExchangeRatePayload,
@@ -219,13 +220,13 @@ export function useLatestExchangeRates(options?: { enabled?: boolean }) {
 export function useCreateExchangeRate() {
   const queryClient = useQueryClient();
 
-  return useMutation<ExchangeRate, ErrorResponse, CreateExchangeRatePayload>({
+  return useToastMutation<ExchangeRate, CreateExchangeRatePayload>({
     mutationFn: async (payload) => {
       const response = await apiClient.post<ExchangeRate>('/kurlar', payload);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as ExchangeRate;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: exchangeRateKeys.lists() });
@@ -234,6 +235,10 @@ export function useCreateExchangeRate() {
       });
       queryClient.invalidateQueries({ queryKey: exchangeRateKeys.latest(data.CurrencyFrom) });
       queryClient.invalidateQueries({ queryKey: exchangeRateKeys.latestAll() });
+    },
+    messages: {
+      success: (data) => `Kur oluşturuldu: ${data.CurrencyFrom}/${data.CurrencyTo} = ${data.Rate}`,
+      error: 'Kur oluşturulurken hata oluştu',
     },
   });
 }
@@ -256,17 +261,13 @@ export function useCreateExchangeRate() {
 export function useUpdateExchangeRate() {
   const queryClient = useQueryClient();
 
-  return useMutation<
-    ExchangeRate,
-    ErrorResponse,
-    { id: number; data: UpdateExchangeRatePayload }
-  >({
+  return useToastMutation<ExchangeRate, { id: number; data: UpdateExchangeRatePayload }>({
     mutationFn: async ({ id, data }) => {
       const response = await apiClient.put<ExchangeRate>(`/kurlar/${id}`, data);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as ExchangeRate;
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: exchangeRateKeys.detail(variables.id) });
@@ -276,6 +277,10 @@ export function useUpdateExchangeRate() {
       queryClient.invalidateQueries({ queryKey: exchangeRateKeys.latest(data.CurrencyFrom) });
       queryClient.invalidateQueries({ queryKey: exchangeRateKeys.latestAll() });
       queryClient.invalidateQueries({ queryKey: exchangeRateKeys.lists() });
+    },
+    messages: {
+      success: (data) => `Kur güncellendi: ${data.CurrencyFrom}/${data.CurrencyTo} = ${data.Rate}`,
+      error: 'Kur güncellenirken hata oluştu',
     },
   });
 }
@@ -297,19 +302,23 @@ export function useUpdateExchangeRate() {
 export function useDeleteExchangeRate() {
   const queryClient = useQueryClient();
 
-  return useMutation<void, ErrorResponse, number>({
+  return useToastMutation<void, number>({
     mutationFn: async (id) => {
       const response = await apiClient.delete<void>(`/kurlar/${id}`);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as void;
     },
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: exchangeRateKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: exchangeRateKeys.lists() });
       queryClient.invalidateQueries({ queryKey: exchangeRateKeys.latestAll() });
       queryClient.invalidateQueries({ queryKey: exchangeRateKeys.all() });
+    },
+    messages: {
+      success: 'Kur silindi',
+      error: 'Kur silinirken hata oluştu',
     },
   });
 }
@@ -332,17 +341,21 @@ export function useDeleteExchangeRate() {
 export function useFetchTCMBRates() {
   const queryClient = useQueryClient();
 
-  return useMutation<ExchangeRate[], ErrorResponse, FetchTCMBRequest>({
+  return useToastMutation<ExchangeRate[], FetchTCMBRequest>({
     mutationFn: async (request) => {
       const response = await apiClient.post<ExchangeRate[]>('/kurlar/fetch-tcmb', request);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as ExchangeRate[];
     },
     onSuccess: () => {
       // TCMB fetch bulk operation - tüm cache'i temizle
       queryClient.invalidateQueries({ queryKey: exchangeRateKeys.all() });
+    },
+    messages: {
+      success: (data) => `TCMB'den ${data.length} kur başarıyla çekildi ve güncellendi`,
+      error: 'TCMB kurları çekilirken hata oluştu',
     },
   });
 }
@@ -367,17 +380,21 @@ export function useFetchTCMBRates() {
 export function useBulkCreateExchangeRates() {
   const queryClient = useQueryClient();
 
-  return useMutation<ExchangeRate[], ErrorResponse, BulkExchangeRateRequest>({
+  return useToastMutation<ExchangeRate[], BulkExchangeRateRequest>({
     mutationFn: async (request) => {
       const response = await apiClient.post<ExchangeRate[]>('/kurlar/bulk', request);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as ExchangeRate[];
     },
     onSuccess: () => {
       // Bulk operation - tüm cache'i temizle
       queryClient.invalidateQueries({ queryKey: exchangeRateKeys.all() });
+    },
+    messages: {
+      success: (data) => `${data.length} kur toplu olarak oluşturuldu`,
+      error: 'Toplu kur oluşturulurken hata oluştu',
     },
   });
 }

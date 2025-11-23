@@ -7,12 +7,13 @@
  * @see core/api/client.ts - Base API client
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createQueryKey, getQueryOptions } from '../../cache/queryClient';
 import { apiClient } from '../../api/client';
 import type { Hizmet, CreateHizmetPayload, UpdateHizmetPayload } from '../../../shared/types/hizmet';
 import type { ErrorResponse } from '../../types/responses';
 import { useToastMutation, toastMessages } from '../useToastMutation';
+import { usePaginatedQuery } from './usePaginatedQuery';
 
 // =====================
 // Query Keys
@@ -63,6 +64,21 @@ export function useHizmetList(params: { page?: number; page_size?: number; searc
       return response.data as Hizmet[];
     },
     ...getQueryOptions('HIZMET'),
+  });
+}
+
+/**
+ * Hizmet listesi paginated (items + pagination meta)
+ * 
+ * @example
+ * const { data } = useHizmetListPaginated({ page: 1, page_size: 20, search: 'tarama' });
+ * // data = { items: Hizmet[], pagination: PaginationMeta }
+ */
+export function useHizmetListPaginated(params: { page?: number; page_size?: number; search?: string; grup_kod?: string } = {}) {
+  return usePaginatedQuery<Hizmet, typeof params>({
+    module: 'HIZMET',
+    path: '/hizmet',
+    filters: params,
   });
 }
 
@@ -244,16 +260,10 @@ export function useDeleteHizmet() {
 export function useToggleHizmetStatus() {
   const queryClient = useQueryClient();
 
-  return useMutation<
-    Hizmet,
-    ErrorResponse,
-    { id: number; aktif: boolean }
-  >({
+  return useToastMutation<Hizmet, { id: number; aktif: boolean }>({
     mutationFn: async ({ id, aktif }) => {
       const response = await apiClient.put<Hizmet>(`/hizmet/${id}`, { AktifMi: aktif });
-      if (!response.success) {
-        throw response;
-      }
+      if (!response.success) throw response;
       return response.data as Hizmet;
     },
     onSuccess: (data, variables) => {
@@ -262,6 +272,10 @@ export function useToggleHizmetStatus() {
         queryClient.invalidateQueries({ queryKey: hizmetKeys.byCode(data.Kod) });
       }
       queryClient.invalidateQueries({ queryKey: hizmetKeys.lists() });
+    },
+    messages: {
+      success: (data, vars) => `Hizmet ${vars.aktif ? 'aktif' : 'pasif'} yapıldı: ${data.Kod}`,
+      error: (err) => `Durum değiştirilemedi: ${err.error.message}`,
     },
   });
 }
