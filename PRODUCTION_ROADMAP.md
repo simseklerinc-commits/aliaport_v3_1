@@ -977,7 +977,7 @@ Shared validation schemas (cari, iş emri, hizmet vs.)
   - [x] WorkOrderForm (create + basic fields + Zod schema) ✅ Tamamlandı (23 Kasım 2025)
   - [x] MotorbotTripForm (MbTrip create + zaman validasyonu) ✅ Tamamlandı (23 Kasım 2025)
   - [x] PriceListItemInlineForm (inline edit + optimistic update) ✅ Tamamlandı (23 Kasım 2025)
-- [ ] Icon/SVG sprite pipeline (build-time optimizasyon + tek HTTP isteği)
+  - [x] Icon/SVG sprite pipeline (build-time optimizasyon + tek HTTP isteği) ✅ Tamamlandı (23 Kasım 2025)
 - [ ] Tema dokümantasyonu (dark/light varyant rehberi + contrast matrisi)
 - [ ] Erişilebilirlik (WCAG 2.1 AA) hızlı tarama: odak halkası, aria-label, renk kontrastları
 - [ ] Performans temel ölçüm: React Profiler + bundle split stratejisi (feature-based dynamic import)
