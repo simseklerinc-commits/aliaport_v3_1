@@ -29,6 +29,7 @@ build/
 *.sqlite
 *.sqlite3
 aliaport.db
+# BUT keep alembic_version table (tracked by alembic)
 
 # IDE
 .vscode/
@@ -58,3 +59,8 @@ logs/
 *.tmp
 *.temp
 .tmp/
+
+# Assets ve büyük dosyalar
+attached_assets/
+App_*.tsx
+*.zip
