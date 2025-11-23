@@ -13,8 +13,9 @@
 import { useState } from 'react';
 import { useDeleteCari } from '../../../core/hooks/queries/useCariQueries';
 import { useCariListPaginated } from '../../../core/hooks/queries/usePaginatedQuery';
+import type { PaginatedQueryResult } from '../../../core/hooks/queries/usePaginatedQuery';
 import { SimplePagination } from '../../../shared/ui/Pagination';
-import { Loader } from '../../../shared/ui/Loader';
+import { TableSkeleton } from '../../../shared/ui/Skeleton';
 import { ErrorMessage } from '../../../shared/ui/ErrorMessage';
 import type { Cari } from '../../../shared/types/cari';
 
@@ -30,16 +31,15 @@ export function CariListModern({ onEdit, onView, onCreate }: CariListModernProps
   const [cariTipFilter, setCariTipFilter] = useState<string>('');
 
   // React Query hooks
-  const {
-    data: paginatedData,
-    isLoading,
-    error,
-  } = useCariListPaginated({
+  const queryResult = useCariListPaginated({
     page,
     page_size: 20,
     search,
     cari_tip: cariTipFilter || undefined,
   });
+  const paginatedData = queryResult.data as PaginatedQueryResult<Cari> | undefined;
+  const isLoading = queryResult.isLoading;
+  const error = queryResult.error;
 
   const deleteMutation = useDeleteCari();
 
@@ -70,7 +70,19 @@ export function CariListModern({ onEdit, onView, onCreate }: CariListModernProps
   };
 
   if (isLoading) {
-    return <Loader label="Cari listesi yükleniyor" />;
+    return (
+      <div className="space-y-4" aria-busy="true" aria-live="polite">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">Cari Yönetimi</h2>
+          <div className="h-10 w-28 animate-pulse bg-gray-200 rounded" />
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="h-10 w-full animate-pulse bg-gray-100 rounded mb-3" />
+          <div className="h-10 w-full animate-pulse bg-gray-100 rounded" />
+        </div>
+        <TableSkeleton columns={7} rows={8} />
+      </div>
+    );
   }
 
   if (error) {
@@ -175,7 +187,7 @@ export function CariListModern({ onEdit, onView, onCreate }: CariListModernProps
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {paginatedData.items.map((cari) => (
+              {paginatedData.items.map((cari: Cari) => (
                 <tr key={cari.Id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {cari.CariKod}
@@ -186,18 +198,18 @@ export function CariListModern({ onEdit, onView, onCreate }: CariListModernProps
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
                       className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        cari.CariTip === 'MUSTERI'
+                        cari.Rol === 'MUSTERI'
                           ? 'bg-blue-100 text-blue-800'
-                          : cari.CariTip === 'TEDARIKCI'
+                          : cari.Rol === 'TEDARIKCI'
                           ? 'bg-green-100 text-green-800'
                           : 'bg-purple-100 text-purple-800'
                       }`}
                     >
-                      {cari.CariTip === 'MUSTERI'
+                      {cari.Rol === 'MUSTERI'
                         ? 'Müşteri'
-                        : cari.CariTip === 'TEDARIKCI'
+                        : cari.Rol === 'TEDARIKCI'
                         ? 'Tedarikçi'
-                        : 'Her İkisi'}
+                        : 'Diğer'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

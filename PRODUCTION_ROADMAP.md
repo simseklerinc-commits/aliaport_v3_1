@@ -986,7 +986,11 @@ Shared validation schemas (cari, iş emri, hizmet vs.)
   - Specialization: `useCariListPaginated`
   - Component migration: `CariListModern.tsx` (data.items + SimplePagination)
   - Dokümantasyon: `frontend/PAGINATION_GUIDE.md` güncellendi (Generic pattern + checklist)
-- [ ] Skeleton komponentleri (Tablo / Kart yükleme durumunda shimmer)
+- [x] Skeleton komponentleri ✅ Tamamlandı (23 Kasım 2025)
+  - Bileşenler: `Skeleton`, `LineSkeleton`, `CardSkeleton`, `TableSkeleton`
+  - Dosya: `frontend/src/shared/ui/Skeleton.tsx`
+  - Entegrasyon: `CariListModern` loading durumu skeleton ile değiştirildi
+  - Dokümantasyon: `frontend/README_SKELETON.md` eklendi (a11y + performans notları)
 - [ ] Toast kullanımının standardizasyonu (mutations success/error pattern)
 
 ### 🔐 FAZ 4 (Auth & RBAC) Hazırlık Maddeleri
