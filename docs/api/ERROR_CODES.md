@@ -2,92 +2,81 @@
 
 Backend `ErrorCode` enum ve HTTP status mapping listesi. Frontend hata yönetimi için `error.code` değerleri tek gerçek kaynaktır.
 
-## Format
+## Error Response Format
+
+All API errors follow this standard format:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human-readable error message",
+    "details": {
+      "field": "Additional context"
+    }
+  },
+  "timestamp": "2025-11-23T10:30:00Z"
+}
+```
+
+---
+
+## Error Code Categories
+
+### Authentication & Authorization (40x)
+
+| Code | HTTP Status | Varsayılan Mesaj |
+|------|-------------|------------------|
+| AUTH_INVALID_CREDENTIALS | 401 | Kullanıcı adı veya şifre hatalı |
+| AUTH_TOKEN_EXPIRED | 401 | Token süresi dolmuş |
+| AUTH_TOKEN_INVALID | 401 | Geçersiz token |
+| AUTH_INSUFFICIENT_PERMISSIONS | 403 | Bu işlem için yetkiniz yok |
+| AUTH_USER_NOT_FOUND | 404 | Kullanıcı bulunamadı |
+| AUTH_USER_INACTIVE | 403 | Kullanıcı pasif |
+| UNAUTHORIZED | 401 | Yetkilendirme gerekli |
+| FORBIDDEN | 403 | Bu işlem için yetkiniz yok |
+
+### Cari (Customer) Errors
+
+| Code | HTTP Status | Varsayılan Mesaj |
+|------|-------------|------------------|
+| CARI_NOT_FOUND | 404 | Cari bulunamadı |
+| CARI_DUPLICATE_CODE | 409 | Bu cari kodu zaten kullanılıyor |
+| CARI_DELETE_HAS_RELATIONS | 422 | Bu cari silinemez, ilişkili kayıtlar var |
+| CARI_INVALID_EMAIL | 400 | Geçersiz email adresi |
+| CARI_INVALID_PHONE | 400 | Geçersiz telefon numarası |
+| CARI_INVALID_TAX_NUMBER | 400 | Geçersiz vergi numarası |
+| CARI_INACTIVE | 400 | Cari pasif |
+
+### Work Order Errors
+
+| Code | HTTP Status | Varsayılan Mesaj |
+|------|-------------|------------------|
+| WO_NOT_FOUND | 404 | İş emri bulunamadı |
+| WO_DUPLICATE_NUMBER | 409 | İş emri numarası zaten mevcut |
+| WO_INVALID_STATUS_TRANSITION | 422 | Geçersiz durum geçişi |
+| WO_MISSING_REQUIRED_FIELD | 400 | Zorunlu alan eksik |
+| WO_CANNOT_DELETE | 422 | İş emri silinemez |
+| WO_ALREADY_INVOICED | 422 | Bu iş emri zaten faturalandırılmış |
+| WO_ITEM_NOT_FOUND | 404 | İş emri kalemi bulunamadı |
+
+### General Errors
+
 | Code | HTTP Status | Varsayılan Mesaj |
 |------|-------------|------------------|
 | INTERNAL_SERVER_ERROR | 500 | Sunucu hatası oluştu |
 | VALIDATION_ERROR | 400 | Girilen veriler geçersiz |
 | INVALID_INPUT | 400 | Geçersiz giriş |
-| UNAUTHORIZED | 401 | Yetkilendirme gerekli |
-| FORBIDDEN | 403 | Bu işlem için yetkiniz yok |
 | NOT_FOUND | 404 | Kayıt bulunamadı |
-| METHOD_NOT_ALLOWED | 405 | METHOD_NOT_ALLOWED |
-| CONFLICT | 409 | CONFLICT |
-| DATABASE_ERROR | 500 | DATABASE_ERROR |
-| DATABASE_CONNECTION_ERROR | 503 | DATABASE_CONNECTION_ERROR |
-| DUPLICATE_ENTRY | 409 | DUPLICATE_ENTRY |
-| FOREIGN_KEY_CONSTRAINT | 500 | FOREIGN_KEY_CONSTRAINT |
-| CARI_NOT_FOUND | 404 | Cari bulunamadı |
-| CARI_DUPLICATE_CODE | 409 | Bu cari kodu zaten kullanılıyor |
-| CARI_INVALID_EMAIL | 400 | Geçersiz email adresi |
-| CARI_INVALID_PHONE | 400 | CARI_INVALID_PHONE |
-| CARI_INVALID_TAX_NUMBER | 400 | CARI_INVALID_TAX_NUMBER |
-| CARI_DELETE_HAS_RELATIONS | 422 | Bu cari silinemez, ilişkili kayıtlar var |
-| CARI_INACTIVE | 400 | CARI_INACTIVE |
-| MOTORBOT_NOT_FOUND | 404 | Motorbot bulunamadı |
-| MOTORBOT_DUPLICATE_CODE | 409 | Bu motorbot kodu zaten kullanılıyor |
-| MOTORBOT_INVALID_LENGTH | 400 | MOTORBOT_INVALID_LENGTH |
-| MOTORBOT_INVALID_CAPACITY | 400 | MOTORBOT_INVALID_CAPACITY |
-| MOTORBOT_UNAVAILABLE | 400 | MOTORBOT_UNAVAILABLE |
-| MOTORBOT_IN_USE | 409 | Motorbot şu anda kullanımda |
-| SEFER_NOT_FOUND | 404 | SEFER_NOT_FOUND |
-| SEFER_DUPLICATE | 409 | SEFER_DUPLICATE |
-| SEFER_INVALID_DATE | 400 | SEFER_INVALID_DATE |
-| SEFER_ALREADY_COMPLETED | 409 | SEFER_ALREADY_COMPLETED |
-| SEFER_CANNOT_DELETE | 422 | SEFER_CANNOT_DELETE |
-| HIZMET_NOT_FOUND | 404 | HIZMET_NOT_FOUND |
-| HIZMET_DUPLICATE_CODE | 409 | HIZMET_DUPLICATE_CODE |
-| HIZMET_INVALID_PRICE | 400 | HIZMET_INVALID_PRICE |
-| HIZMET_INACTIVE | 409 | HIZMET_INACTIVE |
-| TARIFE_NOT_FOUND | 404 | TARIFE_NOT_FOUND |
-| TARIFE_DUPLICATE | 409 | TARIFE_DUPLICATE |
-| TARIFE_INVALID_DATES | 400 | TARIFE_INVALID_DATES |
-| TARIFE_OVERLAPPING_PERIOD | 409 | TARIFE_OVERLAPPING_PERIOD |
-| TARIFE_INACTIVE | 400 | TARIFE_INACTIVE |
-| BARINMA_NOT_FOUND | 404 | BARINMA_NOT_FOUND |
-| BARINMA_DUPLICATE_CONTRACT | 409 | BARINMA_DUPLICATE_CONTRACT |
-| BARINMA_INVALID_DATES | 400 | BARINMA_INVALID_DATES |
-| BARINMA_CAPACITY_EXCEEDED | 400 | BARINMA_CAPACITY_EXCEEDED |
-| KUR_NOT_FOUND | 404 | KUR_NOT_FOUND |
-| KUR_FETCH_ERROR | 503 | KUR_FETCH_ERROR |
-| KUR_INVALID_DATE | 400 | KUR_INVALID_DATE |
-| KUR_RATE_NOT_AVAILABLE | 400 | KUR_RATE_NOT_AVAILABLE |
-| PARAMETRE_NOT_FOUND | 404 | PARAMETRE_NOT_FOUND |
-| PARAMETRE_DUPLICATE_CODE | 409 | PARAMETRE_DUPLICATE_CODE |
-| PARAMETRE_INVALID_CATEGORY | 400 | PARAMETRE_INVALID_CATEGORY |
-| PARAMETRE_REQUIRED | 400 | PARAMETRE_REQUIRED |
-| WO_NOT_FOUND | 404 | İş emri bulunamadı |
-| WO_DUPLICATE_NUMBER | 409 | WO_DUPLICATE_NUMBER |
-| WO_INVALID_STATUS_TRANSITION | 422 | Geçersiz durum geçişi |
-| WO_MISSING_REQUIRED_FIELD | 400 | WO_MISSING_REQUIRED_FIELD |
-| WO_CANNOT_DELETE | 422 | WO_CANNOT_DELETE |
-| WO_ALREADY_INVOICED | 422 | Bu iş emri zaten faturalandırılmış |
-| WO_ITEM_NOT_FOUND | 404 | WO_ITEM_NOT_FOUND |
-| WORKLOG_NOT_FOUND | 404 | WORKLOG_NOT_FOUND |
-| WORKLOG_INVALID_HOURS | 400 | WORKLOG_INVALID_HOURS |
-| WORKLOG_WO_COMPLETED | 422 | WORKLOG_WO_COMPLETED |
-| WORKLOG_DUPLICATE_ENTRY | 409 | WORKLOG_DUPLICATE_ENTRY |
-| GATELOG_NOT_FOUND | 404 | GATELOG_NOT_FOUND |
-| GATELOG_ALREADY_EXITED | 422 | GATELOG_ALREADY_EXITED |
-| GATELOG_MISSING_CHECKLIST | 400 | GATELOG_MISSING_CHECKLIST |
-| GATELOG_INVALID_PIN | 400 | GATELOG_INVALID_PIN |
-| ARCHIVE_NOT_FOUND | 404 | ARCHIVE_NOT_FOUND |
-| ARCHIVE_FILE_TOO_LARGE | 400 | ARCHIVE_FILE_TOO_LARGE |
-| ARCHIVE_INVALID_FILE_TYPE | 400 | ARCHIVE_INVALID_FILE_TYPE |
-| ARCHIVE_UPLOAD_ERROR | 500 | ARCHIVE_UPLOAD_ERROR |
-| REPORT_NOT_FOUND | 404 | REPORT_NOT_FOUND |
-| REPORT_GENERATION_ERROR | 500 | REPORT_GENERATION_ERROR |
-| REPORT_INVALID_PARAMETERS | 400 | REPORT_INVALID_PARAMETERS |
-| AUTH_INVALID_CREDENTIALS | 401 | AUTH_INVALID_CREDENTIALS |
-| AUTH_TOKEN_EXPIRED | 401 | AUTH_TOKEN_EXPIRED |
-| AUTH_TOKEN_INVALID | 401 | AUTH_TOKEN_INVALID |
-| AUTH_USER_NOT_FOUND | 404 | AUTH_USER_NOT_FOUND |
-| AUTH_USER_INACTIVE | 403 | AUTH_USER_INACTIVE |
-| AUTH_INSUFFICIENT_PERMISSIONS | 403 | AUTH_INSUFFICIENT_PERMISSIONS |
-| EXTERNAL_API_ERROR | 500 | EXTERNAL_API_ERROR |
-| EVDS_API_ERROR | 500 | EVDS_API_ERROR |
-| EMAIL_SEND_ERROR | 500 | EMAIL_SEND_ERROR |
-| SMS_SEND_ERROR | 500 | SMS_SEND_ERROR |
+| METHOD_NOT_ALLOWED | 405 | İzin verilmeyen method |
+| CONFLICT | 409 | Çakışma var |
+| DATABASE_ERROR | 500 | Veritabanı hatası |
+| DATABASE_CONNECTION_ERROR | 503 | Veritabanı bağlantısı yok |
+| DUPLICATE_ENTRY | 409 | Tekrar eden kayıt |
+| FOREIGN_KEY_CONSTRAINT | 500 | Foreign key hatası |
+
+**Diğer kategoriler (Hizmet, Tarife, Motorbot, Sefer, Barınma, Kurlar, Parametre, WorkLog, GateLog, Archive, Report, External API) için tam liste yukarıdaki tablolarda.**
 
 ## Kullanım Önerileri (Frontend)
 ```typescript

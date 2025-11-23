@@ -1,0 +1,470 @@
+{
+  "info": {
+    "name": "Aliaport v3.1 API",
+    "_postman_id": "aliaport-v3-1-collection",
+    "description": "Aliaport Liman Yönetim Sistemi API - Complete collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "3.1.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', response.data.access_token);",
+                  "    pm.collectionVariables.set('refresh_token', response.data.refresh_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', response.data.access_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{refresh_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Monitoring",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Readiness Check",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ready",
+              "host": ["{{base_url}}"],
+              "path": ["ready"]
+            }
+          }
+        },
+        {
+          "name": "Metrics",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/metrics",
+              "host": ["{{base_url}}"],
+              "path": ["metrics"]
+            }
+          }
+        },
+        {
+          "name": "Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["status"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cari",
+      "item": [
+        {
+          "name": "List Cari",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/cari?page=1&page_size=50&cari_tip=MUSTERI&search=",
+              "host": ["{{base_url}}"],
+              "path": ["api", "cari"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "page_size", "value": "50"},
+                {"key": "cari_tip", "value": "MUSTERI"},
+                {"key": "search", "value": ""}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Cari by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/cari/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "cari", "1"]
+            }
+          }
+        },
+        {
+          "name": "Create Cari",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cari_code\": \"C002\",\n  \"cari_unvan\": \"Test Şirket\",\n  \"cari_tip\": \"MUSTERI\",\n  \"tax_number\": \"1234567890\",\n  \"tax_office\": \"Kadıköy\",\n  \"address\": \"İstanbul\",\n  \"phone\": \"+90 212 123 45 67\",\n  \"email\": \"test@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/cari",
+              "host": ["{{base_url}}"],
+              "path": ["api", "cari"]
+            }
+          }
+        },
+        {
+          "name": "Update Cari",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+90 212 999 88 77\",\n  \"email\": \"updated@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/cari/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "cari", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Cari",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/cari/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "cari", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Work Order",
+      "item": [
+        {
+          "name": "List Work Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/work-order?status=APPROVED&page=1&page_size=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "work-order"],
+              "query": [
+                {"key": "status", "value": "APPROVED"},
+                {"key": "page", "value": "1"},
+                {"key": "page_size", "value": "50"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Work Order by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/work-order/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "work-order", "1"]
+            }
+          }
+        },
+        {
+          "name": "Get Work Order by Number",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/work-order/number/WO-2025-0001",
+              "host": ["{{base_url}}"],
+              "path": ["api", "work-order", "number", "WO-2025-0001"]
+            }
+          }
+        },
+        {
+          "name": "Create Work Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cari_id\": 1,\n  \"cari_code\": \"C001\",\n  \"type\": \"HIZMET\",\n  \"subject\": \"Römorkör Hizmeti\",\n  \"description\": \"Gemi yanaşma\",\n  \"planned_start\": \"2025-11-24T08:00:00Z\",\n  \"planned_end\": \"2025-11-24T12:00:00Z\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/work-order",
+              "host": ["{{base_url}}"],
+              "path": ["api", "work-order"]
+            }
+          }
+        },
+        {
+          "name": "Change Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"APPROVED\",\n  \"notes\": \"Onaylandı\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/work-order/1/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "work-order", "1", "status"]
+            }
+          }
+        },
+        {
+          "name": "Work Order Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/work-order/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "work-order", "stats"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Exchange Rates",
+      "item": [
+        {
+          "name": "Get Latest Rates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/exchange-rate/latest",
+              "host": ["{{base_url}}"],
+              "path": ["api", "exchange-rate", "latest"]
+            }
+          }
+        },
+        {
+          "name": "Get Published Rate",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/exchange-rate/published?date=2025-11-23&currency_pair=USD_TRY",
+              "host": ["{{base_url}}"],
+              "path": ["api", "exchange-rate", "published"],
+              "query": [
+                {"key": "date", "value": "2025-11-23"},
+                {"key": "currency_pair", "value": "USD_TRY"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Fetch from TCMB",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/exchange-rate/fetch-tcmb",
+              "host": ["{{base_url}}"],
+              "path": ["api", "exchange-rate", "fetch-tcmb"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gate Log",
+      "item": [
+        {
+          "name": "List Gate Logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/gatelog?direction=IN&page=1&page_size=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "gatelog"],
+              "query": [
+                {"key": "direction", "value": "IN"},
+                {"key": "page", "value": "1"},
+                {"key": "page_size", "value": "50"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Gate Log",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"wo_number\": \"WO-2025-0001\",\n  \"direction\": \"IN\",\n  \"plate_number\": \"34 ABC 123\",\n  \"driver_name\": \"Ahmet Yılmaz\",\n  \"notes\": \"Normal giriş\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/gatelog",
+              "host": ["{{base_url}}"],
+              "path": ["api", "gatelog"]
+            }
+          }
+        },
+        {
+          "name": "Exception Log (PIN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plate_number\": \"34 XYZ 789\",\n  \"driver_name\": \"Test Driver\",\n  \"direction\": \"IN\",\n  \"exception_pin\": \"1234\",\n  \"reason\": \"Acil durum\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/gatelog/exception",
+              "host": ["{{base_url}}"],
+              "path": ["api", "gatelog", "exception"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
