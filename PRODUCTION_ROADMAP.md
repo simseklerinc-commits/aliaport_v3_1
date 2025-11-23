@@ -1139,11 +1139,13 @@ Frontend olgunlaşma hızla ilerliyor. Sprint 2 + Sprint 3 + Sprint 4'te state, 
 - Cache strategy dokümanı (React Query önerisi)
 
 **Sıradaki Öncelikler:**
-- [ ] HizmetList, TarifeList component'leri (CariListModern pattern)
+- [x] HizmetListModern komponenti (tamamlandı)
+- [x] TarifeListModern komponenti (paginated + skeleton + toast) TAMAMLANDI (23 Kasım 2025)
+- [x] Tarife mutations toast pattern refaktörü TAMAMLANDI (23 Kasım 2025)
 - [ ] Form component'leri genişlet (WorkOrderForm, MotorbotForm - React Hook Form + Zod)
 - [ ] Icon/SVG sprite pipeline implementation
-- [ ] Toast notification kullanımı yaygınlaştır (success/error messages)
-- [ ] Loading skeleton component'leri (table, card skeletons)
+- [ ] Toast notification kullanımını diğer modüllere yaygınlaştır (success/error messages)
+- [ ] Shared StatusBadge bileşeni (rol/durum/pasif tekrarlarını azaltma)
 
 **Olgunluk Metrikleri (Güncel - 23 Kasım 2025 - Sprint 5 Tamamlandı):**
 - **Backend:** %100 (FAZ 1 + FAZ 2 tamamlandı)

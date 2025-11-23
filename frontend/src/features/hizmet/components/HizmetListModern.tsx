@@ -128,7 +128,7 @@ export function HizmetListModern({ onEdit, onView, onCreate }: HizmetListModernP
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{h.Birim || '-'} </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{h.Fiyat ? `${h.Fiyat} ${h.ParaBirimi}` : '-'} </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${h.AktifMi ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{h.AktifMi ? 'Aktif' : 'Pasif'}</span>
+                    <StatusBadge kind="aktifPasif" value={h.AktifMi} />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end gap-2">

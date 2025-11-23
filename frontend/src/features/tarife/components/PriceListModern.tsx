@@ -31,6 +31,7 @@ import type { PriceList, PriceListDurum, PriceListItem } from '../../../shared/t
 import { Loader } from '../../../shared/ui/Loader';
 import { ErrorMessage } from '../../../shared/ui/ErrorMessage';
 import { parseDecimal } from '../../../core/utils/number';
+import { StatusBadge } from '../../../shared/ui/StatusBadge';
 
 interface PriceListModernProps {
   onEditList?: (pl: PriceList) => void;
@@ -226,21 +227,7 @@ export function PriceListModern({
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{pl.Versiyon?.toFixed?.(1) || pl.Versiyon || '1'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{validity}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                        <span
-                          className={`px-2 py-1 text-xs font-semibold rounded-full border ${
-                            pl.Durum === 'AKTIF'
-                              ? 'bg-green-100 text-green-700 border-green-200'
-                              : pl.Durum === 'TASLAK'
-                              ? 'bg-yellow-100 text-yellow-700 border-yellow-200'
-                              : 'bg-gray-100 text-gray-700 border-gray-300'
-                          }`}
-                        >
-                          {pl.Durum === 'AKTIF'
-                            ? 'Aktif'
-                            : pl.Durum === 'TASLAK'
-                            ? 'Taslak'
-                            : 'Pasif'}
-                        </span>
+                        <StatusBadge kind="tarifeDurum" value={pl.Durum} />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -381,15 +368,7 @@ function PriceListItemsRow({ priceListId, priceList, onEditItem, onCreateItem, o
                         {kdvNum != null ? kdvNum.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-center">
-                        <span
-                          className={`px-2 py-1 text-[10px] font-semibold rounded-full border ${
-                            it.AktifMi !== false
-                              ? 'bg-green-100 text-green-700 border-green-200'
-                              : 'bg-red-100 text-red-700 border-red-200'
-                          }`}
-                        >
-                          {it.AktifMi !== false ? 'Aktif' : 'Pasif'}
-                        </span>
+                        <StatusBadge kind="aktifPasif" value={it.AktifMi} className="text-[10px]" />
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-2">

@@ -7,7 +7,7 @@
  * @see core/api/client.ts - Base API client
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createQueryKey, getQueryOptions } from '../../cache/queryClient';
 import { apiClient } from '../../api/client';
 import type {
@@ -20,6 +20,8 @@ import type {
   PriceListDurum,
 } from '../../../shared/types/tarife';
 import type { ErrorResponse } from '../../types/responses';
+import { useToastMutation } from '../../hooks/useToastMutation';
+import { usePaginatedQuery } from './usePaginatedQuery';
 
 // =====================
 // Query Keys - PriceList
@@ -53,6 +55,7 @@ export const priceListItemKeys = {
  * @example
  * const { data } = usePriceListList({ page: 1, durum: 'AKTIF' });
  */
+// Legacy non-paginated list (tüm sonuçları dönen) - yavaş yavaş paginated sürüme geçilecek.
 export function usePriceListList(params: {
   page?: number;
   page_size?: number;
@@ -66,9 +69,23 @@ export function usePriceListList(params: {
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as PriceList[];
     },
     ...getQueryOptions('TARIFE'),
+  });
+}
+
+// Paginated modern hook (items + pagination meta)
+export function usePriceListListPaginated(filters: {
+  page?: number;
+  page_size?: number;
+  search?: string;
+  durum?: PriceListDurum;
+} = {}) {
+  return usePaginatedQuery<PriceList, typeof filters>({
+    module: 'TARIFE',
+    path: '/tarife/price-list',
+    filters,
   });
 }
 
@@ -152,17 +169,18 @@ export function usePriceListItemDetail(id: number, options?: { enabled?: boolean
  */
 export function useCreatePriceList() {
   const queryClient = useQueryClient();
-
-  return useMutation<PriceList, ErrorResponse, CreatePriceListPayload>({
+  return useToastMutation<PriceList, CreatePriceListPayload>({
     mutationFn: async (payload) => {
       const response = await apiClient.post<PriceList>('/tarife/price-list', payload);
-      if (!response.success) {
-        throw response;
-      }
-      return response.data;
+      if (!response.success) throw response;
+      return response.data as PriceList;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: priceListKeys.lists() });
+    },
+    messages: {
+      success: (data) => `Tarife oluşturuldu: ${data.Kod}`,
+      error: (err) => `Tarife oluşturulamadı: ${err.error.message}`,
     },
   });
 }
@@ -176,27 +194,21 @@ export function useCreatePriceList() {
  */
 export function useUpdatePriceList() {
   const queryClient = useQueryClient();
-
-  return useMutation<
-    PriceList,
-    ErrorResponse,
-    { id: number; data: UpdatePriceListPayload }
-  >({
+  return useToastMutation<PriceList, { id: number; data: UpdatePriceListPayload }>({
     mutationFn: async ({ id, data }) => {
       const response = await apiClient.put<PriceList>(`/tarife/price-list/${id}`, data);
-      if (!response.success) {
-        throw response;
-      }
-      return response.data;
+      if (!response.success) throw response;
+      return response.data as PriceList;
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: priceListKeys.detail(variables.id) });
-      if (data.Kod) {
-        queryClient.invalidateQueries({ queryKey: priceListKeys.byCode(data.Kod) });
-      }
+      if (data.Kod) queryClient.invalidateQueries({ queryKey: priceListKeys.byCode(data.Kod) });
       queryClient.invalidateQueries({ queryKey: priceListKeys.lists() });
-      // İlgili tüm item'ları da invalidate et
       queryClient.invalidateQueries({ queryKey: priceListKeys.items(variables.id) });
+    },
+    messages: {
+      success: (data) => `Tarife güncellendi: ${data.Kod}`,
+      error: (err, vars) => `Tarife güncellenemedi (ID:${vars.id}): ${err.error.message}`,
     },
   });
 }
@@ -210,19 +222,20 @@ export function useUpdatePriceList() {
  */
 export function useDeletePriceList() {
   const queryClient = useQueryClient();
-
-  return useMutation<void, ErrorResponse, number>({
+  return useToastMutation<void, number>({
     mutationFn: async (id) => {
       const response = await apiClient.delete<void>(`/tarife/price-list/${id}`);
-      if (!response.success) {
-        throw response;
-      }
-      return response.data;
+      if (!response.success) throw response;
+      return response.data as void;
     },
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: priceListKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: priceListKeys.lists() });
       queryClient.invalidateQueries({ queryKey: priceListKeys.items(id) });
+    },
+    messages: {
+      success: (_ , id) => `Tarife silindi (ID:${id})`,
+      error: (err, id) => `Tarife silinemedi (ID:${id}): ${err.error.message}`,
     },
   });
 }
@@ -245,19 +258,19 @@ export function useDeletePriceList() {
  */
 export function useCreatePriceListItem() {
   const queryClient = useQueryClient();
-
-  return useMutation<PriceListItem, ErrorResponse, CreatePriceListItemPayload>({
+  return useToastMutation<PriceListItem, CreatePriceListItemPayload>({
     mutationFn: async (payload) => {
       const response = await apiClient.post<PriceListItem>('/tarife/price-list-item', payload);
-      if (!response.success) {
-        throw response;
-      }
-      return response.data;
+      if (!response.success) throw response;
+      return response.data as PriceListItem;
     },
     onSuccess: (data) => {
-      // Parent PriceList'in item listesini invalidate et
       queryClient.invalidateQueries({ queryKey: priceListKeys.items(data.PriceListId) });
       queryClient.invalidateQueries({ queryKey: priceListItemKeys.all() });
+    },
+    messages: {
+      success: (data) => `Tarife kalemi eklendi: ${data.HizmetKodu}`,
+      error: (err) => `Tarife kalemi eklenemedi: ${err.error.message}`,
     },
   });
 }
@@ -271,23 +284,20 @@ export function useCreatePriceListItem() {
  */
 export function useUpdatePriceListItem() {
   const queryClient = useQueryClient();
-
-  return useMutation<
-    PriceListItem,
-    ErrorResponse,
-    { id: number; data: UpdatePriceListItemPayload }
-  >({
+  return useToastMutation<PriceListItem, { id: number; data: UpdatePriceListItemPayload }>({
     mutationFn: async ({ id, data }) => {
       const response = await apiClient.put<PriceListItem>(`/tarife/price-list-item/${id}`, data);
-      if (!response.success) {
-        throw response;
-      }
-      return response.data;
+      if (!response.success) throw response;
+      return response.data as PriceListItem;
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: priceListItemKeys.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: priceListKeys.items(data.PriceListId) });
       queryClient.invalidateQueries({ queryKey: priceListItemKeys.all() });
+    },
+    messages: {
+      success: (data) => `Tarife kalemi güncellendi: ${data.HizmetKodu}`,
+      error: (err, vars) => `Tarife kalemi güncellenemedi (ID:${vars.id}): ${err.error.message}`,
     },
   });
 }
@@ -301,19 +311,20 @@ export function useUpdatePriceListItem() {
  */
 export function useDeletePriceListItem() {
   const queryClient = useQueryClient();
-
-  return useMutation<void, ErrorResponse, { itemId: number; priceListId: number }>({
+  return useToastMutation<void, { itemId: number; priceListId: number }>({
     mutationFn: async ({ itemId }) => {
       const response = await apiClient.delete<void>(`/tarife/price-list-item/${itemId}`);
-      if (!response.success) {
-        throw response;
-      }
-      return response.data;
+      if (!response.success) throw response;
+      return response.data as void;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: priceListItemKeys.detail(variables.itemId) });
       queryClient.invalidateQueries({ queryKey: priceListKeys.items(variables.priceListId) });
       queryClient.invalidateQueries({ queryKey: priceListItemKeys.all() });
+    },
+    messages: {
+      success: (_ , vars) => `Tarife kalemi silindi (ID:${vars.itemId})`,
+      error: (err, vars) => `Tarife kalemi silinemedi (ID:${vars.itemId}): ${err.error.message}`,
     },
   });
 }

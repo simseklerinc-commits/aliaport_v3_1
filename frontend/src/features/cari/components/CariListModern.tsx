@@ -18,6 +18,7 @@ import { SimplePagination } from '../../../shared/ui/Pagination';
 import { TableSkeleton } from '../../../shared/ui/Skeleton';
 import { ErrorMessage } from '../../../shared/ui/ErrorMessage';
 import type { Cari } from '../../../shared/types/cari';
+import { StatusBadge } from '../../../shared/ui/StatusBadge';
 
 interface CariListModernProps {
   onEdit?: (cari: Cari) => void;
@@ -196,21 +197,7 @@ export function CariListModern({ onEdit, onView, onCreate }: CariListModernProps
                     {cari.Unvan}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        cari.Rol === 'MUSTERI'
-                          ? 'bg-blue-100 text-blue-800'
-                          : cari.Rol === 'TEDARIKCI'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-purple-100 text-purple-800'
-                      }`}
-                    >
-                      {cari.Rol === 'MUSTERI'
-                        ? 'Müşteri'
-                        : cari.Rol === 'TEDARIKCI'
-                        ? 'Tedarikçi'
-                        : 'Diğer'}
-                    </span>
+                    <StatusBadge kind="cariRol" value={cari.Rol} />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {cari.VergiNo || '-'}
@@ -219,15 +206,7 @@ export function CariListModern({ onEdit, onView, onCreate }: CariListModernProps
                     {cari.Telefon || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        cari.AktifMi !== false
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {cari.AktifMi !== false ? 'Aktif' : 'Pasif'}
-                    </span>
+                    <StatusBadge kind="aktifPasif" value={cari.AktifMi} />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end gap-2">
