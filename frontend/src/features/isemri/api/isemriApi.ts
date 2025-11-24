@@ -1,8 +1,9 @@
 /**
  * İŞ EMRİ API - Backend communication layer
- * Base URL: http://localhost:8000/api/work-order
+ * Base URL: /api/work-order
  */
 
+import { apiClient } from '../../../core/api/apiWrapper';
 import type {
   WorkOrder,
   WorkOrderCreate,
@@ -14,7 +15,7 @@ import type {
   PaginatedWorkOrderResponse,
 } from '../types/isemri.types';
 
-const BASE_URL = 'http://localhost:8000/api/work-order';
+const BASE_URL = '/api/work-order';
 
 export const isemriApi = {
   // ============ WORK ORDER ENDPOINTS ============
@@ -36,9 +37,7 @@ export const isemriApi = {
       if (params?.cari_code) queryParams.append('cari_code', params.cari_code);
 
       const url = queryParams.toString() ? `${BASE_URL}?${queryParams}` : BASE_URL;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch work orders');
-      return await response.json();
+      return await apiClient.get(url);
     } catch (error) {
       console.error('isemriApi.getAll error:', error);
       throw error;
@@ -48,9 +47,7 @@ export const isemriApi = {
   // Get work order by ID
   getById: async (id: number): Promise<WorkOrder> => {
     try {
-      const response = await fetch(`${BASE_URL}/${id}`);
-      if (!response.ok) throw new Error(`Failed to fetch work order ${id}`);
-      return await response.json();
+      return await apiClient.get(`${BASE_URL}/${id}`);
     } catch (error) {
       console.error('isemriApi.getById error:', error);
       throw error;
@@ -60,9 +57,7 @@ export const isemriApi = {
   // Get work order by WO Number
   getByNumber: async (woNumber: string): Promise<WorkOrder> => {
     try {
-      const response = await fetch(`${BASE_URL}/number/${woNumber}`);
-      if (!response.ok) throw new Error(`Failed to fetch work order ${woNumber}`);
-      return await response.json();
+      return await apiClient.get(`${BASE_URL}/number/${woNumber}`);
     } catch (error) {
       console.error('isemriApi.getByNumber error:', error);
       throw error;
@@ -72,9 +67,7 @@ export const isemriApi = {
   // Get work orders by Cari Code
   getByCariCode: async (cariCode: string): Promise<WorkOrder[]> => {
     try {
-      const response = await fetch(`${BASE_URL}/cari/${cariCode}`);
-      if (!response.ok) throw new Error(`Failed to fetch work orders for ${cariCode}`);
-      return await response.json();
+      return await apiClient.get(`${BASE_URL}/cari/${cariCode}`);
     } catch (error) {
       console.error('isemriApi.getByCariCode error:', error);
       throw error;
@@ -84,13 +77,7 @@ export const isemriApi = {
   // Create work order
   create: async (data: WorkOrderCreate): Promise<WorkOrder> => {
     try {
-      const response = await fetch(BASE_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error('Failed to create work order');
-      return await response.json();
+      return await apiClient.post(BASE_URL, data);
     } catch (error) {
       console.error('isemriApi.create error:', error);
       throw error;
@@ -100,13 +87,7 @@ export const isemriApi = {
   // Update work order
   update: async (id: number, data: WorkOrderUpdate): Promise<WorkOrder> => {
     try {
-      const response = await fetch(`${BASE_URL}/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error(`Failed to update work order ${id}`);
-      return await response.json();
+      return await apiClient.put(`${BASE_URL}/${id}`, data);
     } catch (error) {
       console.error('isemriApi.update error:', error);
       throw error;
@@ -116,10 +97,7 @@ export const isemriApi = {
   // Delete work order
   delete: async (id: number): Promise<void> => {
     try {
-      const response = await fetch(`${BASE_URL}/${id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error(`Failed to delete work order ${id}`);
+      return await apiClient.delete(`${BASE_URL}/${id}`);
     } catch (error) {
       console.error('isemriApi.delete error:', error);
       throw error;
@@ -129,9 +107,7 @@ export const isemriApi = {
   // Get stats
   getStats: async (): Promise<WorkOrderStats> => {
     try {
-      const response = await fetch(`${BASE_URL}/stats`);
-      if (!response.ok) throw new Error('Failed to fetch work order stats');
-      return await response.json();
+      return await apiClient.get(`${BASE_URL}/stats`);
     } catch (error) {
       console.error('isemriApi.getStats error:', error);
       throw error;
@@ -143,9 +119,7 @@ export const isemriApi = {
   // Get items by work order ID
   getItemsByWorkOrderId: async (workOrderId: number): Promise<WorkOrderItem[]> => {
     try {
-      const response = await fetch(`${BASE_URL}-item/wo/${workOrderId}`);
-      if (!response.ok) throw new Error(`Failed to fetch items for WO ${workOrderId}`);
-      return await response.json();
+      return await apiClient.get(`${BASE_URL}-item/wo/${workOrderId}`);
     } catch (error) {
       console.error('isemriApi.getItemsByWorkOrderId error:', error);
       throw error;
@@ -155,9 +129,7 @@ export const isemriApi = {
   // Get work order item by ID
   getItemById: async (itemId: number): Promise<WorkOrderItem> => {
     try {
-      const response = await fetch(`${BASE_URL}-item/${itemId}`);
-      if (!response.ok) throw new Error(`Failed to fetch item ${itemId}`);
-      return await response.json();
+      return await apiClient.get(`${BASE_URL}-item/${itemId}`);
     } catch (error) {
       console.error('isemriApi.getItemById error:', error);
       throw error;
@@ -167,13 +139,7 @@ export const isemriApi = {
   // Create work order item
   createItem: async (data: WorkOrderItemCreate): Promise<WorkOrderItem> => {
     try {
-      const response = await fetch(`${BASE_URL}-item`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error('Failed to create work order item');
-      return await response.json();
+      return await apiClient.post(`${BASE_URL}-item`, data);
     } catch (error) {
       console.error('isemriApi.createItem error:', error);
       throw error;
@@ -183,13 +149,7 @@ export const isemriApi = {
   // Update work order item
   updateItem: async (itemId: number, data: WorkOrderItemUpdate): Promise<WorkOrderItem> => {
     try {
-      const response = await fetch(`${BASE_URL}-item/${itemId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error(`Failed to update item ${itemId}`);
-      return await response.json();
+      return await apiClient.put(`${BASE_URL}-item/${itemId}`, data);
     } catch (error) {
       console.error('isemriApi.updateItem error:', error);
       throw error;
@@ -199,10 +159,7 @@ export const isemriApi = {
   // Delete work order item
   deleteItem: async (itemId: number): Promise<void> => {
     try {
-      const response = await fetch(`${BASE_URL}-item/${itemId}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error(`Failed to delete item ${itemId}`);
+      return await apiClient.delete(`${BASE_URL}-item/${itemId}`);
     } catch (error) {
       console.error('isemriApi.deleteItem error:', error);
       throw error;
@@ -212,9 +169,7 @@ export const isemriApi = {
   // Get worklogs for work order
   getWorklogs: async (workOrderId: number): Promise<WorkOrderItem[]> => {
     try {
-      const response = await fetch(`${BASE_URL}-item/wo/${workOrderId}/worklogs`);
-      if (!response.ok) throw new Error(`Failed to fetch worklogs for WO ${workOrderId}`);
-      return await response.json();
+      return await apiClient.get(`${BASE_URL}-item/wo/${workOrderId}/worklogs`);
     } catch (error) {
       console.error('isemriApi.getWorklogs error:', error);
       throw error;
@@ -224,9 +179,7 @@ export const isemriApi = {
   // Get uninvoiced items
   getUninvoicedItems: async (): Promise<WorkOrderItem[]> => {
     try {
-      const response = await fetch(`${BASE_URL}-item/uninvoiced`);
-      if (!response.ok) throw new Error('Failed to fetch uninvoiced items');
-      return await response.json();
+      return await apiClient.get(`${BASE_URL}-item/uninvoiced`);
     } catch (error) {
       console.error('isemriApi.getUninvoicedItems error:', error);
       throw error;

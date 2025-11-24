@@ -19,6 +19,216 @@ from .schemas import MotorbotCreate, MotorbotUpdate, MotorbotOut, MbTripCreate, 
 router = APIRouter(prefix="/api/motorbot", tags=["Motorbot"])
 
 
+# === MbTrip (Sefer) Endpoints - MUST BE BEFORE MOTORBOT ENDPOINTS ===
+# FastAPI matches routes in order, so /sefer must come before /{motorbot_id}
+
+@router.get("/sefer", tags=["Sefer"])
+def list_trips(
+    page: int = Query(1, ge=1, description="Sayfa numarası"),
+    page_size: int = Query(20, ge=1, le=1000, description="Sayfa başına kayıt"),
+    mb_kod: Optional[str] = Query(None, description="Motorbot kodu filtresi"),
+    db: Session = Depends(get_db)
+):
+    """
+    Sefer listesini getir (sayfalanmış)
+    
+    Returns:
+        PaginatedResponse with trip list
+    """
+    try:
+        # Base query with eager loading (N+1 prevention for motorbot relation)
+        query = db.query(MbTrip).options(
+            joinedload(MbTrip.motorbot)
+        )
+        
+        # MB filter (join with Motorbot table)
+        if mb_kod:
+            query = query.join(Motorbot).filter(Motorbot.Kod == mb_kod)
+        
+        # Total count
+        total = query.count()
+        
+        # Pagination
+        offset = (page - 1) * page_size
+        items = query.order_by(
+            MbTrip.SeferTarihi.desc(), 
+            MbTrip.Id.desc()
+        ).offset(offset).limit(page_size).all()
+        
+        # Convert to Pydantic models and then to dicts
+        trip_list = [MbTripOut.model_validate(item).model_dump() for item in items]
+        
+        return paginated_response(
+            data=trip_list,
+            page=page,
+            page_size=page_size,
+            total=total,
+            message=f"{total} sefer bulundu"
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=error_response(
+                code=ErrorCode.INTERNAL_SERVER_ERROR,
+                message="Sefer listesi getirilirken hata oluştu",
+                details={"error": str(e)}
+            )
+        )
+
+
+@router.post("/sefer", status_code=status.HTTP_201_CREATED, tags=["Sefer"])
+def create_trip(payload: MbTripCreate, db: Session = Depends(get_db)):
+    """
+    Yeni sefer oluştur
+    
+    Returns:
+        StandardResponse with created trip
+    """
+    try:
+        obj = MbTrip(**payload.model_dump())
+        db.add(obj)
+        db.commit()
+        db.refresh(obj)
+        
+        trip_data = MbTripOut.model_validate(obj)
+        return success_response(
+            data=trip_data.model_dump(),
+            message="Sefer başarıyla oluşturuldu"
+        )
+    
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=error_response(
+                code=ErrorCode.DATABASE_ERROR,
+                message="Sefer oluşturulurken hata oluştu",
+                details={"error": str(e)}
+            )
+        )
+
+
+@router.get("/sefer/{trip_id}", tags=["Sefer"])
+def get_trip(trip_id: int, db: Session = Depends(get_db)):
+    """
+    ID ile sefer getir
+    
+    Returns:
+        StandardResponse with trip data
+    """
+    # Eager loading ile N+1 problem çözümü (1 query with JOIN)
+    obj = db.query(MbTrip).options(
+        joinedload(MbTrip.motorbot)
+    ).filter(MbTrip.Id == trip_id).first()
+    
+    if not obj:
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.SEFER_NOT_FOUND),
+            detail=error_response(
+                code=ErrorCode.SEFER_NOT_FOUND,
+                message="Sefer kaydı bulunamadı",
+                details={"trip_id": trip_id}
+            )
+        )
+    
+    trip_data = MbTripOut.model_validate(obj)
+    return success_response(
+        data=trip_data.model_dump(),
+        message="Sefer başarıyla getirildi"
+    )
+
+
+@router.put("/sefer/{trip_id}", tags=["Sefer"])
+def update_trip(
+    trip_id: int,
+    payload: MbTripUpdate,
+    db: Session = Depends(get_db),
+):
+    """
+    Sefer güncelle
+    
+    Returns:
+        StandardResponse with updated trip
+    """
+    obj = db.get(MbTrip, trip_id)
+    if not obj:
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.SEFER_NOT_FOUND),
+            detail=error_response(
+                code=ErrorCode.SEFER_NOT_FOUND,
+                message="Sefer kaydı bulunamadı",
+                details={"trip_id": trip_id}
+            )
+        )
+    
+    try:
+        for field, value in payload.model_dump(exclude_unset=True).items():
+            setattr(obj, field, value)
+        
+        db.commit()
+        db.refresh(obj)
+        
+        trip_data = MbTripOut.model_validate(obj)
+        return success_response(
+            data=trip_data.model_dump(),
+            message="Sefer başarıyla güncellendi"
+        )
+    
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=error_response(
+                code=ErrorCode.DATABASE_ERROR,
+                message="Sefer güncellenirken hata oluştu",
+                details={"error": str(e)}
+            )
+        )
+
+
+@router.delete("/sefer/{trip_id}", tags=["Sefer"])
+def delete_trip(trip_id: int, db: Session = Depends(get_db)):
+    """
+    Sefer sil
+    
+    Returns:
+        StandardResponse with success message
+    """
+    obj = db.get(MbTrip, trip_id)
+    if not obj:
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.SEFER_NOT_FOUND),
+            detail=error_response(
+                code=ErrorCode.SEFER_NOT_FOUND,
+                message="Sefer kaydı bulunamadı",
+                details={"trip_id": trip_id}
+            )
+        )
+    
+    try:
+        db.delete(obj)
+        db.commit()
+        
+        return success_response(
+            data={"id": trip_id, "deleted": True},
+            message="Sefer başarıyla silindi"
+        )
+    
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=error_response(
+                code=ErrorCode.DATABASE_ERROR,
+                message="Sefer silinirken hata oluştu",
+                details={"error": str(e)}
+            )
+        )
+
+
+# === Motorbot CRUD Endpoints ===
+
 @router.get("/")
 def list_motorbotlar(
     page: int = Query(1, ge=1, description="Sayfa numarası"),
@@ -217,7 +427,7 @@ def delete_motorbot(motorbot_id: int, db: Session = Depends(get_db)):
         )
     
     # Sefer kaydı var mı kontrol et
-    trip_count = db.query(MbTrip).filter(MbTrip.MbKod == obj.Kod).count()
+    trip_count = db.query(MbTrip).filter(MbTrip.MotorbotId == obj.Id).count()
     if trip_count > 0:
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.MOTORBOT_IN_USE),
@@ -244,213 +454,6 @@ def delete_motorbot(motorbot_id: int, db: Session = Depends(get_db)):
             detail=error_response(
                 code=ErrorCode.DATABASE_ERROR,
                 message="Motorbot silinirken hata oluştu",
-                details={"error": str(e)}
-            )
-        )
-
-
-# === MbTrip (Sefer) Endpoints ===
-
-@router.get("/sefer", tags=["Sefer"])
-def list_trips(
-    page: int = Query(1, ge=1, description="Sayfa numarası"),
-    page_size: int = Query(20, ge=1, le=1000, description="Sayfa başına kayıt"),
-    mb_kod: Optional[str] = Query(None, description="Motorbot kodu filtresi"),
-    db: Session = Depends(get_db)
-):
-    """
-    Sefer listesini getir (sayfalanmış)
-    
-    Returns:
-        PaginatedResponse with trip list
-    """
-    try:
-        # Base query with eager loading (N+1 prevention for motorbot relation)
-        query = db.query(MbTrip).options(
-            joinedload(MbTrip.motorbot)
-        )
-        
-        # MB filter
-        if mb_kod:
-            query = query.filter(MbTrip.MbKod == mb_kod)
-        
-        # Total count
-        total = query.count()
-        
-        # Pagination
-        offset = (page - 1) * page_size
-        items = query.order_by(
-            MbTrip.SeferTarihi.desc(), 
-            MbTrip.Id.desc()
-        ).offset(offset).limit(page_size).all()
-        
-        # Convert to Pydantic models and then to dicts
-        trip_list = [MbTripOut.model_validate(item).model_dump() for item in items]
-        
-        return paginated_response(
-            data=trip_list,
-            page=page,
-            page_size=page_size,
-            total=total,
-            message=f"{total} sefer bulundu"
-        )
-    
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=error_response(
-                code=ErrorCode.INTERNAL_SERVER_ERROR,
-                message="Sefer listesi getirilirken hata oluştu",
-                details={"error": str(e)}
-            )
-        )
-
-
-@router.get("/sefer/{trip_id}", tags=["Sefer"])
-def get_trip(trip_id: int, db: Session = Depends(get_db)):
-    """
-    ID ile sefer getir
-    
-    Returns:
-        StandardResponse with trip data
-    """
-    # Eager loading ile N+1 problem çözümü (1 query with JOIN)
-    obj = db.query(MbTrip).options(
-        joinedload(MbTrip.motorbot)
-    ).filter(MbTrip.Id == trip_id).first()
-    
-    if not obj:
-        raise HTTPException(
-            status_code=get_http_status_for_error(ErrorCode.SEFER_NOT_FOUND),
-            detail=error_response(
-                code=ErrorCode.SEFER_NOT_FOUND,
-                message="Sefer kaydı bulunamadı",
-                details={"trip_id": trip_id}
-            )
-        )
-    
-    trip_data = MbTripOut.model_validate(obj)
-    return success_response(
-        data=trip_data.model_dump(),
-        message="Sefer başarıyla getirildi"
-    )
-
-
-@router.post("/sefer", status_code=status.HTTP_201_CREATED, tags=["Sefer"])
-def create_trip(payload: MbTripCreate, db: Session = Depends(get_db)):
-    """
-    Yeni sefer oluştur
-    
-    Returns:
-        StandardResponse with created trip
-    """
-    try:
-        obj = MbTrip(**payload.model_dump())
-        db.add(obj)
-        db.commit()
-        db.refresh(obj)
-        
-        trip_data = MbTripOut.model_validate(obj)
-        return success_response(
-            data=trip_data.model_dump(),
-            message="Sefer başarıyla oluşturuldu"
-        )
-    
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail=error_response(
-                code=ErrorCode.DATABASE_ERROR,
-                message="Sefer oluşturulurken hata oluştu",
-                details={"error": str(e)}
-            )
-        )
-
-
-@router.put("/sefer/{trip_id}", tags=["Sefer"])
-def update_trip(
-    trip_id: int,
-    payload: MbTripUpdate,
-    db: Session = Depends(get_db),
-):
-    """
-    Sefer güncelle
-    
-    Returns:
-        StandardResponse with updated trip
-    """
-    obj = db.get(MbTrip, trip_id)
-    if not obj:
-        raise HTTPException(
-            status_code=get_http_status_for_error(ErrorCode.SEFER_NOT_FOUND),
-            detail=error_response(
-                code=ErrorCode.SEFER_NOT_FOUND,
-                message="Sefer kaydı bulunamadı",
-                details={"trip_id": trip_id}
-            )
-        )
-    
-    try:
-        for field, value in payload.model_dump(exclude_unset=True).items():
-            setattr(obj, field, value)
-        
-        db.commit()
-        db.refresh(obj)
-        
-        trip_data = MbTripOut.model_validate(obj)
-        return success_response(
-            data=trip_data.model_dump(),
-            message="Sefer başarıyla güncellendi"
-        )
-    
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail=error_response(
-                code=ErrorCode.DATABASE_ERROR,
-                message="Sefer güncellenirken hata oluştu",
-                details={"error": str(e)}
-            )
-        )
-
-
-@router.delete("/sefer/{trip_id}", tags=["Sefer"])
-def delete_trip(trip_id: int, db: Session = Depends(get_db)):
-    """
-    Sefer sil
-    
-    Returns:
-        StandardResponse with success message
-    """
-    obj = db.get(MbTrip, trip_id)
-    if not obj:
-        raise HTTPException(
-            status_code=get_http_status_for_error(ErrorCode.SEFER_NOT_FOUND),
-            detail=error_response(
-                code=ErrorCode.SEFER_NOT_FOUND,
-                message="Sefer kaydı bulunamadı",
-                details={"trip_id": trip_id}
-            )
-        )
-    
-    try:
-        db.delete(obj)
-        db.commit()
-        
-        return success_response(
-            data={"id": trip_id, "deleted": True},
-            message="Sefer başarıyla silindi"
-        )
-    
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail=error_response(
-                code=ErrorCode.DATABASE_ERROR,
-                message="Sefer silinirken hata oluştu",
                 details={"error": str(e)}
             )
         )

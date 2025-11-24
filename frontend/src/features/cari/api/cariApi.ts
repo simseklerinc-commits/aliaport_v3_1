@@ -11,8 +11,15 @@ const API_BASE_URL = '/api/cari';
  * API yanıtları için generic tip
  */
 interface ApiResponse<T> {
+  success?: boolean;
+  message?: string;
   data?: T;
   error?: string;
+  pagination?: {
+    page: number;
+    page_size: number;
+    total: number;
+  };
 }
 
 /**
@@ -22,34 +29,37 @@ export const cariApi = {
   /**
    * Tüm cari kayıtlarını getir
    */
-  getAll: async (): Promise<Cari[]> => {
-    const response = await fetch(API_BASE_URL);
+  getAll: async (page: number = 1, pageSize: number = 1000): Promise<Cari[]> => {
+    const response = await fetch(`${API_BASE_URL}/?page=${page}&page_size=${pageSize}`, { credentials: 'include' });
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    return response.json();
+    const result: ApiResponse<Cari[]> = await response.json();
+    return Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
   },
 
   /**
    * ID'ye göre cari getir
    */
   getById: async (id: number): Promise<Cari> => {
-    const response = await fetch(`${API_BASE_URL}/${id}`);
+    const response = await fetch(`${API_BASE_URL}/${id}`, { credentials: 'include' });
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    return response.json();
+    const result: ApiResponse<Cari> = await response.json();
+    return result.data || result;
   },
 
   /**
    * Kod'a göre cari getir
    */
   getByKod: async (kod: string): Promise<Cari> => {
-    const response = await fetch(`${API_BASE_URL}/kod/${kod}`);
+    const response = await fetch(`${API_BASE_URL}/kod/${kod}`, { credentials: 'include' });
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    return response.json();
+    const result: ApiResponse<Cari> = await response.json();
+    return result.data || result;
   },
 
   /**
@@ -58,6 +68,7 @@ export const cariApi = {
   create: async (data: CariCreate): Promise<Cari> => {
     const response = await fetch(API_BASE_URL, {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
       },
@@ -67,7 +78,8 @@ export const cariApi = {
       const error = await response.json();
       throw new Error(error.detail || `HTTP error! status: ${response.status}`);
     }
-    return response.json();
+    const result: ApiResponse<Cari> = await response.json();
+    return result.data || result;
   },
 
   /**
@@ -76,6 +88,7 @@ export const cariApi = {
   update: async (id: number, data: CariUpdate): Promise<Cari> => {
     const response = await fetch(`${API_BASE_URL}/${id}`, {
       method: 'PUT',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
       },
@@ -85,7 +98,8 @@ export const cariApi = {
       const error = await response.json();
       throw new Error(error.detail || `HTTP error! status: ${response.status}`);
     }
-    return response.json();
+    const result: ApiResponse<Cari> = await response.json();
+    return result.data || result;
   },
 
   /**
@@ -94,6 +108,7 @@ export const cariApi = {
   delete: async (id: number): Promise<void> => {
     const response = await fetch(`${API_BASE_URL}/${id}`, {
       method: 'DELETE',
+      credentials: 'include',
     });
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -104,10 +119,11 @@ export const cariApi = {
    * Arama yap
    */
   search: async (query: string): Promise<Cari[]> => {
-    const response = await fetch(`${API_BASE_URL}/search?q=${encodeURIComponent(query)}`);
+    const response = await fetch(`${API_BASE_URL}/search?q=${encodeURIComponent(query)}`, { credentials: 'include' });
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    return response.json();
+    const result: ApiResponse<Cari[]> = await response.json();
+    return Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
   },
 };

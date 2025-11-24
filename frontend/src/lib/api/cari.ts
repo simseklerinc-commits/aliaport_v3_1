@@ -2,6 +2,7 @@
 // GET, POST, PUT, DELETE işlemleri
 
 import { api } from './client';
+import type { RequestInit } from 'node-fetch';
 import type { 
   Cari, 
   CariWithStats, 
@@ -21,36 +22,36 @@ export const cariApi = {
     search?: string;
     type?: 'CUSTOMER' | 'SUPPLIER' | 'BOTH';
     is_active?: boolean;
-  }) => 
-    api.get<PaginatedResponse<Cari>>('/cari/', { params }),
+  }, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.get<PaginatedResponse<Cari>>('/cari/', { params, ...reqOptions }),
 
   // Tek cari detayı
-  getById: (id: number) => 
-    api.get<Cari>(`/cari/${id}`),
+  getById: (id: number, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.get<Cari>(`/cari/${id}`, reqOptions),
 
   // Cari kodu ile getir
-  getByCode: (code: string) => 
-    api.get<Cari>(`/cari/code/${code}`),
+  getByCode: (code: string, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.get<Cari>(`/cari/code/${code}`, reqOptions),
 
   // İstatistiklerle birlikte cari
-  getWithStats: (id: number) => 
-    api.get<CariWithStats>(`/cari/${id}/stats`),
+  getWithStats: (id: number, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.get<CariWithStats>(`/cari/${id}/stats`, reqOptions),
 
   // Yeni cari oluştur
-  create: (data: Omit<Cari, 'id' | 'created_at' | 'updated_at'>) => 
-    api.post<Cari>('/cari/', data),
+  create: (data: Omit<Cari, 'id' | 'created_at' | 'updated_at'>, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.post<Cari>('/cari/', data, reqOptions),
 
   // Cari güncelle
-  update: (id: number, data: Partial<Cari>) => 
-    api.put<Cari>(`/cari/${id}`, data),
+  update: (id: number, data: Partial<Cari>, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.put<Cari>(`/cari/${id}`, data, reqOptions),
 
   // Cari sil
-  delete: (id: number) => 
-    api.delete<void>(`/cari/${id}`),
+  delete: (id: number, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.delete<void>(`/cari/${id}`, reqOptions),
 
   // Cari aktif/pasif yap
-  toggleActive: (id: number) => 
-    api.patch<Cari>(`/cari/${id}/toggle-active`, {}),
+  toggleActive: (id: number, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.patch<Cari>(`/cari/${id}/toggle-active`, {}, reqOptions),
 };
 
 // ============================================
@@ -63,22 +64,22 @@ export const cariHareketApi = {
     start_date?: string;
     end_date?: string;
     transaction_type?: 'DEBIT' | 'CREDIT';
-  }) => 
-    api.get<CariHesapHareket[]>(`/cari/${cariId}/hareketler`, { params }),
+  }, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.get<CariHesapHareket[]>(`/cari/${cariId}/hareketler`, { params, ...reqOptions }),
 
   // Cari bakiyesi
-  getBalance: (cariId: number) => 
-    api.get<{ balance: number; currency: string }>(`/cari/${cariId}/balance`),
+  getBalance: (cariId: number, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.get<{ balance: number; currency: string }>(`/cari/${cariId}/balance`, reqOptions),
 
   // Cari ekstresi
   getEkstre: (cariId: number, params?: {
     start_date?: string;
     end_date?: string;
-  }) => 
+  }, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
     api.get<{
       cari: Cari;
       hareketler: CariHesapHareket[];
       opening_balance: number;
       closing_balance: number;
-    }>(`/cari/${cariId}/ekstre`, { params }),
+    }>(`/cari/${cariId}/ekstre`, { params, ...reqOptions }),
 };

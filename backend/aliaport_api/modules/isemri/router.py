@@ -83,7 +83,7 @@ def get_work_orders(
     items = [schemas_isemri.WorkOrderResponse.model_validate(wo) for wo in work_orders]
     
     return paginated_response(
-        items=items,
+        data=items,
         page=page,
         page_size=page_size,
         total=total
@@ -151,7 +151,7 @@ def get_work_order(work_order_id: int, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.WO_NOT_FOUND),
             detail=error_response(
-                error_code=ErrorCode.WO_NOT_FOUND,
+                code=ErrorCode.WO_NOT_FOUND,
                 message="İş emri bulunamadı",
                 details={"work_order_id": work_order_id}
             )
@@ -178,7 +178,7 @@ def get_work_order_by_number(wo_number: str, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.WO_NOT_FOUND),
             detail=error_response(
-                error_code=ErrorCode.WO_NOT_FOUND,
+                code=ErrorCode.WO_NOT_FOUND,
                 message="İş emri bulunamadı",
                 details={"wo_number": wo_number}
             )
@@ -260,14 +260,15 @@ def update_work_order(
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.WO_NOT_FOUND),
             detail=error_response(
-                error_code=ErrorCode.WO_NOT_FOUND,
+                code=ErrorCode.WO_NOT_FOUND,
                 message="İş emri bulunamadı",
                 details={"work_order_id": work_order_id}
             )
         )
     
     # Güncelleme
-    update_data = work_order.model_dump(by_alias=False, exclude_unset=True)
+    # Alias'ları kullanarak snake_case alanları elde et
+    update_data = work_order.model_dump(by_alias=True, exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_work_order, key, value)
     
@@ -294,7 +295,7 @@ def delete_work_order(work_order_id: int, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.WO_NOT_FOUND),
             detail=error_response(
-                error_code=ErrorCode.WO_NOT_FOUND,
+                code=ErrorCode.WO_NOT_FOUND,
                 message="İş emri bulunamadı",
                 details={"work_order_id": work_order_id}
             )
@@ -327,7 +328,7 @@ def change_work_order_status(
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.WO_NOT_FOUND),
             detail=error_response(
-                error_code=ErrorCode.WO_NOT_FOUND,
+                code=ErrorCode.WO_NOT_FOUND,
                 message="İş emri bulunamadı",
                 details={"work_order_id": work_order_id}
             )
@@ -349,6 +350,31 @@ def change_work_order_status(
 # ============================================
 # WORK ORDER ITEM ENDPOINTS
 # ============================================
+
+@router.get("/work-order-item/uninvoiced")
+def get_uninvoiced_items(
+    cari_code: Optional[str] = Query(None, description="Cari kodu filtresi"),
+    date_from: Optional[str] = Query(None, description="Başlangıç tarihi (YYYY-MM-DD)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Faturalanmamış kalemleri getir.
+    Statik path dinamik /work-order-item/{item_id} path'inden önce tanımlandığı için 422 çakışması engellenir.
+    """
+    query = db.query(models_isemri.WorkOrderItem).join(
+        models_isemri.WorkOrder,
+        models_isemri.WorkOrderItem.work_order_id == models_isemri.WorkOrder.id
+    ).filter(
+        models_isemri.WorkOrderItem.is_invoiced == False,
+        models_isemri.WorkOrder.is_active == True
+    )
+    if cari_code:
+        query = query.filter(models_isemri.WorkOrder.cari_code == cari_code)
+    if date_from:
+        query = query.filter(models_isemri.WorkOrderItem.created_at >= date_from)
+    items = query.order_by(models_isemri.WorkOrderItem.created_at.desc()).all()
+    items_data = [schemas_isemri.WorkOrderItemResponse.model_validate(item) for item in items]
+    return success_response(data=items_data, message="Faturalanmamış kalemler")
 
 @router.get("/work-order-item/wo/{work_order_id}")
 def get_work_order_items(work_order_id: int, db: Session = Depends(get_db)):
@@ -376,7 +402,7 @@ def get_work_order_item(item_id: int, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.WO_ITEM_NOT_FOUND),
             detail=error_response(
-                error_code=ErrorCode.WO_ITEM_NOT_FOUND,
+                code=ErrorCode.WO_ITEM_NOT_FOUND,
                 message="Kalem bulunamadı",
                 details={"item_id": item_id}
             )
@@ -384,6 +410,8 @@ def get_work_order_item(item_id: int, db: Session = Depends(get_db)):
     
     item_data = schemas_isemri.WorkOrderItemResponse.model_validate(item)
     return success_response(data=item_data, message="Kalem detayı")
+
+
 
 
 @router.post("/work-order-item", status_code=201)
@@ -404,15 +432,16 @@ def create_work_order_item(
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.WO_NOT_FOUND),
             detail=error_response(
-                error_code=ErrorCode.WO_NOT_FOUND,
+                code=ErrorCode.WO_NOT_FOUND,
                 message="İş emri bulunamadı",
                 details={"work_order_id": item.WorkOrderId}
             )
         )
     
     # Model oluştur
+    # Alias'ları kullanarak snake_case alanları elde et
     db_item = models_isemri.WorkOrderItem(
-        **item.model_dump(by_alias=False, exclude_unset=True)
+        **item.model_dump(by_alias=True, exclude_unset=True)
     )
     
     db.add(db_item)
@@ -440,7 +469,7 @@ def update_work_order_item(
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.WO_ITEM_NOT_FOUND),
             detail=error_response(
-                error_code=ErrorCode.WO_ITEM_NOT_FOUND,
+                code=ErrorCode.WO_ITEM_NOT_FOUND,
                 message="Kalem bulunamadı",
                 details={"item_id": item_id}
             )
@@ -451,14 +480,15 @@ def update_work_order_item(
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.WO_ALREADY_INVOICED),
             detail=error_response(
-                error_code=ErrorCode.WO_ALREADY_INVOICED,
+                code=ErrorCode.WO_ALREADY_INVOICED,
                 message="Faturalanmış kalem güncellenemez",
                 details={"item_id": item_id}
             )
         )
     
     # Güncelleme
-    update_data = item.model_dump(by_alias=False, exclude_unset=True)
+    # Alias kullanarak snake_case alan isimlerini elde et
+    update_data = item.model_dump(by_alias=True, exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_item, key, value)
     
@@ -482,7 +512,7 @@ def delete_work_order_item(item_id: int, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.WO_ITEM_NOT_FOUND),
             detail=error_response(
-                error_code=ErrorCode.WO_ITEM_NOT_FOUND,
+                code=ErrorCode.WO_ITEM_NOT_FOUND,
                 message="Kalem bulunamadı",
                 details={"item_id": item_id}
             )
@@ -493,7 +523,7 @@ def delete_work_order_item(item_id: int, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.WO_ALREADY_INVOICED),
             detail=error_response(
-                error_code=ErrorCode.WO_ALREADY_INVOICED,
+                code=ErrorCode.WO_ALREADY_INVOICED,
                 message="Faturalanmış kalem silinemez",
                 details={"item_id": item_id}
             )
@@ -519,30 +549,3 @@ def get_work_order_worklogs(work_order_id: int, db: Session = Depends(get_db)):
     return success_response(data=items_data, message="WorkLog kalemleri")
 
 
-@router.get("/work-order-item/uninvoiced")
-def get_uninvoiced_items(
-    cari_code: Optional[str] = Query(None, description="Cari kodu filtresi"),
-    date_from: Optional[str] = Query(None, description="Başlangıç tarihi (YYYY-MM-DD)"),
-    db: Session = Depends(get_db)
-):
-    """
-    Faturalanamayan kalemleri getir
-    """
-    query = db.query(models_isemri.WorkOrderItem).join(
-        models_isemri.WorkOrder,
-        models_isemri.WorkOrderItem.work_order_id == models_isemri.WorkOrder.id
-    ).filter(
-        models_isemri.WorkOrderItem.is_invoiced == False,
-        models_isemri.WorkOrder.is_active == True
-    )
-    
-    if cari_code:
-        query = query.filter(models_isemri.WorkOrder.cari_code == cari_code)
-    
-    if date_from:
-        query = query.filter(models_isemri.WorkOrderItem.created_at >= date_from)
-    
-    items = query.order_by(models_isemri.WorkOrderItem.created_at.desc()).all()
-    
-    items_data = [schemas_isemri.WorkOrderItemResponse.model_validate(item) for item in items]
-    return success_response(data=items_data, message="Faturalanmamış kalemler")

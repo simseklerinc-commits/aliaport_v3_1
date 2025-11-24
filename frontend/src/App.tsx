@@ -37,8 +37,10 @@ import { TopBar } from "./components/TopBar";
 import { SidebarMainMenu } from "./components/SidebarMainMenu";
 import { SubMenu } from "./components/SubMenu";
 import { QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from './core/cache/queryClient';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { ApiDebugPanel } from './dev/ApiDebugPanel';
+import { ErrorBoundary } from './dev/ErrorBoundary';
 
 const subMenus = {
   "is-emri": {
@@ -190,8 +192,6 @@ function InnerApp() {
   const [currentTheme, setCurrentTheme] = useState<Theme>(themes[0]);
   const [showTemplatePreview, setShowTemplatePreview] = useState<boolean>(false);
   const [navigationHistory, setNavigationHistory] = useState<string[]>([]);
-  
-
 
   // Motorbot selection state (for KontratGiris)
   const [selectedMotorbotForKontrat, setSelectedMotorbotForKontrat] = useState<any>(null);
@@ -280,8 +280,7 @@ function InnerApp() {
   };
 
   const { isAuthenticated, logout, user } = useAuth();
-  return (
-    <QueryClientProvider client={queryClient}>
+  const appShell = (
       <div className={`dark min-h-screen ${currentTheme.colors.bg} ${currentTheme.colors.text} flex`}>
         <Toaster position="top-right" richColors />
         {/* Debug Info */}
@@ -537,13 +536,21 @@ function InnerApp() {
         </div>
       </div>
       
-      {/* React Query Devtools - development only */}
+      {/* React Query Devtools & Debug Panel - development only */}
       {process.env.NODE_ENV === 'development' && (
-        <ReactQueryDevtools initialIsOpen={false} />
+        <>
+          <ReactQueryDevtools initialIsOpen={false} />
+          <ApiDebugPanel />
+        </>
       )}
+      </div>
+  );
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ErrorBoundary>{appShell}</ErrorBoundary>
     </QueryClientProvider>
   );
-} 
+}
 
 export default function App() {
   return (

@@ -206,7 +206,7 @@ def create_price_list(price_list_data: PriceListCreate, db: Session = Depends(ge
         existing = db.query(PriceList).filter(PriceList.Kod == price_list_data.Kod).first()
         if existing:
             return error_response(
-                code=ErrorCode.TARIFE_DUPLICATE_CODE,
+                code=ErrorCode.TARIFE_DUPLICATE,
                 message="Bu kod zaten kullanılıyor",
                 details={"kod": price_list_data.Kod}
             )
@@ -253,7 +253,7 @@ def update_price_list(
             existing = db.query(PriceList).filter(PriceList.Kod == price_list_data.Kod).first()
             if existing:
                 return error_response(
-                    code=ErrorCode.TARIFE_DUPLICATE_CODE,
+                    code=ErrorCode.TARIFE_DUPLICATE,
                     message="Bu kod zaten kullanılıyor",
                     details={"kod": price_list_data.Kod}
                 )
@@ -336,8 +336,8 @@ def delete_price_list(price_list_id: int, db: Session = Depends(get_db)):
         # İlişkili kalemleri say
         items_count = db.query(PriceListItem).filter(PriceListItem.PriceListId == price_list_id).count()
         
-        # İlişkili kalemleri de sil
-        db.query(PriceListItem).filter(PriceListItem.PriceListItem == price_list_id).delete()
+        # İlişkili kalemleri de sil (bug fix: doğru foreign key alanı)
+        db.query(PriceListItem).filter(PriceListItem.PriceListId == price_list_id).delete()
         
         db.delete(price_list)
         db.commit()

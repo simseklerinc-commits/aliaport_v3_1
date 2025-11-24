@@ -65,7 +65,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         return JSONResponse(
             status_code=exc.status_code,
             content=error_response(
-                error_code=error_code,
+                code=error_code.value,
                 message=str(exc.detail) if not IS_PRODUCTION else "An error occurred",
                 details={"request_id": request_id} if request_id else None
             )
@@ -145,7 +145,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content=error_response(
-                error_code=ErrorCode.DATABASE_CONNECTION_ERROR,
+                code=ErrorCode.DATABASE_CONNECTION_ERROR.value,
                 message="Database connection error" if IS_PRODUCTION else str(exc),
                 details={"request_id": request_id} if request_id else None
             )

@@ -20,7 +20,8 @@ export function useCariList() {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await cariApi.getAll();
+      // Tüm cariyi bir kez çek (sayfa başına 1000 kaydı)
+      const data = await cariApi.getAll(1, 1000);
       setCariList(data);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Cari listesi yüklenemedi';

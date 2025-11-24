@@ -33,6 +33,19 @@ interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean>;
 }
 
+interface PaginationMeta {
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
+export interface UnwrappedPaginated<T> {
+  items: T[];
+  pagination: PaginationMeta;
+  message?: string;
+}
+
 async function request<T>(
   endpoint: string,
   options: RequestOptions = {}
@@ -65,20 +78,43 @@ async function request<T>(
 
     // Response body'yi oku
     const contentType = response.headers.get('content-type');
-    const data = contentType?.includes('application/json')
+    const raw = contentType?.includes('application/json')
       ? await response.json()
       : await response.text();
 
-    // Hata kontrolü
+    // HTTP status bazlı hata
     if (!response.ok) {
-      throw new ApiError(
-        data.detail || data.message || `Request failed with status ${response.status}`,
-        response.status,
-        data
-      );
+      const detail = typeof raw === 'object' && raw ? (raw.detail || raw.message || raw.error?.message) : `Request failed with status ${response.status}`;
+      throw new ApiError(detail, response.status, raw);
     }
 
-    return data as T;
+    // Standart envelope tespiti (backend success_response / paginated_response)
+    if (raw && typeof raw === 'object' && 'success' in raw) {
+      const envelope = raw as any; // StandardEnvelope
+      if (!envelope.success) {
+        const errMsg = envelope.error?.message || envelope.message || 'İşlem başarısız';
+        throw new ApiError(errMsg, response.status, envelope.error || envelope);
+      }
+      // Paginated
+      if (envelope.pagination && Array.isArray(envelope.data)) {
+        const p = envelope.pagination;
+        const totalPages = p.page_size > 0 ? Math.ceil(p.total / p.page_size) : 1;
+        const mapped = {
+          items: envelope.data,
+          total: p.total,
+          page: p.page,
+          page_size: p.page_size,
+          total_pages: totalPages,
+          _message: envelope.message
+        };
+        return mapped as unknown as T; // Çağıran taraf PaginatedResponse<TItem> bekliyor
+      }
+      // Normal veri
+      return envelope.data as T;
+    }
+
+    // Eski format (doğrudan obje/array)
+    return raw as T;
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;
@@ -126,6 +162,10 @@ export const api = {
   delete: function<T>(endpoint: string, options?: RequestOptions) {
     return request<T>(endpoint, { ...options, method: 'DELETE' });
   },
+  // Ham envelope isteyen özel kullanım için (exception ekranları vs.)
+  raw: function(endpoint: string, options?: RequestOptions) {
+    return request<any>(endpoint, { ...options, method: (options?.method as any) || 'GET' });
+  }
 };
 
 // Alias for backward compatibility

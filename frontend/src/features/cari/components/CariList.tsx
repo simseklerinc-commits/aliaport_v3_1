@@ -37,6 +37,8 @@ export function CariList({ onEdit, onView, onCreate }: CariListProps) {
   const { deleteCari } = useCariMutations();
   const [searchTerm, setSearchTerm] = useState('');
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   const filteredCariList = cariList.filter((cari) => {
     if (!searchTerm) return true;
@@ -48,6 +50,13 @@ export function CariList({ onEdit, onView, onCreate }: CariListProps) {
       cari.Telefon?.toLowerCase().includes(s)
     );
   });
+
+  const paginatedList = filteredCariList.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const totalPages = Math.ceil(filteredCariList.length / itemsPerPage);
 
   const handleDelete = async (id: number) => {
     if (!confirm('Bu cari kaydını silmek istediğinizden emin misiniz?')) return;
@@ -131,14 +140,14 @@ export function CariList({ onEdit, onView, onCreate }: CariListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredCariList.length === 0 ? (
+              {paginatedList.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     {searchTerm ? 'Arama sonucu bulunamadı' : 'Henüz cari kaydı bulunmuyor'}
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredCariList.map((cari) => (
+                paginatedList.map((cari) => (
                   <TableRow key={cari.Id}>
                     <TableCell className="font-medium">{cari.CariKod}</TableCell>
                     <TableCell>{cari.Unvan}</TableCell>
@@ -181,6 +190,45 @@ export function CariList({ onEdit, onView, onCreate }: CariListProps) {
             </TableBody>
           </Table>
         </div>
+
+        {/* Sayfalama Kontrolleri */}
+        {filteredCariList.length > 0 && (
+          <div className="mt-4 flex items-center justify-between text-sm">
+            <div className="text-gray-400">
+              {filteredCariList.length} sonuç - Sayfa {currentPage} / {totalPages}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                ← Önceki
+              </Button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </Button>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Sonraki →
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from ...config.database import get_db
-from .models import MbTrip
+from ..motorbot.models import MbTrip
 from .schemas import MbTripCreate, MbTripUpdate, MbTripOut
 
 

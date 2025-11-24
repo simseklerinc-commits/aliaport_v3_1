@@ -18,6 +18,13 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     }
     try {
       const me = await authService.getCurrentUser();
+      // Fetch permissions separately
+      try {
+        const permResponse = await authService.getCurrentUserPermissions();
+        me.permissions = permResponse.permissions;
+      } catch {
+        me.permissions = [];
+      }
       setUser(me);
     } catch {
       tokenStorage.clearTokens();
@@ -62,12 +69,17 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   }, [user]);
 
   const hasPermission = useCallback((resource: string, action: string) => {
-    // Simplified: derive from roles (admin or superuser always true)
     if (!user) return false;
     if (user.is_superuser) return true;
-    // For now rely on role check patterns (expand later if permissions exposed)
-    // Example pattern: OPERASYON role => check permitted resources
-    return true; // Placeholder always true until permission endpoint added
+    
+    const requiredPermission = `${resource}:${action}`;
+    const wildcard = `${resource}:*`;
+    
+    return (
+      user.permissions?.includes(requiredPermission) ||
+      user.permissions?.includes(wildcard) ||
+      false
+    );
   }, [user]);
 
   const value: AuthContextValue = {

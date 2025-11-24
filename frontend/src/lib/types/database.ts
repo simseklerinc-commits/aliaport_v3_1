@@ -518,6 +518,26 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
+// Yeni backend standart zarfı (success_response / paginated_response)
+export interface StandardEnvelope<T> {
+  success: boolean;
+  message?: string;
+  data?: T;
+  error?: {
+    code: string;
+    message: string;
+    field?: string;
+    details?: Record<string, any>;
+  };
+  pagination?: {
+    page: number;
+    page_size: number;
+    total: number;
+  };
+}
+
+export interface StandardPaginatedEnvelope<T> extends StandardEnvelope<T[]> {}
+
 export interface ApiError {
   detail: string;
   status: number;

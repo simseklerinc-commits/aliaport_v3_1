@@ -189,3 +189,137 @@
 html {
   font-size: var(--font-size);
 }
+
+/* Giriş ve form inputları için okunabilirlik düzeltmesi */
+input, input[type="text"], input[type="email"], input[type="password"] {
+  color: #fff !important;
+  background: #222 !important;
+  border: 1px solid #444 !important;
+  caret-color: #fff !important;
+}
+
+input::placeholder {
+  color: #bbb !important;
+  opacity: 1;
+}
+
+/* ============================================
+   FIGMA DESIGN - Minimal Dark Theme
+   ============================================ */
+
+/* Table Styling - Clean and Minimal */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #0d1117;
+}
+
+table thead {
+  background: #0d1117;
+  border-bottom: 1px solid #1a1f2e;
+}
+
+table thead th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 500;
+  font-size: 13px;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+table tbody tr {
+  border-bottom: 1px solid #1a1f2e;
+  transition: background-color 0.2s ease;
+}
+
+table tbody tr:hover {
+  background: #161b22;
+}
+
+table tbody td {
+  padding: 12px 16px;
+  font-size: 14px;
+  color: #c9d1d9;
+}
+
+table tbody tr:last-child {
+  border-bottom: none;
+}
+
+/* Card Styling */
+.card-figma {
+  background: #0d1117;
+  border: 1px solid #1a1f2e;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.card-figma:hover {
+  border-color: #30363d;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+/* Tab Styling - Modern and Minimal */
+[role="tablist"] {
+  border-bottom: 1px solid #1a1f2e;
+  margin-bottom: 16px;
+}
+
+[role="tab"] {
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #8b949e;
+  border: none;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: capitalize;
+}
+
+[role="tab"]:hover {
+  color: #c9d1d9;
+}
+
+[role="tab"][aria-selected="true"] {
+  color: #58a6ff;
+  border-bottom-color: #58a6ff;
+}
+
+/* Button Styling */
+.btn-primary {
+  background: #1f6feb;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-primary:hover {
+  background: #388bfd;
+}
+
+/* Search Input */
+.search-input {
+  background: #0d1117;
+  border: 1px solid #1a1f2e;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #c9d1d9;
+  font-size: 14px;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #58a6ff;
+  box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
+}

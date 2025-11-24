@@ -24,7 +24,7 @@ import {
 import { Icon } from '@/shared/ui/Icon';
 import { Skeleton, TableSkeleton } from '@/shared/ui/Skeleton';
 import { SimplePagination } from '@/shared/ui/Pagination';
-import { formatCurrency, formatNumber } from '@/core/utils/number';
+import { formatNumber } from '@/core/utils/number';
 import { formatDate } from '@/core/utils/date';
 
 export function KurlarListModern() {
@@ -34,26 +34,26 @@ export function KurlarListModern() {
   // React Query hooks
   const { data: paginatedData, isLoading, error } = useExchangeRateList({
     page,
-    pageSize: 20,
+    page_size: 20,
   });
 
   const fetchTCMBMutation = useFetchTCMBRates();
   const deleteMutation = useDeleteExchangeRate();
 
   // Extract unique currencies for filter
-  const currencies = paginatedData?.items
-    ? Array.from(new Set(paginatedData.items.flatMap(r => [r.CurrencyFrom, r.CurrencyTo])))
+  const currencies = paginatedData
+    ? Array.from(new Set(paginatedData.flatMap(r => [r.CurrencyFrom, r.CurrencyTo])))
     : [];
 
   // Filter items by currency (if filter applied)
-  const filteredItems = paginatedData?.items.filter((item) => {
+  const filteredItems = paginatedData?.filter((item) => {
     if (!currencyFilter) return true;
     return item.CurrencyFrom === currencyFilter || item.CurrencyTo === currencyFilter;
   }) || [];
 
   // Handlers
   const handleSyncTCMB = async () => {
-    await fetchTCMBMutation.mutateAsync();
+    await fetchTCMBMutation.mutateAsync({});
   };
 
   const handleDelete = async (id: number) => {
@@ -78,13 +78,13 @@ export function KurlarListModern() {
       <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-6 text-center">
         <Icon name="error" size={48} className="mx-auto mb-4 text-red-500" />
         <p className="text-red-400">Kurlar yüklenirken hata oluştu</p>
-        <p className="mt-2 text-sm text-red-400/70">{error.message}</p>
+        <p className="mt-2 text-sm text-red-400/70">{error.error?.message || 'Bilinmeyen hata'}</p>
       </div>
     );
   }
 
   const items = filteredItems;
-  const pagination = paginatedData?.pagination;
+  const pagination = paginatedData ? { page, totalPages: Math.ceil(paginatedData.length / 20) } : null;
 
   return (
     <div className="space-y-6">
@@ -182,9 +182,6 @@ export function KurlarListModern() {
                 </tr>
               ) : (
                 items.map((rate) => {
-                  const isFrozen = rate.IsFrozen;
-                  const isPublished = rate.IsPublished;
-
                   return (
                     <tr key={rate.Id} className="hover:bg-slate-700/30 transition-colors">
                       {/* Currency Pair */}
@@ -193,48 +190,36 @@ export function KurlarListModern() {
                           <span className="font-mono text-base font-semibold text-white">
                             {rate.CurrencyFrom}/{rate.CurrencyTo}
                           </span>
-                          {isFrozen && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-400 border border-blue-500/30">
-                              <Icon name="check" size={12} />
-                              Donduruldu
-                            </span>
-                          )}
                         </div>
                       </td>
 
                       {/* Buy Rate */}
                       <td className="px-6 py-4 text-right">
                         <span className="font-mono text-sm text-green-400">
-                          {formatNumber(rate.BuyRate, 4)}
+                          {formatNumber(rate.Rate || 0, 'tr-TR', 4)}
                         </span>
                       </td>
 
                       {/* Sell Rate */}
                       <td className="px-6 py-4 text-right">
                         <span className="font-mono text-sm text-red-400">
-                          {formatNumber(rate.SellRate, 4)}
+                          {formatNumber(rate.SellRate || 0, 'tr-TR', 4)}
                         </span>
                       </td>
 
                       {/* Effective Date */}
                       <td className="px-6 py-4">
                         <span className="text-sm text-slate-300">
-                          {formatDate(rate.EffectiveDate, 'DD.MM.YYYY')}
+                          {formatDate(rate.RateDate || new Date().toISOString(), 'DD.MM.YYYY')}
                         </span>
                       </td>
 
                       {/* Status */}
                       <td className="px-6 py-4">
-                        {isPublished ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-400 border border-green-500/30">
-                            <Icon name="success" size={12} />
-                            Yayında
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-500/10 px-2.5 py-1 text-xs font-medium text-slate-400 border border-slate-500/30">
-                            Taslak
-                          </span>
-                        )}
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-400 border border-green-500/30">
+                          <Icon name="success" size={12} />
+                          Yayında
+                        </span>
                       </td>
 
                       {/* Actions */}
@@ -249,9 +234,9 @@ export function KurlarListModern() {
                           </button>
                           <button
                             onClick={() => handleDelete(rate.Id)}
-                            disabled={deleteMutation.isPending || isFrozen}
+                            disabled={deleteMutation.isPending}
                             className="rounded-lg p-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            title={isFrozen ? 'Dondurulmuş kur silinemez' : 'Sil'}
+                            title="Sil"
                           >
                             <Icon name="delete" size={16} />
                           </button>
@@ -267,10 +252,9 @@ export function KurlarListModern() {
       </div>
 
       {/* Pagination */}
-      {pagination && pagination.totalPages > 1 && (
+      {pagination && pagination.total_pages > 1 && (
         <SimplePagination
-          currentPage={pagination.page}
-          totalPages={pagination.totalPages}
+          pagination={pagination}
           onPageChange={setPage}
         />
       )}

@@ -13,6 +13,7 @@ from ...core import (
     get_http_status_for_error
 )
 from .models import Cari
+from ..isemri.models import WorkOrder
 from .schemas import CariCreate, CariUpdate, CariOut
 
 router = APIRouter(prefix="/api/cari", tags=["Cari"])
@@ -204,6 +205,22 @@ def delete_cari(cari_id: int, db: Session = Depends(get_db)):
             )
         )
     
+    # İlişkili iş emri var mı? (FK yok ama logical relation: cari_id veya cari_code eşleşmesi)
+    related_count = (
+        db.query(WorkOrder)
+        .filter((WorkOrder.cari_id == cari_id) | (WorkOrder.cari_code == obj.CariKod))
+        .count()
+    )
+    if related_count > 0:
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.CARI_DELETE_HAS_RELATIONS),
+            detail=error_response(
+                code=ErrorCode.CARI_DELETE_HAS_RELATIONS,
+                message="Bu cari silinemez, ilişkili iş emirleri mevcut",
+                details={"cari_id": cari_id, "workorder_count": related_count}
+            )
+        )
+
     try:
         db.delete(obj)
         db.commit()

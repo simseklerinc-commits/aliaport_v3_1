@@ -64,7 +64,7 @@ export function usePriceListList(params: {
 } = {}) {
   return useQuery<PriceList[], ErrorResponse>({
     queryKey: priceListKeys.list(params),
-    queryFn: async () => {
+    queryFn: async (): Promise<PriceList[]> => {
       const response = await apiClient.get<PriceList[]>('/tarife/price-list', params);
       if (!response.success) {
         throw response;
@@ -98,12 +98,13 @@ export function usePriceListListPaginated(filters: {
 export function usePriceListDetail(id: number, options?: { enabled?: boolean }) {
   return useQuery<PriceList, ErrorResponse>({
     queryKey: priceListKeys.detail(id),
-    queryFn: async () => {
-      const response = await apiClient.get<PriceList>(`/tarife/price-list/${id}`);
+    queryFn: async (): Promise<PriceList> => {
+      const response = await apiClient.get<PriceList | PriceList[]>(`/tarife/price-list/${id}`);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      const data = response.data as PriceList | PriceList[];
+      return Array.isArray(data) ? data[0] : data;
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('TARIFE'),
@@ -119,12 +120,12 @@ export function usePriceListDetail(id: number, options?: { enabled?: boolean }) 
 export function usePriceListItems(priceListId: number, options?: { enabled?: boolean }) {
   return useQuery<PriceListItem[], ErrorResponse>({
     queryKey: priceListKeys.items(priceListId),
-    queryFn: async () => {
+    queryFn: async (): Promise<PriceListItem[]> => {
       const response = await apiClient.get<PriceListItem[]>(`/tarife/price-list/${priceListId}/items`);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as PriceListItem[];
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('TARIFE'),
@@ -144,12 +145,13 @@ export function usePriceListItems(priceListId: number, options?: { enabled?: boo
 export function usePriceListItemDetail(id: number, options?: { enabled?: boolean }) {
   return useQuery<PriceListItem, ErrorResponse>({
     queryKey: priceListItemKeys.detail(id),
-    queryFn: async () => {
+    queryFn: async (): Promise<PriceListItem> => {
       const response = await apiClient.get<PriceListItem>(`/tarife/price-list-item/${id}`);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      const data = response.data as PriceListItem | PriceListItem[];
+      return Array.isArray(data) ? data[0] : data;
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('TARIFE'),

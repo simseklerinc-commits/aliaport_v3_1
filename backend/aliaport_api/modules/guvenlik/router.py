@@ -64,7 +64,7 @@ def get_gate_logs(
     items = [GateLogResponse.model_validate(log) for log in gate_logs]
     
     return paginated_response(
-        items=items,
+        data=items,
         page=page,
         page_size=page_size,
         total=total
@@ -128,7 +128,7 @@ def get_gate_log(log_id: int, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.GATELOG_NOT_FOUND),
             detail=error_response(
-                error_code=ErrorCode.GATELOG_NOT_FOUND,
+                code=ErrorCode.GATELOG_NOT_FOUND,
                 message="GateLog bulunamadı",
                 details={"log_id": log_id}
             )
@@ -178,7 +178,7 @@ def delete_gate_log(log_id: int, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.GATELOG_NOT_FOUND),
             detail=error_response(
-                error_code=ErrorCode.GATELOG_NOT_FOUND,
+                code=ErrorCode.GATELOG_NOT_FOUND,
                 message="GateLog bulunamadı",
                 details={"log_id": log_id}
             )
@@ -239,7 +239,7 @@ def update_checklist_item(
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.NOT_FOUND),
             detail=error_response(
-                error_code=ErrorCode.NOT_FOUND,
+                code=ErrorCode.NOT_FOUND,
                 message="Checklist item bulunamadı",
                 details={"item_id": item_id}
             )
@@ -265,7 +265,7 @@ def delete_checklist_item(item_id: int, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.NOT_FOUND),
             detail=error_response(
-                error_code=ErrorCode.NOT_FOUND,
+                code=ErrorCode.NOT_FOUND,
                 message="Checklist item bulunamadı",
                 details={"item_id": item_id}
             )

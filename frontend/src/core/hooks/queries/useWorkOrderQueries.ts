@@ -100,12 +100,12 @@ export function useWorkOrderList(params: {
 } = {}) {
   return useQuery<WorkOrder[], ErrorResponse>({
     queryKey: workOrderKeys.list(params),
-    queryFn: async () => {
+    queryFn: async (): Promise<WorkOrder[]> => {
       const response = await apiClient.get<WorkOrder[]>('/isemri', params);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as WorkOrder[];
     },
     ...getQueryOptions('WORKORDER'),
   });
@@ -124,12 +124,12 @@ export function useWorkOrderList(params: {
 export function useWorkOrderDetail(id: number, options?: { enabled?: boolean }) {
   return useQuery<WorkOrder, ErrorResponse>({
     queryKey: workOrderKeys.detail(id),
-    queryFn: async () => {
+    queryFn: async (): Promise<WorkOrder> => {
       const response = await apiClient.get<WorkOrder>(`/isemri/${id}`);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as WorkOrder;
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('WORKORDER'),
@@ -149,12 +149,12 @@ export function useWorkOrderDetail(id: number, options?: { enabled?: boolean }) 
 export function useWorkOrderByWoNumber(woNumber: string, options?: { enabled?: boolean }) {
   return useQuery<WorkOrder, ErrorResponse>({
     queryKey: workOrderKeys.byWoNumber(woNumber),
-    queryFn: async () => {
+    queryFn: async (): Promise<WorkOrder> => {
       const response = await apiClient.get<WorkOrder>(`/isemri/by-wo-number/${woNumber}`);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as WorkOrder;
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('WORKORDER'),
@@ -173,12 +173,12 @@ export function useWorkOrderByWoNumber(woNumber: string, options?: { enabled?: b
 export function useWorkOrderStats(options?: { enabled?: boolean }) {
   return useQuery<WorkOrderStats, ErrorResponse>({
     queryKey: workOrderKeys.stats(),
-    queryFn: async () => {
+    queryFn: async (): Promise<WorkOrderStats> => {
       const response = await apiClient.get<WorkOrderStats>('/isemri/stats');
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as WorkOrderStats;
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('WORKORDER'),
@@ -381,12 +381,12 @@ export function useWorkOrderItemList(params: {
 } = {}) {
   return useQuery<WorkOrderItem[], ErrorResponse>({
     queryKey: workOrderItemKeys.list(params),
-    queryFn: async () => {
+    queryFn: async (): Promise<WorkOrderItem[]> => {
       const response = await apiClient.get<WorkOrderItem[]>('/isemri/item', params);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as WorkOrderItem[];
     },
     ...getQueryOptions('WORKORDER'),
   });
@@ -405,12 +405,12 @@ export function useWorkOrderItemList(params: {
 export function useWorkOrderItemDetail(id: number, options?: { enabled?: boolean }) {
   return useQuery<WorkOrderItem, ErrorResponse>({
     queryKey: workOrderItemKeys.detail(id),
-    queryFn: async () => {
+    queryFn: async (): Promise<WorkOrderItem> => {
       const response = await apiClient.get<WorkOrderItem>(`/isemri/item/${id}`);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as WorkOrderItem;
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('WORKORDER'),
@@ -430,14 +430,14 @@ export function useWorkOrderItemDetail(id: number, options?: { enabled?: boolean
 export function useWorkOrderItems(workOrderId: number, options?: { enabled?: boolean }) {
   return useQuery<WorkOrderItem[], ErrorResponse>({
     queryKey: workOrderKeys.items(workOrderId),
-    queryFn: async () => {
+    queryFn: async (): Promise<WorkOrderItem[]> => {
       const response = await apiClient.get<WorkOrderItem[]>('/isemri/item', {
         work_order_id: workOrderId,
       });
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as WorkOrderItem[];
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('WORKORDER'),

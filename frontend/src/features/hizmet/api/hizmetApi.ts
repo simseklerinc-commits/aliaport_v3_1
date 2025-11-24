@@ -4,7 +4,14 @@
 
 import type { Hizmet, HizmetCreate, HizmetUpdate } from '../types/hizmet.types';
 
-const BASE_URL = 'http://localhost:8000/api/hizmet';
+const BASE_URL = '/api/hizmet';
+
+interface ApiResponse<T> {
+  success?: boolean;
+  message?: string;
+  data?: T;
+  error?: string;
+}
 
 export const hizmetApi = {
   /**
@@ -16,7 +23,8 @@ export const hizmetApi = {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return await response.json();
+      const result: ApiResponse<Hizmet[]> = await response.json();
+      return Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
     } catch (error) {
       console.error('Error fetching hizmet list:', error);
       throw error;
@@ -32,7 +40,8 @@ export const hizmetApi = {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return await response.json();
+      const result: ApiResponse<Hizmet> = await response.json();
+      return result.data || result;
     } catch (error) {
       console.error(`Error fetching hizmet ${id}:`, error);
       throw error;
@@ -48,7 +57,8 @@ export const hizmetApi = {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return await response.json();
+      const result: ApiResponse<Hizmet> = await response.json();
+      return result.data || result;
     } catch (error) {
       console.error(`Error fetching hizmet by kod ${kod}:`, error);
       throw error;
@@ -71,7 +81,8 @@ export const hizmetApi = {
         const errorData = await response.json();
         throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
       }
-      return await response.json();
+      const result: ApiResponse<Hizmet> = await response.json();
+      return result.data || result;
     } catch (error) {
       console.error('Error creating hizmet:', error);
       throw error;
@@ -94,7 +105,8 @@ export const hizmetApi = {
         const errorData = await response.json();
         throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
       }
-      return await response.json();
+      const result: ApiResponse<Hizmet> = await response.json();
+      return result.data || result;
     } catch (error) {
       console.error(`Error updating hizmet ${id}:`, error);
       throw error;
@@ -127,7 +139,8 @@ export const hizmetApi = {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return await response.json();
+      const result: ApiResponse<Hizmet[]> = await response.json();
+      return Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
     } catch (error) {
       console.error('Error searching hizmet:', error);
       throw error;

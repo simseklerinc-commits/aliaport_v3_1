@@ -59,4 +59,17 @@ export const authService = {
     
     return response.data;
   },
+
+  /**
+   * Get current user's permissions.
+   */
+  async getCurrentUserPermissions(): Promise<{ permissions: string[] }> {
+    const response = await apiClient.get<any>(`${AUTH_API}/me/permissions`);
+    
+    if (!response.success) {
+      throw new Error(response.error?.message || 'Failed to get permissions');
+    }
+    
+    return response.data as { permissions: string[] };
+  },
 };

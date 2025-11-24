@@ -61,12 +61,55 @@ export function useParametreList(params: {
 } = {}) {
   return useQuery<Parametre[], ErrorResponse>({
     queryKey: parametreKeys.list(params),
-    queryFn: async () => {
-      const response = await apiClient.get<Parametre[]>('/parametre', params);
-      if (!response.success) {
-        throw response;
+    queryFn: async (): Promise<Parametre[]> => {
+      try {
+        // Query string'i manuel oluştur
+        const queryParams = new URLSearchParams({
+          page: String(params.page || 1),
+          page_size: String(params.page_size || 100),
+          ...(params.kategori && { kategori: params.kategori }),
+        });
+        
+        // Direct fetch ile backend'e istek gönder
+        const response = await fetch(`/api/parametre?${queryParams}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Backend'den gelen veriyi parse et
+        let items: Parametre[] = Array.isArray(data.data) ? data.data : [];
+        
+        // Client-side search filtresi
+        if (params.search) {
+          const searchLower = params.search.toLowerCase();
+          items = items.filter((p: Parametre) =>
+            p.Kod.toLowerCase().includes(searchLower) ||
+            p.Ad.toLowerCase().includes(searchLower) ||
+            p.Aciklama?.toLowerCase().includes(searchLower) ||
+            p.Deger?.toLowerCase().includes(searchLower)
+          );
+        }
+        
+        return items;
+      } catch (error) {
+        throw {
+          success: false,
+          error: {
+            code: 'PARAMETRE_LIST_ERROR',
+            message: error instanceof Error ? error.message : 'Parametreler yüklenemedi',
+          },
+          meta: { timestamp: new Date().toISOString() },
+        } as ErrorResponse;
       }
-      return response.data;
     },
     ...getQueryOptions('PARAMETRELER'),
   });
@@ -85,12 +128,13 @@ export function useParametreList(params: {
 export function useParametreDetail(id: number, options?: { enabled?: boolean }) {
   return useQuery<Parametre, ErrorResponse>({
     queryKey: parametreKeys.detail(id),
-    queryFn: async () => {
-      const response = await apiClient.get<Parametre>(`/parametre/${id}`);
+    queryFn: async (): Promise<Parametre> => {
+      const response = await apiClient.get<any>(`/parametre/${id}`);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      const data = response.data;
+      return Array.isArray(data) ? data[0] : data;
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('PARAMETRELER'),
@@ -111,12 +155,13 @@ export function useParametreDetail(id: number, options?: { enabled?: boolean }) 
 export function useParametreByCode(kod: string, options?: { enabled?: boolean }) {
   return useQuery<Parametre, ErrorResponse>({
     queryKey: parametreKeys.byCode(kod),
-    queryFn: async () => {
-      const response = await apiClient.get<Parametre>(`/parametre/by-code/${kod}`);
+    queryFn: async (): Promise<Parametre> => {
+      const response = await apiClient.get<any>(`/parametre/by-code/${kod}`);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      const data = response.data;
+      return Array.isArray(data) ? data[0] : data;
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('PARAMETRELER'),
@@ -136,12 +181,13 @@ export function useParametreByCode(kod: string, options?: { enabled?: boolean })
 export function useParametreByCategory(kategori: string, options?: { enabled?: boolean }) {
   return useQuery<Parametre[], ErrorResponse>({
     queryKey: parametreKeys.byCategory(kategori),
-    queryFn: async () => {
-      const response = await apiClient.get<Parametre[]>(`/parametre/by-category/${kategori}`);
+    queryFn: async (): Promise<Parametre[]> => {
+      const response = await apiClient.get<any>(`/parametre/by-category/${kategori}`);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      const data = response.data;
+      return Array.isArray(data) ? data : [data];
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('PARAMETRELER'),

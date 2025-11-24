@@ -55,7 +55,7 @@ def get_worklogs(
     items = [WorkLogResponse.model_validate(log) for log in worklogs]
     
     return paginated_response(
-        items=items,
+        data=items,
         page=page,
         page_size=page_size,
         total=total
@@ -124,7 +124,7 @@ def get_worklog(worklog_id: int, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.WORKLOG_NOT_FOUND),
             detail=error_response(
-                error_code=ErrorCode.WORKLOG_NOT_FOUND,
+                code=ErrorCode.WORKLOG_NOT_FOUND,
                 message="WorkLog bulunamadı",
                 details={"worklog_id": worklog_id}
             )
@@ -159,7 +159,7 @@ def update_worklog(worklog_id: int, log_data: WorkLogUpdate, db: Session = Depen
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.WORKLOG_NOT_FOUND),
             detail=error_response(
-                error_code=ErrorCode.WORKLOG_NOT_FOUND,
+                code=ErrorCode.WORKLOG_NOT_FOUND,
                 message="WorkLog bulunamadı",
                 details={"worklog_id": worklog_id}
             )
@@ -194,7 +194,7 @@ def delete_worklog(worklog_id: int, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.WORKLOG_NOT_FOUND),
             detail=error_response(
-                error_code=ErrorCode.WORKLOG_NOT_FOUND,
+                code=ErrorCode.WORKLOG_NOT_FOUND,
                 message="WorkLog bulunamadı",
                 details={"worklog_id": worklog_id}
             )
@@ -218,7 +218,7 @@ def approve_worklog(
         raise HTTPException(
             status_code=get_http_status_for_error(ErrorCode.WORKLOG_NOT_FOUND),
             detail=error_response(
-                error_code=ErrorCode.WORKLOG_NOT_FOUND,
+                code=ErrorCode.WORKLOG_NOT_FOUND,
                 message="WorkLog bulunamadı",
                 details={"worklog_id": worklog_id}
             )

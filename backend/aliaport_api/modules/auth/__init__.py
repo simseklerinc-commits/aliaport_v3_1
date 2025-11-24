@@ -16,14 +16,11 @@ from .schemas import (
     RoleResponse,
 )
 # Router import koşullu yapılır; Alembic migration sırasında gereksiz ve hata üretebilir.
-if not os.getenv("ALEMBIC_RUNNING"):
-    try:
-        from .router import router as auth_router  # type: ignore
-    except Exception:
-        # SlowAPI veya FastAPI context'i uygun değilse router yüklenmesin
-        auth_router = None
-else:
-    auth_router = None  # Alembic ortamında route'lar yüklenmesin
+try:
+    # Alembic ortamında da testler için router yüklenmesine izin veriyoruz.
+    from .router import router as auth_router  # type: ignore
+except Exception:
+    auth_router = None
 from .dependencies import get_current_user, get_current_active_user, require_role
 
 __all__ = [

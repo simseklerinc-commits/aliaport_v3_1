@@ -1,5 +1,5 @@
 // Parametreler API - Backend communication layer
-// Base URL: http://localhost:8000/api/parametre
+// Base URL: http://localhost:8000/api/parametre/
 
 import type { Parametre, ParametreCreate, ParametreUpdate, PaginatedParametreResponse } from '../types/parametreler.types';
 
@@ -21,9 +21,16 @@ export const parametrelerApi = {
       if (params?.aktif !== undefined) queryParams.append('aktif', params.aktif.toString());
 
       const url = queryParams.toString() ? `${BASE_URL}?${queryParams}` : BASE_URL;
-      const response = await fetch(url);
+      const response = await fetch(url, { credentials: 'include' });
       if (!response.ok) throw new Error('Failed to fetch parameters');
-      return await response.json();
+      const json = await response.json();
+      
+      // Backend'den gelen response'u normalize et
+      return {
+        items: json.data || [],
+        pagination: json.pagination,
+        message: json.message
+      };
     } catch (error) {
       console.error('parametrelerApi.getAll error:', error);
       throw error;
@@ -33,9 +40,10 @@ export const parametrelerApi = {
   // Get parameter by ID
   getById: async (id: number): Promise<Parametre> => {
     try {
-      const response = await fetch(`${BASE_URL}/${id}`);
+      const response = await fetch(`${BASE_URL}/${id}`, { credentials: 'include' });
       if (!response.ok) throw new Error(`Failed to fetch parameter ${id}`);
-      return await response.json();
+      const json = await response.json();
+      return json.data || json;
     } catch (error) {
       console.error('parametrelerApi.getById error:', error);
       throw error;
@@ -52,9 +60,11 @@ export const parametrelerApi = {
         ? `${BASE_URL}/by-kategori/${kategori}?${params}`
         : `${BASE_URL}/by-kategori/${kategori}`;
       
-      const response = await fetch(url);
+      const response = await fetch(url, { credentials: 'include' });
       if (!response.ok) throw new Error(`Failed to fetch parameters for category ${kategori}`);
-      return await response.json();
+      const json = await response.json();
+      // Backend'den gelen response'un data alanını döndür
+      return json.data || [];
     } catch (error) {
       console.error('parametrelerApi.getByCategory error:', error);
       throw error;
@@ -68,9 +78,11 @@ export const parametrelerApi = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
+        credentials: 'include',
       });
       if (!response.ok) throw new Error('Failed to create parameter');
-      return await response.json();
+      const json = await response.json();
+      return json.data || json;
     } catch (error) {
       console.error('parametrelerApi.create error:', error);
       throw error;
@@ -84,9 +96,11 @@ export const parametrelerApi = {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
+        credentials: 'include',
       });
       if (!response.ok) throw new Error(`Failed to update parameter ${id}`);
-      return await response.json();
+      const json = await response.json();
+      return json.data || json;
     } catch (error) {
       console.error('parametrelerApi.update error:', error);
       throw error;
@@ -98,6 +112,7 @@ export const parametrelerApi = {
     try {
       const response = await fetch(`${BASE_URL}/${id}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
       if (!response.ok) throw new Error(`Failed to delete parameter ${id}`);
     } catch (error) {
@@ -111,9 +126,11 @@ export const parametrelerApi = {
     try {
       const response = await fetch(`${BASE_URL}/${id}/toggle-active`, {
         method: 'PATCH',
+        credentials: 'include',
       });
       if (!response.ok) throw new Error(`Failed to toggle parameter ${id}`);
-      return await response.json();
+      const json = await response.json();
+      return json.data || json;
     } catch (error) {
       console.error('parametrelerApi.toggleActive error:', error);
       throw error;
@@ -123,9 +140,12 @@ export const parametrelerApi = {
   // Search parameters
   search: async (query: string): Promise<Parametre[]> => {
     try {
-      const response = await fetch(`${BASE_URL}/search?q=${encodeURIComponent(query)}`);
+      const response = await fetch(`${BASE_URL}/search?q=${encodeURIComponent(query)}`, {
+        credentials: 'include',
+      });
       if (!response.ok) throw new Error('Failed to search parameters');
-      return await response.json();
+      const json = await response.json();
+      return json.data || [];
     } catch (error) {
       console.error('parametrelerApi.search error:', error);
       throw error;

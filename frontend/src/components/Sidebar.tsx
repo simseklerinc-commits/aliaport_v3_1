@@ -1,6 +1,74 @@
 import { FileText, Wrench, Users, Ship, Anchor, DollarSign, Settings, Archive, ChevronLeft, ChevronRight, BarChart3, Receipt, Tablet, Shield } from "lucide-react";
 import { Theme } from "./ThemeSelector";
 import { useState } from "react";
+import { queryClient } from "@/core/cache/queryClient";
+import { cariApi, motorbotApi, tarifeApi } from "@/lib/api";
+
+// Prefetch helper: kritik listeleri hover'da cache'e al
+async function prefetchCritical(id: string) {
+  try {
+    switch (id) {
+      case 'cari':
+        await queryClient.prefetchQuery({
+          queryKey: ['cari','list',{page:1,page_size:20}],
+          queryFn: async () => {
+            const res = await cariApi.getAll({ page:1, page_size:20 });
+            return res.items ?? res.data ?? res; // unwrap fallback
+          },
+          staleTime: 5 * 60 * 1000,
+        });
+        break;
+      case 'mb-sefer':
+        await queryClient.prefetchQuery({
+          queryKey: ['sefer','list',{page:1,page_size:20}],
+          queryFn: async () => {
+            // seferApi listesi: modül export'u index üzerinden (dynamic import yerine doğrudan çağrı)
+            const { seferApi } = await import('@/lib/api/sefer');
+            const res = await seferApi.getAll({ page:1, page_size:20 });
+            return res.items ?? res.data ?? res;
+          },
+          staleTime: 30 * 1000,
+        });
+        break;
+      case 'hizmet':
+        await queryClient.prefetchQuery({
+          queryKey: ['hizmet','list',{page:1,page_size:50}],
+          queryFn: async () => {
+            const { hizmetApi } = await import('@/lib/api/hizmet');
+            const res = await hizmetApi.getAll({ page:1, page_size:50 });
+            return res.items ?? res.data ?? res;
+          },
+          staleTime: 30 * 60 * 1000,
+        });
+        break;
+      case 'tarife':
+        await queryClient.prefetchQuery({
+          queryKey: ['tarife','list',{page:1,page_size:50}],
+          queryFn: async () => {
+            const res = await tarifeApi.getAll({ page:1, page_size:50 });
+            return res.items ?? res.data ?? res;
+          },
+          staleTime: 30 * 60 * 1000,
+        });
+        break;
+      case 'is-emri':
+        await queryClient.prefetchQuery({
+          queryKey: ['workorder','list',{page:1,page_size:20}],
+          queryFn: async () => {
+            const { workOrderApi } = await import('@/lib/api/is-emri');
+            const res = await workOrderApi.getAll({ page:1, page_size:20 });
+            return res.items ?? res.data ?? res;
+          },
+          staleTime: 30 * 1000,
+        });
+        break;
+      default:
+        break;
+    }
+  } catch {
+    // Prefetch hatası kullanıcıya gösterilmez; sessiz geç
+  }
+}
 
 interface SidebarProps {
   onNavigate: (page: string) => void;
@@ -102,6 +170,7 @@ export function Sidebar({ onNavigate, theme, currentPage }: SidebarProps) {
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
+                onMouseEnter={() => prefetchCritical(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
                   isActive
                     ? `${theme.colors.primary} text-black`
@@ -135,6 +204,7 @@ export function Sidebar({ onNavigate, theme, currentPage }: SidebarProps) {
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
+                onMouseEnter={() => prefetchCritical(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
                   isActive
                     ? `bg-orange-500 text-black`

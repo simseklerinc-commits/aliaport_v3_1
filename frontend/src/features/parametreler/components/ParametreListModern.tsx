@@ -43,7 +43,7 @@ export function ParametreListModern() {
   // React Query hooks
   const { data: paginatedData, isLoading, error } = useParametreList({
     page,
-    pageSize: 20,
+    page_size: 20,
     search: search || undefined,
     kategori: categoryFilter || undefined,
   });
@@ -52,14 +52,14 @@ export function ParametreListModern() {
   const deleteMutation = useDeleteParametre();
 
   // Extract unique categories for filter
-  const categories = paginatedData?.items
-    ? Array.from(new Set(paginatedData.items.map(p => p.Kategori)))
+  const categories = paginatedData
+    ? Array.from(new Set(paginatedData.map(p => p.Kategori)))
     : [];
 
   // Handlers
   const handleToggleAktif = async (id: number, currentValue: string) => {
     const newValue = currentValue === '1' ? '0' : '1';
-    await updateValueMutation.mutateAsync({ id, Deger: newValue });
+    await updateValueMutation.mutateAsync({ id, deger: newValue });
   };
 
   const handleDelete = async (id: number) => {
@@ -84,13 +84,21 @@ export function ParametreListModern() {
       <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-6 text-center">
         <Icon name="error" size={48} className="mx-auto mb-4 text-red-500" />
         <p className="text-red-400">Parametreler yüklenirken hata oluştu</p>
-        <p className="mt-2 text-sm text-red-400/70">{error.message}</p>
+        <p className="mt-2 text-sm text-red-400/70">{error.error?.message || 'Bilinmeyen hata'}</p>
       </div>
     );
   }
 
-  const items = paginatedData?.items || [];
-  const pagination = paginatedData?.pagination;
+  const items = paginatedData || [];
+  // Create pagination meta from backend response
+  const pagination = {
+    page,
+    page_size: 20,
+    total_pages: Math.ceil(items.length / 20),
+    total: items.length,
+    has_next: page * 20 < items.length,
+    has_prev: page > 1,
+  };
 
   return (
     <div className="space-y-6">
@@ -162,7 +170,7 @@ export function ParametreListModern() {
       {/* Results Count */}
       {pagination && (
         <div className="text-sm text-slate-400">
-          Toplam <span className="font-medium text-white">{pagination.total}</span> parametre bulundu
+          Toplam <span className="font-medium text-white">{items.length}</span> parametre bulundu
         </div>
       )}
 
@@ -224,7 +232,7 @@ export function ParametreListModern() {
                       <td className="px-6 py-4">
                         {param.Deger === '0' || param.Deger === '1' ? (
                           <button
-                            onClick={() => handleToggleAktif(param.Id, param.Deger)}
+                            onClick={() => handleToggleAktif(param.Id, param.Deger || '0')}
                             disabled={updateValueMutation.isPending}
                             className="flex items-center gap-2"
                           >
@@ -268,10 +276,9 @@ export function ParametreListModern() {
       </div>
 
       {/* Pagination */}
-      {pagination && pagination.totalPages > 1 && (
+      {pagination && pagination.total_pages > 1 && (
         <SimplePagination
-          currentPage={pagination.page}
-          totalPages={pagination.totalPages}
+          pagination={pagination}
           onPageChange={setPage}
         />
       )}

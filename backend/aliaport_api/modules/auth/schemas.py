@@ -12,9 +12,9 @@ from datetime import datetime
 # ============================================
 
 class UserLogin(BaseModel):
-    """Login credentials."""
+    """Login credentials - şifre isteğe bağlı (passwordless)."""
     email: EmailStr
-    password: str = Field(..., min_length=8)
+    password: Optional[str] = Field(None, min_length=0)
 
 
 class UserCreate(BaseModel):
@@ -112,3 +112,32 @@ class TokenData(BaseModel):
     email: str
     roles: List[str] = []
     exp: int  # expiration timestamp
+
+
+# ============================================
+# Password Reset Schemas
+# ============================================
+
+class PasswordResetRequest(BaseModel):
+    """Password reset request (email only)."""
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    """Password reset confirmation with new password."""
+    token: str = Field(..., min_length=32)
+    new_password: str = Field(..., min_length=8, max_length=100)
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        """Basic password strength validation."""
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        if not any(c.isupper() for c in v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not any(c.islower() for c in v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Password must contain at least one digit")
+        return v

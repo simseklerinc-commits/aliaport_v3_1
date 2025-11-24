@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 
 const schema = z.object({
   email: z.string().email('Geçerli bir e-posta giriniz'),
-  password: z.string().min(8, 'En az 8 karakter'),
+  password: z.string().optional().default(''),  // Şifresiz giriş için isteğe bağlı
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -41,12 +41,12 @@ export const LoginForm: React.FC = () => {
         {errors.email && <span className="text-xs text-red-600">{errors.email.message}</span>}
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium" htmlFor="password">Şifre</label>
+        <label className="text-sm font-medium" htmlFor="password">Şifre (İsteğe bağlı)</label>
         <input
           id="password"
           type="password"
           className="border rounded px-3 py-2 text-sm"
-          placeholder="••••••••"
+          placeholder="Boş bırakabilirsiniz..."
           {...register('password')}
         />
         {errors.password && <span className="text-xs text-red-600">{errors.password.message}</span>}

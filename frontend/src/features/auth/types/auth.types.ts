@@ -10,6 +10,7 @@ export interface User {
   is_active: boolean;
   is_superuser: boolean;
   roles: Role[];
+  permissions?: string[]; // e.g., ["cari:read", "workorder:write"]
   created_at: string;
   last_login: string | null;
 }

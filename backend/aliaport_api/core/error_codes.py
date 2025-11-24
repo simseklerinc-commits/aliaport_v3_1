@@ -30,6 +30,7 @@ class ErrorCode(str, Enum):
     NOT_FOUND = "NOT_FOUND"
     METHOD_NOT_ALLOWED = "METHOD_NOT_ALLOWED"
     CONFLICT = "CONFLICT"
+    RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED"
     
     # ============================================
     # DATABASE HATALARI
@@ -85,6 +86,7 @@ class ErrorCode(str, Enum):
     TARIFE_INVALID_DATES = "TARIFE_INVALID_DATES"
     TARIFE_OVERLAPPING_PERIOD = "TARIFE_OVERLAPPING_PERIOD"
     TARIFE_INACTIVE = "TARIFE_INACTIVE"
+    TARIFE_ITEM_NOT_FOUND = "TARIFE_ITEM_NOT_FOUND"
     
     # ============================================
     # BARINMA MODÜLÜ
@@ -161,6 +163,10 @@ class ErrorCode(str, Enum):
     AUTH_USER_NOT_FOUND = "AUTH_USER_NOT_FOUND"
     AUTH_USER_INACTIVE = "AUTH_USER_INACTIVE"
     AUTH_INSUFFICIENT_PERMISSIONS = "AUTH_INSUFFICIENT_PERMISSIONS"
+    AUTH_PASSWORD_RESET_TOKEN_INVALID = "AUTH_PASSWORD_RESET_TOKEN_INVALID"
+    AUTH_PASSWORD_RESET_TOKEN_EXPIRED = "AUTH_PASSWORD_RESET_TOKEN_EXPIRED"
+    AUTH_PASSWORD_RESET_TOKEN_USED = "AUTH_PASSWORD_RESET_TOKEN_USED"
+    AUTH_EMAIL_NOT_FOUND = "AUTH_EMAIL_NOT_FOUND"
     
     # ============================================
     # EXTERNAL API HATALARI
@@ -192,6 +198,9 @@ ERROR_CODE_TO_HTTP_STATUS = {
     ErrorCode.AUTH_INVALID_CREDENTIALS: 401,
     ErrorCode.AUTH_TOKEN_EXPIRED: 401,
     ErrorCode.AUTH_TOKEN_INVALID: 401,
+    ErrorCode.AUTH_PASSWORD_RESET_TOKEN_INVALID: 401,
+    ErrorCode.AUTH_PASSWORD_RESET_TOKEN_EXPIRED: 401,
+    ErrorCode.AUTH_PASSWORD_RESET_TOKEN_USED: 401,
     
     # 403 Forbidden
     ErrorCode.FORBIDDEN: 403,
@@ -205,6 +214,7 @@ ERROR_CODE_TO_HTTP_STATUS = {
     ErrorCode.SEFER_NOT_FOUND: 404,
     ErrorCode.HIZMET_NOT_FOUND: 404,
     ErrorCode.TARIFE_NOT_FOUND: 404,
+    ErrorCode.TARIFE_ITEM_NOT_FOUND: 404,
     ErrorCode.BARINMA_NOT_FOUND: 404,
     ErrorCode.KUR_NOT_FOUND: 404,
     ErrorCode.PARAMETRE_NOT_FOUND: 404,
@@ -214,6 +224,7 @@ ERROR_CODE_TO_HTTP_STATUS = {
     ErrorCode.GATELOG_NOT_FOUND: 404,
     ErrorCode.ARCHIVE_NOT_FOUND: 404,
     ErrorCode.REPORT_NOT_FOUND: 404,
+    ErrorCode.AUTH_EMAIL_NOT_FOUND: 404,
     
     # 405 Method Not Allowed
     ErrorCode.METHOD_NOT_ALLOWED: 405,
@@ -224,16 +235,23 @@ ERROR_CODE_TO_HTTP_STATUS = {
     ErrorCode.CARI_DUPLICATE_CODE: 409,
     ErrorCode.MOTORBOT_DUPLICATE_CODE: 409,
     ErrorCode.HIZMET_DUPLICATE_CODE: 409,
+    ErrorCode.TARIFE_DUPLICATE: 409,
+    # Parametre duplicate kodu (eksik mapping)
+    ErrorCode.PARAMETRE_DUPLICATE_CODE: 409,
     ErrorCode.TARIFE_OVERLAPPING_PERIOD: 409,
     ErrorCode.WO_DUPLICATE_NUMBER: 409,
     ErrorCode.MOTORBOT_IN_USE: 409,
     ErrorCode.SEFER_ALREADY_COMPLETED: 409,
     
     # 422 Unprocessable Entity
-    ErrorCode.CARI_DELETE_HAS_RELATIONS: 422,
+    # Cari silme ilişkili kayıt çatışması: semantic olarak 409 (Conflict)
+    ErrorCode.CARI_DELETE_HAS_RELATIONS: 409,
     ErrorCode.WO_INVALID_STATUS_TRANSITION: 422,
     ErrorCode.WORKLOG_WO_COMPLETED: 422,
     ErrorCode.GATELOG_ALREADY_EXITED: 422,
+
+    # 429 Too Many Requests
+    ErrorCode.RATE_LIMIT_EXCEEDED: 429,
     
     # 500 Internal Server Error
     ErrorCode.INTERNAL_SERVER_ERROR: 500,
@@ -272,6 +290,7 @@ DEFAULT_ERROR_MESSAGES = {
     ErrorCode.UNAUTHORIZED: "Yetkilendirme gerekli",
     ErrorCode.FORBIDDEN: "Bu işlem için yetkiniz yok",
     ErrorCode.NOT_FOUND: "Kayıt bulunamadı",
+    ErrorCode.RATE_LIMIT_EXCEEDED: "İstek sınırı aşıldı",
     
     # Cari
     ErrorCode.CARI_NOT_FOUND: "Cari bulunamadı",
@@ -282,6 +301,9 @@ DEFAULT_ERROR_MESSAGES = {
     # Motorbot
     ErrorCode.MOTORBOT_NOT_FOUND: "Motorbot bulunamadı",
     ErrorCode.MOTORBOT_DUPLICATE_CODE: "Bu motorbot kodu zaten kullanılıyor",
+    ErrorCode.TARIFE_DUPLICATE: "Bu tarife kodu zaten kullanılıyor",
+    ErrorCode.TARIFE_NOT_FOUND: "Tarife bulunamadı",
+    ErrorCode.TARIFE_ITEM_NOT_FOUND: "Tarife kalemi bulunamadı",
     ErrorCode.MOTORBOT_IN_USE: "Motorbot şu anda kullanımda",
     
     # İş Emri

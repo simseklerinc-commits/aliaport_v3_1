@@ -72,12 +72,12 @@ export function useExchangeRateList(params: {
 } = {}) {
   return useQuery<ExchangeRate[], ErrorResponse>({
     queryKey: exchangeRateKeys.list(params),
-    queryFn: async () => {
+    queryFn: async (): Promise<ExchangeRate[]> => {
       const response = await apiClient.get<ExchangeRate[]>('/kurlar', params);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as ExchangeRate[];
     },
     ...getQueryOptions('KURLAR'),
   });
@@ -96,12 +96,12 @@ export function useExchangeRateList(params: {
 export function useExchangeRateDetail(id: number, options?: { enabled?: boolean }) {
   return useQuery<ExchangeRate, ErrorResponse>({
     queryKey: exchangeRateKeys.detail(id),
-    queryFn: async () => {
+    queryFn: async (): Promise<ExchangeRate> => {
       const response = await apiClient.get<ExchangeRate>(`/kurlar/${id}`);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as ExchangeRate;
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('KURLAR'),
@@ -129,7 +129,7 @@ export function useExchangeRateByPair(
 ) {
   return useQuery<ExchangeRate, ErrorResponse>({
     queryKey: exchangeRateKeys.byPair(from, to, date),
-    queryFn: async () => {
+    queryFn: async (): Promise<ExchangeRate> => {
       const params = date ? { rate_date: date } : {};
       const response = await apiClient.get<ExchangeRate>(
         `/kurlar/by-pair/${from}/${to}`,
@@ -138,7 +138,7 @@ export function useExchangeRateByPair(
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as ExchangeRate;
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('KURLAR'),
@@ -158,12 +158,12 @@ export function useExchangeRateByPair(
 export function useLatestExchangeRate(currency: string, options?: { enabled?: boolean }) {
   return useQuery<ExchangeRate, ErrorResponse>({
     queryKey: exchangeRateKeys.latest(currency),
-    queryFn: async () => {
+    queryFn: async (): Promise<ExchangeRate> => {
       const response = await apiClient.get<ExchangeRate>(`/kurlar/latest/${currency}`);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as ExchangeRate;
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('KURLAR'),
@@ -182,12 +182,12 @@ export function useLatestExchangeRate(currency: string, options?: { enabled?: bo
 export function useLatestExchangeRates(options?: { enabled?: boolean }) {
   return useQuery<ExchangeRate[], ErrorResponse>({
     queryKey: exchangeRateKeys.latestAll(),
-    queryFn: async () => {
+    queryFn: async (): Promise<ExchangeRate[]> => {
       const response = await apiClient.get<ExchangeRate[]>('/kurlar/latest');
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as ExchangeRate[];
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('KURLAR'),

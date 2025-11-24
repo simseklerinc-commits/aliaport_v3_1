@@ -84,22 +84,52 @@ export const CACHE_POLICIES = {
  * Default ayarlar:
  * - 5 dakika staleTime (refetch threshold)
  * - 10 dakika cacheTime (garbage collection)
- * - 1 retry (network hatası durumunda)
+ * - 3 retry with exponential backoff (network hatası durumunda)
  * - refetchOnWindowFocus: false (manuel refetch kontrolü için)
  * - refetchOnReconnect: true (bağlantı kesilip dönünce güncelle)
+ * - maxRetries with exponential backoff strategy
  */
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: DEFAULT_STALE_TIME,
       gcTime: DEFAULT_CACHE_TIME, // v5'te cacheTime yerine gcTime kullanılıyor
-      retry: 1,
+      retry: (failureCount, error: any) => {
+        // Retry max 3 times with exponential backoff
+        if (failureCount >= 3) return false;
+        
+        // Don't retry on 4xx errors (client errors) except 408, 429, 503
+        if (error?.status && error.status >= 400 && error.status < 500) {
+          if (![408, 429, 503].includes(error.status)) {
+            return false;
+          }
+        }
+        
+        return true;
+      },
+      retryDelay: (attemptIndex) => {
+        // Exponential backoff: 1s, 2s, 4s
+        return Math.min(1000 * Math.pow(2, attemptIndex), 10000);
+      },
       refetchOnWindowFocus: false, // Sadece ihtiyaç halinde manuel refetch
       refetchOnReconnect: true,
       refetchOnMount: true,
     },
     mutations: {
-      retry: 0, // Mutation'lar tekrar denenmez (idempotency garantisi yok)
+      retry: (failureCount, error: any) => {
+        // Mutations can be retried once if network error
+        if (failureCount >= 1) return false;
+        
+        // Retry on network errors, not on client/server validation errors
+        if (error?.status && error.status >= 400) {
+          return false;
+        }
+        
+        return true;
+      },
+      retryDelay: (attemptIndex) => {
+        return Math.min(1000 * Math.pow(2, attemptIndex), 5000);
+      },
     },
   },
 });

@@ -4,7 +4,14 @@
 
 import type { Motorbot, MotorbotCreate, MotorbotUpdate } from '../types/motorbot.types';
 
-const BASE_URL = 'http://localhost:8000/api/motorbot';
+const BASE_URL = '/api/motorbot';
+
+interface ApiResponse<T> {
+  success?: boolean;
+  message?: string;
+  data?: T;
+  error?: string;
+}
 
 export const motorbotApi = {
   /**
@@ -16,7 +23,8 @@ export const motorbotApi = {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return await response.json();
+      const result: ApiResponse<Motorbot[]> = await response.json();
+      return Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
     } catch (error) {
       console.error('Error fetching motorbot list:', error);
       throw error;
@@ -32,7 +40,8 @@ export const motorbotApi = {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return await response.json();
+      const result: ApiResponse<Motorbot> = await response.json();
+      return result.data || result;
     } catch (error) {
       console.error(`Error fetching motorbot ${id}:`, error);
       throw error;
@@ -48,7 +57,8 @@ export const motorbotApi = {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return await response.json();
+      const result: ApiResponse<Motorbot> = await response.json();
+      return result.data || result;
     } catch (error) {
       console.error(`Error fetching motorbot by kod ${kod}:`, error);
       throw error;
@@ -71,7 +81,8 @@ export const motorbotApi = {
         const errorData = await response.json();
         throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
       }
-      return await response.json();
+      const result: ApiResponse<Motorbot> = await response.json();
+      return result.data || result;
     } catch (error) {
       console.error('Error creating motorbot:', error);
       throw error;
@@ -94,7 +105,8 @@ export const motorbotApi = {
         const errorData = await response.json();
         throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
       }
-      return await response.json();
+      const result: ApiResponse<Motorbot> = await response.json();
+      return result.data || result;
     } catch (error) {
       console.error(`Error updating motorbot ${id}:`, error);
       throw error;
@@ -127,7 +139,8 @@ export const motorbotApi = {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return await response.json();
+      const result: ApiResponse<Motorbot[]> = await response.json();
+      return Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
     } catch (error) {
       console.error('Error searching motorbot:', error);
       throw error;

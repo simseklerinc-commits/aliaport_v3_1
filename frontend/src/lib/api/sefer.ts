@@ -3,6 +3,7 @@
 // GET, POST, PUT, DELETE işlemleri
 
 import { api } from './client';
+import type { RequestInit } from 'node-fetch';
 import type { 
   MbTrip, 
   MbTripWithDetails,
@@ -25,36 +26,36 @@ export const seferApi = {
     is_invoiced?: boolean;
     date_from?: string;
     date_to?: string;
-  }) => 
-    api.get<PaginatedResponse<MbTrip>>('/mb-trip', { params }),
+  }, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.get<PaginatedResponse<MbTrip>>('/mb-trip', { params, ...reqOptions }),
 
   // Tek sefer detayı
-  getById: (id: number) => 
-    api.get<MbTrip>(`/mb-trip/${id}`),
+  getById: (id: number, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.get<MbTrip>(`/mb-trip/${id}`, reqOptions),
 
   // Sefer + ilişkili verilerle birlikte
-  getWithDetails: (id: number) => 
-    api.get<MbTripWithDetails>(`/mb-trip/${id}/details`),
+  getWithDetails: (id: number, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.get<MbTripWithDetails>(`/mb-trip/${id}/details`, reqOptions),
 
   // Motorbot'a ait seferler
-  getByMotorbot: (motorbotId: number) => 
-    api.get<MbTrip[]>(`/mb-trip/motorbot/${motorbotId}`),
+  getByMotorbot: (motorbotId: number, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.get<MbTrip[]>(`/mb-trip/motorbot/${motorbotId}`, reqOptions),
 
   // Aktif seferler (denizde olanlar)
-  getActiveDepartures: () => 
-    api.get<MbTrip[]>('/mb-trip/active'),
+  getActiveDepartures: (reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.get<MbTrip[]>('/mb-trip/active', reqOptions),
 
   // Faturalanmamış seferler
   getUninvoiced: (params?: {
     cari_code?: string;
     period_start?: string;
     period_end?: string;
-  }) => 
-    api.get<MbTrip[]>('/mb-trip/uninvoiced', { params }),
+  }, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.get<MbTrip[]>('/mb-trip/uninvoiced', { params, ...reqOptions }),
 
   // Döneme göre seferler
-  getByPeriod: (period: string) => 
-    api.get<MbTrip[]>(`/mb-trip/period/${period}`),
+  getByPeriod: (period: string, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.get<MbTrip[]>(`/mb-trip/period/${period}`, reqOptions),
 
   // Sefer çıkış kaydı oluştur
   createDeparture: (data: {
@@ -69,39 +70,39 @@ export const seferApi = {
     unit_price: number;
     currency: string;
     vat_rate: number;
-  }) => 
-    api.post<MbTrip>('/mb-trip/departure', data),
+  }, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.post<MbTrip>('/mb-trip/departure', data, reqOptions),
 
   // Sefer dönüş kaydı - mevcut seferi güncelle
   recordReturn: (id: number, data: {
     return_date: string;
     return_time: string;
     return_note?: string;
-  }) => 
-    api.patch<MbTrip>(`/mb-trip/${id}/return`, data),
+  }, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.patch<MbTrip>(`/mb-trip/${id}/return`, data, reqOptions),
 
   // Sefer güncelle
-  update: (id: number, data: Partial<MbTrip>) => 
-    api.put<MbTrip>(`/mb-trip/${id}`, data),
+  update: (id: number, data: Partial<MbTrip>, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.put<MbTrip>(`/mb-trip/${id}`, data, reqOptions),
 
   // Sefer sil
-  delete: (id: number) => 
-    api.delete<void>(`/mb-trip/${id}`),
+  delete: (id: number, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
+    api.delete<void>(`/mb-trip/${id}`, reqOptions),
 
   // Seferleri faturalandı olarak işaretle
-  markAsInvoiced: (tripIds: number[], invoiceId: number, invoiceDate: string) => 
+  markAsInvoiced: (tripIds: number[], invoiceId: number, invoiceDate: string, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
     api.patch<void>('/mb-trip/mark-invoiced', { 
       trip_ids: tripIds, 
       invoice_id: invoiceId,
       invoice_date: invoiceDate 
-    }),
+    }, reqOptions),
 
   // Sefer istatistikleri
   getStats: (params?: {
     date_from?: string;
     date_to?: string;
     motorbot_id?: number;
-  }) => 
+  }, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
     api.get<{
       total_trips: number;
       active_trips: number;
@@ -111,19 +112,19 @@ export const seferApi = {
       total_revenue: number;
       pending_revenue: number;
       avg_duration_minutes: number;
-    }>('/mb-trip/stats', { params }),
+    }>('/mb-trip/stats', { params, ...reqOptions }),
 
   // Dönemsel faturalama için sefer grupları
   getInvoicingGroups: (params?: {
     period_start: string;
     period_end: string;
     billing_day: number;
-  }) => 
+  }, reqOptions?: RequestInit & { signal?: AbortSignal }) => 
     api.get<{
       cari_code: string;
       cari_title: string;
       trip_count: number;
       total_amount: number;
       trips: MbTrip[];
-    }[]>('/mb-trip/invoicing-groups', { params }),
+    }[]>('/mb-trip/invoicing-groups', { params, ...reqOptions }),
 };

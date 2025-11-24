@@ -89,7 +89,7 @@ export function useMotorbotList(params: {
 } = {}) {
   return useQuery<Motorbot[], ErrorResponse>({
     queryKey: motorbotKeys.list(params),
-    queryFn: async () => {
+    queryFn: async (): Promise<Motorbot[]> => {
       const response = await apiClient.get<Motorbot[]>('/motorbot', params);
       if (!response.success) {
         throw response;
@@ -113,7 +113,7 @@ export function useMotorbotList(params: {
 export function useMotorbotDetail(id: number, options?: { enabled?: boolean }) {
   return useQuery<Motorbot, ErrorResponse>({
     queryKey: motorbotKeys.detail(id),
-    queryFn: async () => {
+    queryFn: async (): Promise<Motorbot> => {
       const response = await apiClient.get<Motorbot>(`/motorbot/${id}`);
       if (!response.success) {
         throw response;
@@ -138,7 +138,7 @@ export function useMotorbotDetail(id: number, options?: { enabled?: boolean }) {
 export function useMotorbotByCode(kod: string, options?: { enabled?: boolean }) {
   return useQuery<Motorbot, ErrorResponse>({
     queryKey: motorbotKeys.byCode(kod),
-    queryFn: async () => {
+    queryFn: async (): Promise<Motorbot> => {
       const response = await apiClient.get<Motorbot>(`/motorbot/by-code/${kod}`);
       if (!response.success) {
         throw response;
@@ -337,12 +337,12 @@ export function useMbTripList(params: {
 } = {}) {
   return useQuery<MbTrip[], ErrorResponse>({
     queryKey: mbTripKeys.list(params),
-    queryFn: async () => {
+    queryFn: async (): Promise<MbTrip[]> => {
       const response = await apiClient.get<MbTrip[]>('/motorbot/trip', params);
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as MbTrip[];
     },
     ...getQueryOptions('MOTORBOT'),
   });
@@ -361,7 +361,7 @@ export function useMbTripList(params: {
 export function useMbTripDetail(id: number, options?: { enabled?: boolean }) {
   return useQuery<MbTrip, ErrorResponse>({
     queryKey: mbTripKeys.detail(id),
-    queryFn: async () => {
+    queryFn: async (): Promise<MbTrip> => {
       const response = await apiClient.get<MbTrip>(`/motorbot/trip/${id}`);
       if (!response.success) {
         throw response;
@@ -386,12 +386,12 @@ export function useMbTripDetail(id: number, options?: { enabled?: boolean }) {
 export function useMotorbotTrips(motorbotId: number, options?: { enabled?: boolean }) {
   return useQuery<MbTrip[], ErrorResponse>({
     queryKey: motorbotKeys.trips(motorbotId),
-    queryFn: async () => {
+    queryFn: async (): Promise<MbTrip[]> => {
       const response = await apiClient.get<MbTrip[]>('/motorbot/trip', { motorbot_id: motorbotId });
       if (!response.success) {
         throw response;
       }
-      return response.data;
+      return response.data as MbTrip[];
     },
     enabled: options?.enabled ?? true,
     ...getQueryOptions('MOTORBOT'),

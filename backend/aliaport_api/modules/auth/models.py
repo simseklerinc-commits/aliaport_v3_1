@@ -94,3 +94,32 @@ class Permission(Base):
 
     def __repr__(self):
         return f"<Permission(id={self.id}, name={self.name})>"
+
+
+class PasswordResetToken(Base):
+    """Password reset token for secure password recovery flow."""
+    
+    __tablename__ = "password_reset_tokens"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token = Column(String(255), unique=True, nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=func.now())
+    
+    # Relationship
+    user = relationship("User")
+
+    def __repr__(self):
+        return f"<PasswordResetToken(id={self.id}, user_id={self.user_id}, expired={self.is_expired()})>"
+    
+    def is_expired(self) -> bool:
+        """Check if token has expired."""
+        from datetime import datetime, timezone
+        return datetime.now(timezone.utc) > self.expires_at
+    
+    def is_used(self) -> bool:
+        """Check if token has been used."""
+        return self.used_at is not None

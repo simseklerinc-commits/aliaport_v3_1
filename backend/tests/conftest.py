@@ -18,9 +18,9 @@ backend_path = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_path))
 
 from aliaport_api.main import app
-from aliaport_api.core.database import Base, get_db
+from aliaport_api.config.database import Base, get_db
 from aliaport_api.modules.auth.models import User
-from aliaport_api.modules.auth.dependencies import get_password_hash
+from aliaport_api.modules.auth.utils import hash_password
 
 
 # Test database URL (in-memory SQLite)
@@ -76,16 +76,13 @@ def client(db: Session) -> Generator[TestClient, None, None]:
 
 @pytest.fixture(scope="function")
 def admin_user(db: Session) -> User:
-    """
-    Create an admin user for tests.
-    """
+    """Testler için basit admin kullanıcı (şifre: Admin123!)."""
     user = User(
-        username="admin",
         email="admin@aliaport.com",
-        password_hash=get_password_hash("admin123"),
+        hashed_password=hash_password("Admin123!"),
         full_name="Admin User",
-        role="ADMIN",
-        is_active=True
+        is_active=True,
+        is_superuser=True
     )
     db.add(user)
     db.commit()
@@ -95,16 +92,15 @@ def admin_user(db: Session) -> User:
 
 @pytest.fixture(scope="function")
 def auth_headers(client: TestClient, admin_user: User) -> dict:
-    """
-    Get authentication headers with valid JWT token.
-    """
+    """JWT alan auth header üret (email + password)."""
     response = client.post(
-        "/api/auth/login",
-        json={"username": "admin", "password": "admin123"}
+        "/auth/login",
+        json={"email": "admin@aliaport.com", "password": "Admin123!"}
     )
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     data = response.json()
-    access_token = data["data"]["access_token"]
+    access_token = data["access_token"] if "access_token" in data else data["data"]["access_token"] if "data" in data else None
+    assert access_token, "Access token alınamadı"
     return {"Authorization": f"Bearer {access_token}"}
 
 
@@ -114,17 +110,26 @@ def sample_cari(db: Session):
     Create a sample Cari for tests.
     """
     from aliaport_api.modules.cari.models import Cari
-    
     cari = Cari(
-        cari_code="C001",
-        cari_unvan="Test Şirketi A.Ş.",
-        cari_tip="MUSTERI",
-        tax_number="1234567890",
-        tax_office="Kadıköy",
-        address="İstanbul",
-        phone="+90 212 123 45 67",
-        email="test@example.com",
-        is_active=True
+        CariKod="C001",
+        Unvan="Test Şirketi A.Ş.",
+        CariTip="GERCEK",
+        Rol="MUSTERI",
+        VergiDairesi="Kadıköy",
+        VergiNo="1234567890",
+        Tckn=None,
+        Ulke="Türkiye",
+        Il="İstanbul",
+        Ilce="Kadıköy",
+        Adres="İstanbul",
+        Telefon="+90 212 123 45 67",
+        Eposta="test@example.com",
+        IletisimKisi="Yetkili Kişi",
+        Iban=None,
+        VadeGun=30,
+        ParaBirimi="TRY",
+        Notlar="Test notu",
+        AktifMi=True
     )
     db.add(cari)
     db.commit()
@@ -134,24 +139,21 @@ def sample_cari(db: Session):
 
 @pytest.fixture(scope="function")
 def sample_work_order(db: Session, sample_cari):
-    """
-    Create a sample WorkOrder for tests.
-    """
+    """Create a sample WorkOrder using actual field names."""
     from aliaport_api.modules.isemri.models import WorkOrder
     from datetime import datetime, timedelta
-    
     wo = WorkOrder(
         wo_number="WO-2025-0001",
-        cari_id=sample_cari.id,
-        cari_code=sample_cari.cari_code,
-        cari_unvan=sample_cari.cari_unvan,
+        cari_id=sample_cari.Id,
+        cari_code=sample_cari.CariKod,
+        cari_title=sample_cari.Unvan,
         type="HIZMET",
         subject="Test İş Emri",
         description="Test açıklaması",
         status="DRAFT",
         planned_start=datetime.utcnow() + timedelta(days=1),
         planned_end=datetime.utcnow() + timedelta(days=2),
-        created_by="admin"
+        created_by=1
     )
     db.add(wo)
     db.commit()
@@ -161,19 +163,12 @@ def sample_work_order(db: Session, sample_cari):
 
 @pytest.fixture(scope="function")
 def sample_motorbot(db: Session):
-    """
-    Create a sample Motorbot for tests.
-    """
+    """Create a sample Motorbot using real field names."""
     from aliaport_api.modules.motorbot.models import Motorbot
-    
     mb = Motorbot(
-        mb_code="MB001",
-        mb_adi="Test Motorbot",
-        mb_length=25.5,
-        mb_capacity=500.0,
-        mb_speed=12.5,
-        owner="Test Şirketi",
-        is_active=True
+        Kod="MB001",
+        Ad="Test Motorbot",
+        Durum="AKTIF"
     )
     db.add(mb)
     db.commit()
@@ -183,16 +178,14 @@ def sample_motorbot(db: Session):
 
 @pytest.fixture(scope="function")
 def sample_hizmet(db: Session):
-    """
-    Create a sample Hizmet for tests.
-    """
+    """Create a sample Hizmet using real field names."""
     from aliaport_api.modules.hizmet.models import Hizmet
-    
     hizmet = Hizmet(
-        hizmet_kodu="H001",
-        hizmet_adi="Römorkör Hizmeti",
-        birim="SAAT",
-        is_active=True
+        Kod="H001",
+        Ad="Römorkör Hizmeti",
+        Birim="SAAT",
+        ParaBirimi="TRY",
+        AktifMi=True
     )
     db.add(hizmet)
     db.commit()
@@ -202,16 +195,15 @@ def sample_hizmet(db: Session):
 
 @pytest.fixture(scope="function")
 def sample_parametre(db: Session):
-    """
-    Create a sample Parametre for tests.
-    """
+    """Create a sample Parametre using real field names."""
     from aliaport_api.modules.parametre.models import Parametre
-    
     param = Parametre(
-        param_code="TEST_PARAM",
-        param_category="GENEL",
-        param_value="Test Value",
-        param_description="Test parametresi"
+        Kategori="GENEL",
+        Kod="TEST_PARAM",
+        Ad="Test Parametre",
+        Deger="Test Value",
+        Aciklama="Test parametresi",
+        AktifMi=True
     )
     db.add(param)
     db.commit()
@@ -221,17 +213,16 @@ def sample_parametre(db: Session):
 
 # Test data factories
 def create_cari(db: Session, **kwargs):
-    """Factory function to create Cari with custom fields."""
+    """Factory: create Cari with Turkish field names."""
     from aliaport_api.modules.cari.models import Cari
-    
     defaults = {
-        "cari_code": "C999",
-        "cari_unvan": "Factory Cari",
-        "cari_tip": "MUSTERI",
-        "is_active": True
+        "CariKod": "C999",
+        "Unvan": "Factory Cari",
+        "CariTip": "GERCEK",
+        "Rol": "MUSTERI",
+        "AktifMi": True
     }
     defaults.update(kwargs)
-    
     cari = Cari(**defaults)
     db.add(cari)
     db.commit()
@@ -240,24 +231,22 @@ def create_cari(db: Session, **kwargs):
 
 
 def create_work_order(db: Session, cari, **kwargs):
-    """Factory function to create WorkOrder with custom fields."""
+    """Factory: create WorkOrder with actual field names."""
     from aliaport_api.modules.isemri.models import WorkOrder
     from datetime import datetime, timedelta
-    
     defaults = {
         "wo_number": f"WO-TEST-{datetime.utcnow().timestamp()}",
-        "cari_id": cari.id,
-        "cari_code": cari.cari_code,
-        "cari_unvan": cari.cari_unvan,
+        "cari_id": cari.Id,
+        "cari_code": cari.CariKod,
+        "cari_title": cari.Unvan,
         "type": "HIZMET",
         "subject": "Factory WO",
         "status": "DRAFT",
         "planned_start": datetime.utcnow() + timedelta(days=1),
         "planned_end": datetime.utcnow() + timedelta(days=2),
-        "created_by": "admin"
+        "created_by": 1
     }
     defaults.update(kwargs)
-    
     wo = WorkOrder(**defaults)
     db.add(wo)
     db.commit()

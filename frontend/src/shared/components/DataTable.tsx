@@ -101,10 +101,10 @@ export function DataTable<T>({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>{title}</CardTitle>
+    <div className="bg-gray-900 border border-gray-800 rounded-lg">
+      <div className="p-6 border-b border-gray-800">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">{title}</h2>
           {onAdd && (
             <Button onClick={onAdd}>
               <Plus className="mr-2 h-4 w-4" />
@@ -113,54 +113,54 @@ export function DataTable<T>({
           )}
         </div>
         {searchable && (
-          <div className="relative mt-4">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
             <Input
               placeholder={searchPlaceholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8"
+              className="pl-10 bg-gray-900 border-gray-800 text-gray-300 focus:border-cyan-500"
             />
           </div>
         )}
-      </CardHeader>
-      <CardContent>
+      </div>
+      <div className="p-6">
         {paginatedData.length === 0 ? (
           <div className="text-center text-muted-foreground py-8">
             {searchQuery ? 'Arama sonucu bulunamadı' : emptyMessage}
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
+            <div className="overflow-x-auto border border-gray-800 rounded-lg">
+              <table className="w-full bg-gray-950">
+                <thead className="bg-gray-900 border-b border-gray-800">
+                  <tr>
                     {columns.map((column, index) => (
                       <th
                         key={index}
-                        className="text-left p-2"
+                        className="text-left p-4 text-xs font-semibold text-gray-400 uppercase tracking-wider"
                         style={{ width: column.width }}
                       >
                         {column.header}
                       </th>
                     ))}
                     {(onEdit || onDelete || onView) && (
-                      <th className="text-right p-2">İşlemler</th>
+                      <th className="text-right p-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">İşlemler</th>
                     )}
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedData.map((item) => (
-                    <tr key={getItemKey(item)} className="border-b hover:bg-muted/50">
+                    <tr key={getItemKey(item)} className="border-b border-gray-800 hover:bg-gray-900 transition-colors">
                       {columns.map((column, colIndex) => (
-                        <td key={colIndex} className="p-2">
+                        <td key={colIndex} className="p-4 text-gray-300">
                           {column.render
                             ? column.render(item)
                             : String(item[column.key as keyof T] ?? '-')}
                         </td>
                       ))}
                       {(onEdit || onDelete || onView) && (
-                        <td className="p-2">
+                        <td className="p-4">
                           <div className="flex justify-end gap-2">
                             {onView && (
                               <Button
@@ -217,7 +217,7 @@ export function DataTable<T>({
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <div className="text-sm">
+                  <div className="text-sm text-gray-400">
                     Sayfa {currentPage} / {totalPages}
                   </div>
                   <Button
@@ -233,7 +233,7 @@ export function DataTable<T>({
             )}
           </>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
