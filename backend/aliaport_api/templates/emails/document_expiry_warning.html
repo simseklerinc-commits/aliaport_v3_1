@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Belge Süresi Dolmak Üzere</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px 8px 0 0;
+            text-align: center;
+            margin: -30px -30px 30px -30px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .warning-badge {
+            background-color: #fff3cd;
+            border: 3px solid #ffc107;
+            color: #856404;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .countdown {
+            font-size: 48px;
+            color: #dc3545;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .details {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .details p {
+            margin: 8px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            color: #666;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚠️ Belge Süresi Dolmak Üzere</h1>
+        </div>
+        
+        <p>Merhaba <strong>{{ full_name }}</strong>,</p>
+        
+        <div class="warning-badge">
+            ⏰ Belgenizin süresi dolmak üzere!
+        </div>
+        
+        <div class="countdown">
+            {{ days_remaining }} GÜN
+        </div>
+        <p style="text-align: center; color: #666; margin-top: -10px;">kaldı</p>
+        
+        <div class="details">
+            <p><strong>📄 Belge Tipi:</strong> {{ document_type }}</p>
+            <p><strong>📋 İş Emri No:</strong> {{ work_order_no }}</p>
+            <p><strong>📅 Son Geçerlilik Tarihi:</strong> <span style="color: #dc3545; font-weight: bold;">{{ expires_at }}</span></p>
+            <p><strong>⏱️ Kalan Gün:</strong> <span style="color: #dc3545; font-weight: bold;">{{ days_remaining }} gün</span></p>
+        </div>
+        
+        <p><strong>⚠️ Acil Aksiyon Gerekli:</strong></p>
+        <ul>
+            <li>Belgenizi yenileyin</li>
+            <li>Güncel belgeyi Portal üzerinden yükleyin</li>
+            <li>Süre dolmadan önce işleminizi tamamlayın</li>
+        </ul>
+        
+        <div style="text-align: center;">
+            <a href="{{ portal_url }}" class="button">Hemen Belge Yükle</a>
+        </div>
+        
+        <div style="background: #f8d7da; border-left: 4px solid #dc3545; padding: 15px; margin: 20px 0; border-radius: 4px;">
+            <strong>⚠️ Dikkat:</strong> Belge süresi dolduğunda işlemleriniz aksayabilir.
+        </div>
+        
+        <div class="footer">
+            <p><strong>Aliaport Liman Yönetimi</strong></p>
+            <p>© {{ current_year }} Tüm hakları saklıdır.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 
 const schema = z.object({
   email: z.string().email('Geçerli bir e-posta giriniz'),
-  password: z.string().optional().default(''),  // Şifresiz giriş için isteğe bağlı
+  password: z.string().min(1, 'Şifre zorunludur'),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -27,8 +27,11 @@ export const LoginForm: React.FC = () => {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-w-sm mx-auto p-6 border rounded-md bg-white shadow-sm">
-      <h2 className="text-lg font-semibold">Giriş Yap</h2>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 w-full max-w-md mx-auto p-8 border rounded-lg bg-white shadow-lg">
+      <div className="text-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">Aliaport</h2>
+        <p className="text-sm text-gray-500 mt-1">Liman Yönetim Sistemi</p>
+      </div>
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium" htmlFor="email">E-posta</label>
         <input
@@ -41,20 +44,29 @@ export const LoginForm: React.FC = () => {
         {errors.email && <span className="text-xs text-red-600">{errors.email.message}</span>}
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium" htmlFor="password">Şifre (İsteğe bağlı)</label>
+        <label className="text-sm font-medium" htmlFor="password">Şifre</label>
         <input
           id="password"
           type="password"
           className="border rounded px-3 py-2 text-sm"
-          placeholder="Boş bırakabilirsiniz..."
+          placeholder="Şifrenizi giriniz"
           {...register('password')}
         />
         {errors.password && <span className="text-xs text-red-600">{errors.password.message}</span>}
       </div>
+      <div className="flex justify-end">
+        <button
+          type="button"
+          className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+          onClick={() => alert('Şifre sıfırlama özelliği yakında eklenecek')}
+        >
+          Şifremi Unuttum
+        </button>
+      </div>
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded py-2 text-sm font-medium"
+        className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded py-2.5 text-sm font-medium transition-colors"
       >
         {isLoading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
       </button>

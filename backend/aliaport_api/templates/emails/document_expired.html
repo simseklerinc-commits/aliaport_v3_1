@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Belge Süresi Doldu</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px 8px 0 0;
+            text-align: center;
+            margin: -30px -30px 30px -30px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .urgent-badge {
+            background-color: #f8d7da;
+            border: 3px solid #dc3545;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 22px;
+            font-weight: bold;
+            margin: 20px 0;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+        .details {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .details p {
+            margin: 8px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            color: #666;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 ACİL - Belge Süresi Doldu!</h1>
+        </div>
+        
+        <p>Merhaba <strong>{{ full_name }}</strong>,</p>
+        
+        <div class="urgent-badge">
+            🚨 BELGENİZİN SÜRESİ DOLMUŞTUR!
+        </div>
+        
+        <div class="details">
+            <p><strong>📄 Belge Tipi:</strong> {{ document_type }}</p>
+            <p><strong>📋 İş Emri No:</strong> {{ work_order_no }}</p>
+            <p><strong>📅 Süre Dolma Tarihi:</strong> <span style="color: #dc3545; font-weight: bold;">{{ expired_at }}</span></p>
+        </div>
+        
+        <div style="background: #f8d7da; border: 2px solid #dc3545; padding: 20px; margin: 20px 0; border-radius: 8px;">
+            <p style="text-align: center; font-size: 18px; font-weight: bold; color: #721c24; margin: 0;">
+                ⚠️ DERHAL İŞLEM YAPMANIZ GEREKMEKTEDİR
+            </p>
+        </div>
+        
+        <p><strong>🚀 Acil Yapmanız Gerekenler:</strong></p>
+        <ol style="font-size: 16px;">
+            <li><strong>Belgenizi hemen yenileyin</strong></li>
+            <li><strong>Güncel belgeyi acilen yükleyin</strong></li>
+            <li><strong>İş emrinizin kesintiye uğramaması için vakit kaybetmeyin</strong></li>
+        </ol>
+        
+        <div style="text-align: center;">
+            <a href="{{ portal_url }}" class="button">ACİLEN BELGE YÜKLE</a>
+        </div>
+        
+        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;">
+            <strong>ℹ️ Not:</strong> Süre dolmuş belgeler nedeniyle işlemlerinizde aksaklıklar yaşanabilir.
+        </div>
+        
+        <div class="footer">
+            <p><strong>Aliaport Liman Yönetimi</strong></p>
+            <p>© {{ current_year }} Tüm hakları saklıdır.</p>
+        </div>
+    </div>
+</body>
+</html>

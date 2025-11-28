@@ -13,6 +13,7 @@ export type {
 // Components
 export { TarifeModule } from './components/TarifeModule';
 export { TarifeList } from './components/TarifeList';
+export { PriceListModern } from './components/PriceListModern';
 export { TarifeForm } from './components/TarifeForm';
 
 // Hooks

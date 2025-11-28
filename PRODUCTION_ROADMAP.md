@@ -1,6 +1,7 @@
 # ALIAPORT v3.1 - ÜRETİM HAZIRLIK YOL HARİTASI
 
 **Oluşturulma Tarihi:** 23 Kasım 2025  
+**Son Güncelleme:** 25 Kasım 2025  
 **Güncel Durum:** FAZ 1-6 ✅ TAMAMLANDI | FAZ 7 Testing & Optimization BAŞLATILDI  
 **Hedef:** Production-ready sistem (%95 olgunluk - 6 ay)
 
@@ -8,16 +9,18 @@
 
 ## 📊 MEVCUT DURUM
 
-### ✅ Tamamlanan
-- 12 Ana Modül: Cari, Motorbot, Hizmet, Tarife, Barınma, Kurlar, Parametreler, İş Emri, Dijital Arşiv, Raporlar, Saha Personeli, Güvenlik
+### ✅ Tamamlanan (13 Aktif Modül + 2 Planned)
+- **13 Aktif Modül:** Cari, Motorbot, Sefer, Hizmet, Tarife, Barınma, Kurlar, Parametre, İş Emri, Saha Personeli, Güvenlik, Auth, Audit
+- **2 Planned Modül:** Dijital Arşiv, Raporlar (sadece permission'larda tanımlı)
 - FastAPI + SQLAlchemy modüler backend yapısı
 - React + TypeScript feature-based frontend
 - **✅ Alembic migration altyapısı (AKTIF)**
 - **✅ Otomatik database backup sistemi (AKTIF - Her gün 03:00)**
 - **✅ Requirements pinning (Development/Production stratejisi)**
-- **✅ API Response Standardizasyonu (12/12 router - ISO8601 + ErrorCode)**
-- **✅ Structured Logging (JSON + 4 log tipi + Request ID tracking)** ✅ YENİ
-- **✅ Global Error Handler (Production security + standardized errors)** ✅ YENİ
+- **✅ API Response Standardizasyonu (13/13 router - ISO8601 + ErrorCode)** (Auth + Audit eklendi)
+- **✅ Structured Logging (JSON + 4 log tipi + Request ID tracking)**
+- **✅ Global Error Handler (Production security + standardized errors)**
+- **✅ Comprehensive Module Documentation** (13 modül runbook/)
 - CORS ve multi-origin desteği
 
 ### ⚠️ Kalan Kritik İşler (FAZ 7 - Testing & Optimization)
@@ -194,7 +197,7 @@ manager.restore_from_backup(Path("backups/database/daily/aliaport_daily_20251123
 - [x] `core/error_codes.py` - ErrorCode enum (75+ kodlar) + HTTP status mapping
 - [x] **12/12 Router Standardize Edildi:**
 
-**✅ Tamamlanan Router'lar (12/12 - %100):**
+**✅ Tamamlanan Router'lar (13/13 - %100):**
 1. **Cari** (`modules/cari/router.py`) - 7 endpoint
    - Paginated list, search, CRUD, soft delete
 2. **Parametre** (`modules/parametre/router.py`) - 5 endpoint
@@ -218,10 +221,17 @@ manager.restore_from_backup(Path("backups/database/daily/aliaport_daily_20251123
 10. **WorkLog/Saha** (`modules/saha/router.py`) - 7 endpoint ✅ YENİ
     - Paginated list, stats (personel/servis tipi bazlı)
     - Duration hesaplama, onay mekanizması
-11. **GateLog/Güvenlik** (`modules/guvenlik/router.py`) - 11 endpoint ✅ YENİ
+11. **GateLog/Güvenlik** (`modules/guvenlik/router.py`) - 11 endpoint
     - 6 GateLog (giriş/çıkış, istisna+PIN, stats)
     - 5 GateChecklistItem (CRUD, seed default)
     - Exception PIN hash'leme
+12. **Auth** (`modules/auth/router.py`) - 8 endpoint ✅
+    - Login, logout, refresh token
+    - User CRUD, password reset
+    - RBAC (roles, permissions)
+13. **Audit** (`modules/audit/router.py`) - 3 endpoint ✅
+    - Audit log listing, filtering
+    - Event detail, stats
 
 **Error Codes Eklenenler:**
 - `WO_*`, `WO_ITEM_NOT_FOUND` (İş Emri)
@@ -531,7 +541,17 @@ frontend/src/
 ---
 
 ### [✅] 4.2 Role-Based Access Control (RBAC) (TAMAMLANDI)
-**Durum:** ✅ 5 rol + 30 permission + decorator sistemi aktif
+**Durum:** ✅ 7 rol + 50+ permission + decorator sistemi aktif
+
+**Yapılanlar:**
+- [x] User, Role, Permission modelleri (many-to-many ilişkiler)
+- [x] 7 Standart Rol: SISTEM_YONETICISI, MUHASEBE, OPERASYON_MUDURU, PERSONEL, PORTAL_KULLANICI, SAHA_PERSONELI, GUVENLIK_PERSONELI
+- [x] 50+ Permission tanımı (resource:action formatı - cari:read, isemri:approve, worklog:write, vb.)
+- [x] `@require_permission` decorator (backend/aliaport_api/modules/auth/utils.py)
+- [x] `has_permission()` method (User model)
+- [x] Seed scripts (admin user + default roles + permissions)
+- [x] Permission seeding (startup'ta otomatik)
+- [x] Frontend authStore (Zustand) + token management
 
 **User Model:**
 ```python
@@ -539,126 +559,180 @@ class User(Base):
     __tablename__ = "users"
     
     id: int
-    username: str (unique)
     email: str (unique)
-    password_hash: str
+    hashed_password: str
     full_name: str
-    role: str  # ADMIN, OPERASYON, GUVENLIK, SAHA, etc.
+    is_superuser: bool
     is_active: bool
-    last_login: datetime
+    cari_id: int (nullable - portal users)
+    roles: List[Role] (many-to-many)
     created_at: datetime
+    updated_at: datetime
 ```
+
+**Permission Format:** `resource:action` (örn: `cari:read`, `isemri:approve`, `worklog:write`)
+
+**Dosyalar:**
+- `backend/aliaport_api/modules/auth/` (models, router, utils, dependencies)
+- `backend/aliaport_api/modules/auth/README_RBAC.md` ✅
+- `runbook/11_MODUL_AUTH.md` ✅
 
 ---
 
-### [ ] 4.2 Role-Based Access Control (RBAC)
-**Roller:**
-- `SISTEM_YONETICISI` - Tüm yetkiler
-- `OPERASYON` - İş emri create/approve
-- `GUVENLIK` - Gate IN/OUT, fotoğraf, istisna PIN
-- `SAHA` - WorkLog write (kısıtlı)
-- `FATURALAMA` - UBL create/send
-- `CARI_PORTAL` - Talep create, belge upload
-- `ARSIV_YONETICISI` - Arşiv yönetimi
-- `TARIFECI` - Tarife düzenleme
+### [✅] 4.3 API Security (TAMAMLANDI)
+**Durum:** ✅ Rate limiting, JWT, password hashing, security headers aktif
 
-**Yapılacaklar:**
-- [ ] `@require_role` decorator
-- [ ] `@require_permission` decorator
-- [ ] Role-permission mapping
-- [ ] Frontend route guards
+**Yapılanlar:**
+- [x] Rate limiting (SlowAPI) - 300/min default, auth-aware key function
+  - Authenticated users: user_id bazlı
+  - Anonymous: IP bazlı
+  - Farklı endpoint'ler için özelleştirilebilir limitler
+- [x] JWT authentication (python-jose) - 15dk access + 7 gün refresh token
+- [x] Password hashing (bcrypt) - passlib ile
+- [x] Security headers middleware:
+  - X-Frame-Options: DENY
+  - X-Content-Type-Options: nosniff
+  - Content-Security-Policy
+  - Referrer-Policy
+  - Strict-Transport-Security (production)
+- [x] CORS configuration (environment-based)
+- [x] SQL injection koruması (SQLAlchemy ORM)
+- [x] Global error handler (production'da detay gizleme)
 
-**Örnek:**
-```python
-@router.post("/work-order")
-@require_role(["OPERASYON", "SISTEM_YONETICISI"])
-async def create_work_order(...):
-    ...
-```
-
----
-
-### [ ] 4.3 API Security
-**Yapılacaklar:**
-- [ ] Rate limiting (per user/IP)
-  - 100 req/min authenticated users
-  - 20 req/min anonymous
-- [ ] CORS fine-tuning (production'da wildcard kaldır)
-- [ ] SQL injection koruması audit (SQLAlchemy zaten koruyor)
-- [ ] XSS koruması (response sanitization)
+**Kalan Yapılacaklar:**
 - [ ] CSRF token (form submission)
-- [ ] API key support (external integrations)
+- [ ] API key support (external integrations için)
+- [ ] XSS koruması genişletme (input sanitization)
 
-**Dependencies:**
+**Dependencies (Kurulu):**
 ```python
-pip install slowapi  # Rate limiting
-pip install python-jose[cryptography]  # JWT
-pip install passlib[bcrypt]  # Password hashing
+slowapi==0.1.8              # Rate limiting ✅
+python-jose[cryptography]==3.3.0  # JWT ✅
+passlib[bcrypt]==1.7.4      # Password hashing ✅
+bcrypt==4.0.1               # bcrypt backend ✅
 ```
 
 ---
 
 ## 🎯 FAZ 5: PERFORMANCE VE ÖLÇEKLENEBİLİRLİK (5-6 hafta)
 
-### [ ] 5.1 Database Optimization
-**Yapılacaklar:**
-- [ ] Index stratejisi:
-  - `work_order.wo_number` (UNIQUE INDEX)
+### [🔄] 5.1 Database Optimization (Kısmen Tamamlandı)
+**Durum:** ✅ N+1 prevention aktif, index stratejisi planlandı, PostgreSQL'e geçiş bekliyor
+
+**Yapılanlar:**
+- [x] N+1 problem önleme - `lazy="raise"` pattern (Cari, Motorbot, MbTrip)
+- [x] Explicit eager loading (selectinload, joinedload kullanımı)
+- [x] SQLAlchemy 2.0 modern query patterns
+- [x] Primary key auto-index (tüm modellerde)
+- [x] Unique constraints (CariKod, MbKod, wo_number, vb.)
+
+**PostgreSQL Geçişi İçin Planlandı:**
+- [ ] Kritik index stratejisi (Alembic migration ile):
+  - `work_order.wo_number` (UNIQUE INDEX) ✅ Mevcut
   - `work_order.cari_code` (INDEX)
   - `work_order.status` (INDEX)
   - `work_order.created_at` (INDEX)
-  - `cari.cari_code` (UNIQUE INDEX)
-  - `motorbot.mb_code` (UNIQUE INDEX)
-- [ ] Query optimization (N+1 problem kontrolü)
-- [ ] Lazy loading vs eager loading stratejisi
-- [ ] Connection pooling config
-- [ ] EXPLAIN QUERY PLAN analizi
+  - `cari.cari_code` (UNIQUE INDEX) ✅ Mevcut
+  - `motorbot.mb_code` (UNIQUE INDEX) ✅ Mevcut
+  - `exchange_rate(currency_code, rate_date)` composite index
+- [ ] Connection pooling config (PostgreSQL için)
+- [ ] EXPLAIN ANALYZE query profiling
+- [ ] Slow query logging
 
-**SQLite Index Örneği:**
+**SQLite Mevcut:**
+- Primary key indexes (otomatik)
+- Unique constraints (otomatik index)
+
+**PostgreSQL Migration Script Örneği:**
 ```sql
+-- Alembic migration ile eklenecek
 CREATE INDEX idx_wo_cari_code ON work_order(cari_code);
 CREATE INDEX idx_wo_status ON work_order(status);
 CREATE INDEX idx_wo_created_at ON work_order(created_at);
+CREATE INDEX idx_exchange_rate_lookup ON exchange_rate(currency_code, rate_date);
 ```
 
 ---
 
-### [ ] 5.2 Caching Strategy
-**Katmanlar:**
-- [ ] API response cache (Redis veya in-memory)
+### [✅] 5.2 Caching Strategy (TAMAMLANDI - Frontend)
+**Durum:** ✅ Frontend React Query cache aktif, backend Redis planned
+
+**Yapılanlar (Frontend):**
+- [x] React Query (@tanstack/react-query) v5 kurulumu
+- [x] Modül bazlı cache politikaları (`core/cache/queryClient.ts`):
+  - CARI: 5 dakika staleTime
+  - PARAMETRELER: 1 saat staleTime
+  - KURLAR: 4 saat staleTime
+  - HIZMET/TARIFE: 30 dakika staleTime
+  - MOTORBOT: 30 dakika staleTime
+  - WORKORDER: 30 saniye staleTime (real-time)
+- [x] 7 modül için query hooks (77 hooks toplam)
+- [x] Cache invalidation after mutations
+- [x] Optimistic updates (örnek: Cari, PriceListItem)
+- [x] React Query DevTools (development)
+
+**Backend (Planned):**
+- [ ] Redis integration (docker-compose.yml'de hazır)
+- [ ] API response cache (Redis)
 - [ ] Static data cache (parametreler, kurlar)
-- [ ] Query result cache
-- [ ] Frontend cache (React Query)
+- [ ] Cache-Control headers
 
-**Cache Politikası:**
-```python
-# Parametreler: 1 saat
-# Kurlar: 4 saat
-# Cari listesi: 5 dakika
-# İş emri listesi: No cache (real-time)
-# Stats: 1 dakika
+**Mevcut Cache Politikası (Frontend):**
+```typescript
+// core/cache/queryClient.ts
+MODULE_CACHE_POLICIES = {
+  CARI: { staleTime: 5 * 60 * 1000 },        // 5 dakika
+  PARAMETRELER: { staleTime: 60 * 60 * 1000 }, // 1 saat
+  KURLAR: { staleTime: 4 * 60 * 60 * 1000 },  // 4 saat
+  HIZMET: { staleTime: 30 * 60 * 1000 },      // 30 dakika
+  TARIFE: { staleTime: 30 * 60 * 1000 },      // 30 dakika
+  MOTORBOT: { staleTime: 30 * 60 * 1000 },    // 30 dakika
+  WORKORDER: { staleTime: 30 * 1000 },        // 30 saniye
+}
 ```
 
 ---
 
-### [ ] 5.3 Background Jobs Organization
-**APScheduler Jobs:**
-- [ ] Kur güncelleme (günlük 09:00)
-- [ ] Rapor oluşturma (async queue)
-- [ ] Email/notification queue
-- [ ] Database cleanup (eski log'lar)
-- [ ] Audit log archiving
-- [ ] Backup (günlük 03:00)
+### [✅] 5.3 Background Jobs Organization (TAMAMLANDI)
+**Durum:** ✅ APScheduler aktif, kritik job'lar çalışıyor
 
-**Job Dosya Yapısı:**
+**Yapılanlar:**
+- [x] APScheduler 3.11.1 kurulumu ve konfigürasyonu
+- [x] Scheduler başlatma/durdurma (main.py startup/shutdown events)
+- [x] **Aktif Job'lar:**
+  - Kur güncelleme (günlük 16:00) - EVDS API sync ✅
+  - Database backup (günlük 03:00) - 3 tier retention ✅
+  - Barınma faturalama (her ayın 1'i, 09:00) ✅
+- [x] Job registry pattern (`core/scheduler.py` + `jobs/__init__.py`)
+- [x] Istanbul timezone (pytz)
+- [x] Job exception handling ve logging
+
+**Dosya Yapısı (Mevcut):**
 ```
-backend/aliaport_api/jobs/
-  ├── __init__.py
-  ├── scheduler.py       # APScheduler config
-  ├── currency_update.py
-  ├── backup.py
-  ├── cleanup.py
-  └── notifications.py
+backend/aliaport_api/
+  ├── core/
+  │   └── scheduler.py          # APScheduler config ✅
+  ├── jobs/
+  │   ├── __init__.py           # Job registry ✅
+  │   ├── currency_sync.py      # Kur güncelleme ✅
+  │   └── (diğer job'lar main.py'de inline)
+  └── scripts/
+      └── backup_database.py    # Backup job ✅
+```
+
+**Kalan Yapılacaklar:**
+- [ ] Email/notification queue (SMTP konfigürasyonu sonrası)
+- [ ] Audit log archiving (90 gün sonra S3'e taşıma)
+- [ ] Report generation queue (Raporlar modülü ile)
+- [ ] Database cleanup (eski log'lar - 30 gün retention)
+
+**Scheduler Komutları:**
+```python
+# main.py'de otomatik başlatılıyor
+# Manuel kontrol:
+from core.scheduler import get_scheduler
+scheduler = get_scheduler()
+scheduler.print_jobs()  # Aktif job'ları listele
 ```
 
 ---
@@ -998,16 +1072,16 @@ def test_complete_work_order_lifecycle(client, db):
 
 ## 📈 İLERLEME METRİKLERİ
 
-### Şu Anki Durum (%90 Olgunluk) ⬆️ +10%
-- ✅ Fonksiyonel modüller (Backend): %100
+### Şu Anki Durum (%92 Olgunluk) ⬆️ +2%
+- ✅ Fonksiyonel modüller (Backend): %100 (13 aktif modül)
 - ✅ **Veri güvenliği: %100 (FAZ 1 TAMAMLANDI)**
-- ✅ Backend standardizasyon + observability: %100 (FAZ 2 TAMAMLANDI)
-- 🔄 Frontend olgunlaşma: %65 (+25%) - React Query (7 modül), forms, cache, UI
+- ✅ **Backend standardizasyon + observability: %100 (FAZ 2 TAMAMLANDI)**
+- ✅ **Frontend olgunlaşma: %70** (+5%) - React Query (7 modül, 77 hooks), forms, cache, UI
 - ✅ **Production hazırlığı: %100 (FAZ 6 TAMAMLANDI)**
-- ✅ Güvenlik (Auth/RBAC): %100 (FAZ 4 TAMAMLANDI)
-- ✅ Ölçeklenebilirlik: %100 (FAZ 5 TAMAMLANDI)
-- ⚠️ Dokümantasyon: %70 (+12%)
-- ⚠️ Test coverage: %10
+- ✅ **Güvenlik (Auth/RBAC): %100 (FAZ 4 TAMAMLANDI)**
+- ✅ **Ölçeklenebilirlik: %85** (FAZ 5 - N+1 ✅, Cache ✅, Jobs ✅, PostgreSQL pending)
+- ✅ **Dokümantasyon: %90** (+20%) - 13 modül runbook ✅
+- ⚠️ Test coverage: %10 (FAZ 7 bekliyor)
 
 ### 6 Ay Sonra Hedef (%90 Olgunluk)
 - ✅ Fonksiyonel modüller: %100
@@ -1151,9 +1225,15 @@ Bu bölüm düzenli olarak güncellenecek; tamamlananlar alt kısımdaki "Tamaml
 
 ---
 
-**Son Güncelleme:** 23 Kasım 2025  
+**Son Güncelleme:** 25 Kasım 2025  
 **Sonraki Review:** Her ay sonu  
 **Sorumlular:** Development team + Senior advisors
+
+**🎯 Güncel Odak Noktaları:**
+- FAZ 7: Unit & Integration Tests (pytest, coverage %80 hedefi)
+- PostgreSQL Migration (SQLite → PostgreSQL production)
+- Frontend modül completion (remaining list/form components)
+- Load testing & performance tuning
 
 ---
 ### 📌 Gün Sonu Notu - 23 Kasım 2025 (FAZ 3 İlerleme Güncellemesi - Sprint 2 + Sprint 3 + Sprint 4)

@@ -95,7 +95,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content=error_response(
-                error_code=ErrorCode.VALIDATION_ERROR,
+                code=ErrorCode.VALIDATION_ERROR.value,
                 message="Validation error" if IS_PRODUCTION else "Request validation failed",
                 details=validation_details
             )
@@ -124,7 +124,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT,
             content=error_response(
-                error_code=ErrorCode.DUPLICATE_ENTRY,
+                code=ErrorCode.DUPLICATE_ENTRY.value,
                 message=error_msg,
                 details={"request_id": request_id} if request_id else None
             )
@@ -181,7 +181,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content=error_response(
-            error_code=ErrorCode.INTERNAL_SERVER_ERROR,
+            code=ErrorCode.INTERNAL_SERVER_ERROR.value,
             message="Internal server error" if IS_PRODUCTION else str(exc),
             details=error_details
         )

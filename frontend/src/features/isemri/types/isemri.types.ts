@@ -1,5 +1,6 @@
 /**
  * İŞ EMRİ (WORK ORDER) TYPES
+ * Backend source: aliaport_api/modules/isemri/schemas.py
  */
 
 // Enums
@@ -37,7 +38,7 @@ export enum WorkOrderItemType {
 // WorkOrder Interface
 export interface WorkOrder {
   Id: number;
-  WONumber: string;
+  WONumber: string;  // Auto-generated WO number
   CariId: number;
   CariCode: string;
   CariTitle: string;
@@ -49,10 +50,10 @@ export interface WorkOrder {
   Subject: string;
   Description?: string;
   Priority: WorkOrderPriority;
-  PlannedStart?: string;
-  PlannedEnd?: string;
-  ActualStart?: string;
-  ActualEnd?: string;
+  PlannedStart?: string;  // ISO8601 datetime
+  PlannedEnd?: string;  // ISO8601 datetime
+  ActualStart?: string;  // ISO8601 datetime
+  ActualEnd?: string;  // ISO8601 datetime
   Status: WorkOrderStatus;
   GateRequired: boolean;
   SahaKayitYetkisi: boolean;
@@ -60,37 +61,55 @@ export interface WorkOrder {
   HasSignature: boolean;
   IsCabatogeTrFlag: boolean;
   ApplyRuleAddons: boolean;
-  SecurityExitTime?: string;
+  SecurityExitTime?: string;  // ISO8601 datetime
   AttachedLetterApproved: boolean;
   Notes?: string;
   IsActive: boolean;
-  CreatedAt: string;
-  UpdatedAt?: string;
+  CreatedAt: string;  // ISO8601 datetime
+  UpdatedAt?: string;  // ISO8601 datetime
   CreatedBy?: number;
   UpdatedBy?: number;
+  CreatedByName?: string;
+  UpdatedByName?: string;
 }
 
 // WorkOrderItem Interface
 export interface WorkOrderItem {
   Id: number;
   WorkOrderId: number;
+  WONumber: string;
   ItemType: WorkOrderItemType;
   HizmetId?: number;
   HizmetKod?: string;
   HizmetAd?: string;
+  ResourceCode?: string;
+  ResourceName?: string;
+  ServiceCode?: string;
+  ServiceName?: string;
+  StartTime?: string;  // ISO8601 datetime
+  EndTime?: string;  // ISO8601 datetime
+  DurationMinutes?: number;
   Quantity: number;
+  Unit: string;
   UnitPrice: number;
   Currency: string;
   TotalPrice: number;
+  TotalAmount: number;
   VatRate: number;
+  VatAmount: number;
+  GrandTotal: number;
   WorklogText?: string;
   ResourceDescription?: string;
   Notes?: string;
   IsActive: boolean;
-  CreatedAt: string;
-  UpdatedAt?: string;
+  IsInvoiced: boolean;
+  InvoiceId?: number;
+  CreatedAt: string;  // ISO8601 datetime
+  UpdatedAt?: string;  // ISO8601 datetime
   CreatedBy?: number;
   UpdatedBy?: number;
+  CreatedByName?: string;
+  UpdatedByName?: string;
 }
 
 // Create/Update DTOs
@@ -100,17 +119,25 @@ export interface WorkOrderCreate {
   CariTitle: string;
   RequesterUserId?: number;
   RequesterUserName?: string;
-  Type: WorkOrderType;
+  Type: WorkOrderType | string;
   ServiceCode?: string;
   Action?: string;
   Subject: string;
   Description?: string;
-  Priority: WorkOrderPriority;
+  Priority: WorkOrderPriority | string;
   PlannedStart?: string;
   PlannedEnd?: string;
-  Status?: WorkOrderStatus;
+  ActualStart?: string;
+  ActualEnd?: string;
+  Status?: WorkOrderStatus | string;
   GateRequired?: boolean;
   SahaKayitYetkisi?: boolean;
+  AttachmentsCount?: number;
+  HasSignature?: boolean;
+  IsCabatogeTrFlag?: boolean;
+  ApplyRuleAddons?: boolean;
+  SecurityExitTime?: string;
+  AttachedLetterApproved?: boolean;
   Notes?: string;
   IsActive?: boolean;
 }
@@ -119,42 +146,83 @@ export interface WorkOrderUpdate {
   CariId?: number;
   CariCode?: string;
   CariTitle?: string;
-  Type?: WorkOrderType;
+  RequesterUserId?: number;
+  RequesterUserName?: string;
+  Type?: WorkOrderType | string;
+  ServiceCode?: string;
+  Action?: string;
   Subject?: string;
   Description?: string;
-  Priority?: WorkOrderPriority;
+  Priority?: WorkOrderPriority | string;
   PlannedStart?: string;
   PlannedEnd?: string;
   ActualStart?: string;
   ActualEnd?: string;
-  Status?: WorkOrderStatus;
+  Status?: WorkOrderStatus | string;
+  GateRequired?: boolean;
+  SahaKayitYetkisi?: boolean;
+  AttachmentsCount?: number;
+  HasSignature?: boolean;
+  IsCabatogeTrFlag?: boolean;
+  ApplyRuleAddons?: boolean;
+  SecurityExitTime?: string;
+  AttachedLetterApproved?: boolean;
   Notes?: string;
   IsActive?: boolean;
 }
 
 export interface WorkOrderItemCreate {
   WorkOrderId: number;
-  ItemType: WorkOrderItemType;
+  WONumber: string;
+  ItemType: WorkOrderItemType | string;
   HizmetId?: number;
   HizmetKod?: string;
   HizmetAd?: string;
+  ResourceCode?: string;
+  ResourceName?: string;
+  ServiceCode?: string;
+  ServiceName?: string;
+  StartTime?: string;
+  EndTime?: string;
+  DurationMinutes?: number;
   Quantity: number;
+  Unit: string;
   UnitPrice: number;
   Currency?: string;
+  TotalAmount: number;
   VatRate?: number;
+  VatAmount: number;
+  GrandTotal: number;
   WorklogText?: string;
   ResourceDescription?: string;
   Notes?: string;
+  IsInvoiced?: boolean;
+  InvoiceId?: number;
 }
 
 export interface WorkOrderItemUpdate {
-  ItemType?: WorkOrderItemType;
+  ItemType?: WorkOrderItemType | string;
+  ResourceCode?: string;
+  ResourceName?: string;
+  ServiceCode?: string;
+  ServiceName?: string;
+  StartTime?: string;
+  EndTime?: string;
+  DurationMinutes?: number;
   Quantity?: number;
+  Unit?: string;
   UnitPrice?: number;
+  Currency?: string;
+  TotalAmount?: number;
+  VatRate?: number;
+  VatAmount?: number;
+  GrandTotal?: number;
   WorklogText?: string;
   ResourceDescription?: string;
   Notes?: string;
   IsActive?: boolean;
+  IsInvoiced?: boolean;
+  InvoiceId?: number;
 }
 
 // Stats Interface

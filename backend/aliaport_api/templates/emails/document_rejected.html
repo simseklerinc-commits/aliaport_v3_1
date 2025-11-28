@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Belge Reddedildi</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px 8px 0 0;
+            text-align: center;
+            margin: -30px -30px 30px -30px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .reject-badge {
+            background-color: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .details {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .details p {
+            margin: 8px 0;
+        }
+        .reason-box {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            color: #666;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>❌ Belge Reddedildi</h1>
+        </div>
+        
+        <p>Merhaba <strong>{{ full_name }}</strong>,</p>
+        
+        <div class="reject-badge">
+            ✗ Belgeniz incelendi ve reddedildi
+        </div>
+        
+        <div class="details">
+            <p><strong>📄 Belge Tipi:</strong> {{ document_type }}</p>
+            <p><strong>📋 İş Emri No:</strong> {{ work_order_no }}</p>
+            <p><strong>👤 Reddeden:</strong> {{ rejected_by }}</p>
+            <p><strong>📅 Red Tarihi:</strong> {{ rejected_at }}</p>
+        </div>
+        
+        <div class="reason-box">
+            <strong>📝 Red Nedeni:</strong>
+            <p style="margin-top: 10px; white-space: pre-line;">{{ rejection_reason }}</p>
+        </div>
+        
+        <p><strong>Yapmanız gerekenler:</strong></p>
+        <ol>
+            <li>Yukarıdaki red nedenini dikkatlice okuyun</li>
+            <li>Belgenizi düzeltin veya eksiklikleri tamamlayın</li>
+            <li>Yeni belgeyi Portal üzerinden tekrar yükleyin</li>
+        </ol>
+        
+        <div style="text-align: center;">
+            <a href="{{ portal_url }}" class="button">Portala Git</a>
+        </div>
+        
+        <div class="footer">
+            <p><strong>Aliaport Liman Yönetimi</strong></p>
+            <p>© {{ current_year }} Tüm hakları saklıdır.</p>
+        </div>
+    </div>
+</body>
+</html>

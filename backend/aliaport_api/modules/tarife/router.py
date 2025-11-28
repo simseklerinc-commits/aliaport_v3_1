@@ -4,7 +4,7 @@ from typing import List, Optional
 from datetime import datetime
 from ...config.database import get_db
 from ...core.responses import success_response, error_response, paginated_response
-from ...core.error_codes import ErrorCode
+from ...core.error_codes import ErrorCode, raise_api_error, get_http_status_for_error
 from .models import PriceList, PriceListItem
 from .schemas import (
     PriceListResponse,
@@ -110,8 +110,8 @@ def get_price_list(price_list_id: int, db: Session = Depends(get_db)):
     try:
         price_list = db.query(PriceList).filter(PriceList.Id == price_list_id).first()
         if not price_list:
-            return error_response(
-                code=ErrorCode.TARIFE_NOT_FOUND,
+            raise_api_error(
+                error_code=ErrorCode.TARIFE_NOT_FOUND,
                 message="Tarife bulunamadı",
                 details={"price_list_id": price_list_id}
             )
@@ -123,10 +123,13 @@ def get_price_list(price_list_id: int, db: Session = Depends(get_db)):
             message="Tarife başarıyla getirildi"
         )
     except Exception as e:
-        return error_response(
-            code=ErrorCode.INTERNAL_SERVER_ERROR,
-            message=f"Tarife getirilirken hata: {str(e)}",
-            details={"price_list_id": price_list_id}
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.INTERNAL_SERVER_ERROR),
+            detail=error_response(
+                code=ErrorCode.INTERNAL_SERVER_ERROR,
+                message=f"Tarife getirilirken hata: {str(e)}",
+                details={"price_list_id": price_list_id}
+            )
         )
 
 
@@ -138,8 +141,8 @@ def get_price_list_by_code(code: str, db: Session = Depends(get_db)):
     try:
         price_list = db.query(PriceList).filter(PriceList.Kod == code).first()
         if not price_list:
-            return error_response(
-                code=ErrorCode.TARIFE_NOT_FOUND,
+            raise_api_error(
+                error_code=ErrorCode.TARIFE_NOT_FOUND,
                 message="Tarife bulunamadı",
                 details={"kod": code}
             )
@@ -151,10 +154,13 @@ def get_price_list_by_code(code: str, db: Session = Depends(get_db)):
             message="Tarife başarıyla getirildi"
         )
     except Exception as e:
-        return error_response(
-            code=ErrorCode.INTERNAL_SERVER_ERROR,
-            message=f"Tarife getirilirken hata: {str(e)}",
-            details={"kod": code}
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.INTERNAL_SERVER_ERROR),
+            detail=error_response(
+                code=ErrorCode.INTERNAL_SERVER_ERROR,
+                message=f"Tarife getirilirken hata: {str(e)}",
+                details={"kod": code}
+            )
         )
 
 
@@ -166,8 +172,8 @@ def get_price_list_with_items(price_list_id: int, db: Session = Depends(get_db))
     try:
         price_list = db.query(PriceList).filter(PriceList.Id == price_list_id).first()
         if not price_list:
-            return error_response(
-                code=ErrorCode.TARIFE_NOT_FOUND,
+            raise_api_error(
+                error_code=ErrorCode.TARIFE_NOT_FOUND,
                 message="Tarife bulunamadı",
                 details={"price_list_id": price_list_id}
             )
@@ -189,10 +195,13 @@ def get_price_list_with_items(price_list_id: int, db: Session = Depends(get_db))
             message=f"Tarife ve {len(items_data)} kalem getirildi"
         )
     except Exception as e:
-        return error_response(
-            code=ErrorCode.INTERNAL_SERVER_ERROR,
-            message=f"Tarife ve kalemler getirilirken hata: {str(e)}",
-            details={"price_list_id": price_list_id}
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.INTERNAL_SERVER_ERROR),
+            detail=error_response(
+                code=ErrorCode.INTERNAL_SERVER_ERROR,
+                message=f"Tarife ve kalemler getirilirken hata: {str(e)}",
+                details={"price_list_id": price_list_id}
+            )
         )
 
 
@@ -205,8 +214,8 @@ def create_price_list(price_list_data: PriceListCreate, db: Session = Depends(ge
         # Kod benzersizliğini kontrol et
         existing = db.query(PriceList).filter(PriceList.Kod == price_list_data.Kod).first()
         if existing:
-            return error_response(
-                code=ErrorCode.TARIFE_DUPLICATE,
+            raise_api_error(
+                error_code=ErrorCode.TARIFE_DUPLICATE,
                 message="Bu kod zaten kullanılıyor",
                 details={"kod": price_list_data.Kod}
             )
@@ -224,9 +233,12 @@ def create_price_list(price_list_data: PriceListCreate, db: Session = Depends(ge
         )
     except Exception as e:
         db.rollback()
-        return error_response(
-            code=ErrorCode.INTERNAL_SERVER_ERROR,
-            message=f"Tarife oluşturulurken hata: {str(e)}"
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.DATABASE_ERROR),
+            detail=error_response(
+                code=ErrorCode.DATABASE_ERROR,
+                message=f"Tarife oluşturulurken hata: {str(e)}"
+            )
         )
 
 

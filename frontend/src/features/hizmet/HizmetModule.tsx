@@ -3,6 +3,7 @@
  */
 
 import React, { useState } from 'react';
+import { HizmetListModern } from './components/HizmetListModern';
 import { HizmetList } from './components/HizmetList';
 import { HizmetForm } from './components/HizmetForm';
 import type { Hizmet } from './types/hizmet.types';

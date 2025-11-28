@@ -15,6 +15,7 @@ import type {
   ExchangeRate,
   CreateExchangeRatePayload,
   UpdateExchangeRatePayload,
+  FetchAPIRequest,
   FetchTCMBRequest,
   BulkExchangeRateRequest,
 } from '../../../shared/types/kurlar';
@@ -73,11 +74,12 @@ export function useExchangeRateList(params: {
   return useQuery<ExchangeRate[], ErrorResponse>({
     queryKey: exchangeRateKeys.list(params),
     queryFn: async (): Promise<ExchangeRate[]> => {
-      const response = await apiClient.get<ExchangeRate[]>('/kurlar', params);
+      const response = await apiClient.get<{ data: ExchangeRate[] }>('/exchange-rate', params);
       if (!response.success) {
         throw response;
       }
-      return response.data as ExchangeRate[];
+      // API paginated response döndürür: { success: true, data: [...], pagination: {...} }
+      return (response.data as any).data || response.data as ExchangeRate[];
     },
     ...getQueryOptions('KURLAR'),
   });
@@ -97,7 +99,7 @@ export function useExchangeRateDetail(id: number, options?: { enabled?: boolean 
   return useQuery<ExchangeRate, ErrorResponse>({
     queryKey: exchangeRateKeys.detail(id),
     queryFn: async (): Promise<ExchangeRate> => {
-      const response = await apiClient.get<ExchangeRate>(`/kurlar/${id}`);
+      const response = await apiClient.get<ExchangeRate>(`/exchange-rate/${id}`);
       if (!response.success) {
         throw response;
       }
@@ -132,7 +134,7 @@ export function useExchangeRateByPair(
     queryFn: async (): Promise<ExchangeRate> => {
       const params = date ? { rate_date: date } : {};
       const response = await apiClient.get<ExchangeRate>(
-        `/kurlar/by-pair/${from}/${to}`,
+        `/exchange-rate/by-pair/${from}/${to}`,
         params
       );
       if (!response.success) {
@@ -159,7 +161,7 @@ export function useLatestExchangeRate(currency: string, options?: { enabled?: bo
   return useQuery<ExchangeRate, ErrorResponse>({
     queryKey: exchangeRateKeys.latest(currency),
     queryFn: async (): Promise<ExchangeRate> => {
-      const response = await apiClient.get<ExchangeRate>(`/kurlar/latest/${currency}`);
+      const response = await apiClient.get<ExchangeRate>(`/exchange-rate/latest/${currency}`);
       if (!response.success) {
         throw response;
       }
@@ -183,7 +185,7 @@ export function useLatestExchangeRates(options?: { enabled?: boolean }) {
   return useQuery<ExchangeRate[], ErrorResponse>({
     queryKey: exchangeRateKeys.latestAll(),
     queryFn: async (): Promise<ExchangeRate[]> => {
-      const response = await apiClient.get<ExchangeRate[]>('/kurlar/latest');
+      const response = await apiClient.get<ExchangeRate[]>('/exchange-rate/latest');
       if (!response.success) {
         throw response;
       }
@@ -222,7 +224,7 @@ export function useCreateExchangeRate() {
 
   return useToastMutation<ExchangeRate, CreateExchangeRatePayload>({
     mutationFn: async (payload) => {
-      const response = await apiClient.post<ExchangeRate>('/kurlar', payload);
+      const response = await apiClient.post<ExchangeRate>('/exchange-rate', payload);
       if (!response.success) {
         throw response;
       }
@@ -263,7 +265,7 @@ export function useUpdateExchangeRate() {
 
   return useToastMutation<ExchangeRate, { id: number; data: UpdateExchangeRatePayload }>({
     mutationFn: async ({ id, data }) => {
-      const response = await apiClient.put<ExchangeRate>(`/kurlar/${id}`, data);
+      const response = await apiClient.put<ExchangeRate>(`/exchange-rate/${id}`, data);
       if (!response.success) {
         throw response;
       }
@@ -304,7 +306,7 @@ export function useDeleteExchangeRate() {
 
   return useToastMutation<void, number>({
     mutationFn: async (id) => {
-      const response = await apiClient.delete<void>(`/kurlar/${id}`);
+      const response = await apiClient.delete<void>(`/exchange-rate/${id}`);
       if (!response.success) {
         throw response;
       }
@@ -324,38 +326,65 @@ export function useDeleteExchangeRate() {
 }
 
 /**
- * TCMB kurlarını çek ve kaydet
+ * EVDS API'den kurları çek ve kaydet (Primary Source)
  * 
- * Backend'den TCMB API'sine istek atarak güncel kurları çeker ve kaydeder.
+ * Backend EVDS client üzerinden güncel kurları çeker ve kaydeder.
+ * Hafta sonu/tatil günleri için auto-fallback ile son yayınlanan kur getirilir.
  * 
  * @returns useMutation result
  * 
  * @example
- * const fetchTcmbMutation = useFetchTCMBRates();
+ * const fetchEvdsMutation = useFetchEVDSRates();
  * 
- * fetchTcmbMutation.mutate({ date: '2025-01-20' }); // Belirli tarih
- * fetchTcmbMutation.mutate({}); // Bugünün kurları
+ * fetchEvdsMutation.mutate({ date: '2025-11-24' }); // Belirli tarih
+ * fetchEvdsMutation.mutate({ currencies: ['USD', 'EUR'] }); // Belirli dövizler
+ * fetchEvdsMutation.mutate({}); // Bugünün kurları (tüm dövizler)
  * 
  * // Cache invalidation: Tüm kur cache'lerini invalidate eder (bulk update)
  */
-export function useFetchTCMBRates() {
+export function useFetchEVDSRates() {
   const queryClient = useQueryClient();
 
-  return useToastMutation<ExchangeRate[], FetchTCMBRequest>({
+  return useToastMutation<ExchangeRate[], FetchAPIRequest>({
     mutationFn: async (request) => {
-      const response = await apiClient.post<ExchangeRate[]>('/kurlar/fetch-tcmb', request);
+      const response = await apiClient.post<ExchangeRate[]>('/exchange-rate/fetch-evds', request);
       if (!response.success) {
         throw response;
       }
       return response.data as ExchangeRate[];
     },
     onSuccess: () => {
-      // TCMB fetch bulk operation - tüm cache'i temizle
+      // EVDS fetch bulk operation - tüm cache'i temizle
       queryClient.invalidateQueries({ queryKey: exchangeRateKeys.all() });
     },
     messages: {
-      success: (data) => `TCMB'den ${data.length} kur başarıyla çekildi ve güncellendi`,
-      error: 'TCMB kurları çekilirken hata oluştu',
+      success: (data) => `EVDS'den ${data.length} kur başarıyla çekildi ve güncellendi`,
+      error: 'EVDS kurları çekilirken hata oluştu',
+    },
+  });
+}
+
+/**
+ * TCMB kurlarını çek (Geriye dönük uyumluluk)
+ * @deprecated EVDS artık primary source, useFetchEVDSRates kullanın
+ */
+export function useFetchTCMBRates() {
+  const queryClient = useQueryClient();
+
+  return useToastMutation<ExchangeRate[], FetchTCMBRequest>({
+    mutationFn: async (request) => {
+      const response = await apiClient.post<ExchangeRate[]>('/exchange-rate/fetch-evds', request);
+      if (!response.success) {
+        throw response;
+      }
+      return response.data as ExchangeRate[];
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: exchangeRateKeys.all() });
+    },
+    messages: {
+      success: (data) => `${data.length} kur başarıyla çekildi ve güncellendi`,
+      error: 'Kurlar çekilirken hata oluştu',
     },
   });
 }
@@ -382,7 +411,7 @@ export function useBulkCreateExchangeRates() {
 
   return useToastMutation<ExchangeRate[], BulkExchangeRateRequest>({
     mutationFn: async (request) => {
-      const response = await apiClient.post<ExchangeRate[]>('/kurlar/bulk', request);
+      const response = await apiClient.post<ExchangeRate[]>('/exchange-rate/bulk', request);
       if (!response.success) {
         throw response;
       }

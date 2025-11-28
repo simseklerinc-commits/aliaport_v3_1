@@ -2,7 +2,7 @@
  * HIZMET MODULE - API Layer
  */
 
-import type { Hizmet, HizmetCreate, HizmetUpdate } from '../types/hizmet.types';
+import type { Hizmet, HizmetCreate, HizmetUpdate, PriceCalculationRequest, PriceCalculationResponse } from '../types/hizmet.types';
 
 const BASE_URL = '/api/hizmet';
 
@@ -143,6 +143,29 @@ export const hizmetApi = {
       return Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
     } catch (error) {
       console.error('Error searching hizmet:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Otomatik fiyat hesaplama (Pricing Engine)
+   */
+  calculatePrice: async (data: PriceCalculationRequest): Promise<PriceCalculationResponse> => {
+    try {
+      const response = await fetch(`${BASE_URL}/calculate-price`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error calculating price:', error);
       throw error;
     }
   },

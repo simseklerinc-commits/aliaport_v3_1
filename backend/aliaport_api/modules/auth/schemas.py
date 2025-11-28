@@ -12,9 +12,9 @@ from datetime import datetime
 # ============================================
 
 class UserLogin(BaseModel):
-    """Login credentials - şifre isteğe bağlı (passwordless)."""
+    """Login credentials."""
     email: EmailStr
-    password: Optional[str] = Field(None, min_length=0)
+    password: str = Field(..., min_length=1)
 
 
 class UserCreate(BaseModel):

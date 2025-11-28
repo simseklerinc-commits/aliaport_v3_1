@@ -11,10 +11,12 @@ import { BarinmaModule as BarinmaModuleNew } from "./features/barinma";
 import { KurlarModule as KurlarModuleNew } from "./features/kurlar";
 import { ParametrelerModule as ParametrelerModuleNew } from "./features/parametreler";
 import { IsemriModule as IsemriModuleNew } from "./features/isemri";
+import { WorkOrderApprovalList } from "./features/isemri/components/WorkOrderApprovalList";
 import { DijitalArsivModule } from "./features/dijital-arsiv";
 import { RaporlarModule } from "./features/raporlar";
 import { SahaPersonelModule } from "./features/saha-personel";
 import { GuvenlikModule } from "./features/guvenlik";
+import { VehicleDocumentApprovalPanel } from "./features/admin/VehicleDocumentApproval";
 import { CariModule as CariModuleOld } from "./components/modules/CariModule";
 import { CariEkstre } from "./components/modules/CariEkstre";
 import { MotorbotModule as MotorbotModuleOld } from "./components/modules/MotorbotModule";
@@ -46,6 +48,11 @@ const subMenus = {
   "is-emri": {
     title: "İş Emri Yönetimi",
     items: [
+      {
+        id: "is-emri-onaylar",
+        title: "İş Emri Onayları",
+        description: "Portal'den gelen iş emri taleplerini onayla/reddet",
+      },
       {
         id: "is-emri-talep",
         title: "İş Emri Talebi",
@@ -276,6 +283,7 @@ function InnerApp() {
     if (currentPage === "parametreler") return "Parametreler";
     if (currentPage === "saha-personeli") return "Saha Personeli";
     if (currentPage === "guvenlik") return "Güvenlik";
+    if (currentPage === "admin-vehicle-documents") return "Araç Evrak Onay Yönetimi";
     return "Aliaport Liman Yönetimi";
   };
 
@@ -308,12 +316,14 @@ function InnerApp() {
         <TemplatePreview onClose={() => setShowTemplatePreview(false)} />
       )}
 
-      {/* Sidebar */}
-      <Sidebar 
-        onNavigate={handleNavigate} 
-        theme={currentTheme}
-        currentPage={currentModule || currentPage}
-      />
+      {/* Sidebar - sadece login sonrası göster */}
+      {isAuthenticated && (
+        <Sidebar 
+          onNavigate={handleNavigate} 
+          theme={currentTheme}
+          currentPage={currentModule || currentPage}
+        />
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -324,6 +334,7 @@ function InnerApp() {
           subtitle={currentPage === "menu" ? "Sistem özeti ve hızlı erişim" : undefined}
           showBackButton={navigationHistory.length > 0}
           onBackClick={handleGoBack}
+          onNavigate={handleNavigate}
         />
         {/* Auth Durumu */}
         <div className="absolute top-2 right-2 flex items-center gap-3 z-50">
@@ -340,13 +351,64 @@ function InnerApp() {
           {currentPage === "menu" && (
             <>
               {!isAuthenticated && (
-                <div className="p-6">
-                  <div className="mb-6 max-w-sm">
-                    <LoginForm />
+                <div className="min-h-screen flex items-center justify-center p-6">
+                  <LoginForm />
+                </div>
+              )}
+              {isAuthenticated && (
+                <div className="p-6 space-y-6">
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {[
+                      { title: "Araç Evrak Onayı", subtitle: "Portal evraklarını incele", action: () => setCurrentPage("admin-vehicle-documents"), accent: "bg-blue-500/10 text-blue-400" },
+                      { title: "İş Emri Onayları", subtitle: "Portal iş emirlerini yönet", action: () => setCurrentPage("is-emri-onaylar"), accent: "bg-emerald-500/10 text-emerald-400" },
+                      { title: "Dijital Arşiv", subtitle: "Tüm belgeleri görüntüle", action: () => setCurrentPage("firma-belge"), accent: "bg-purple-500/10 text-purple-400" },
+                      { title: "Raporlar", subtitle: "Finans ve operasyon raporları", action: () => setCurrentPage("raporlar"), accent: "bg-amber-500/10 text-amber-400" },
+                      { title: "Hizmet Yönetimi", subtitle: "Hizmet ve tarifeleri düzenle", action: () => setCurrentPage("hizmet-module"), accent: "bg-cyan-500/10 text-cyan-400" },
+                      { title: "Parametreler", subtitle: "Sistem parametrelerini güncelle", action: () => setCurrentPage("parametreler"), accent: "bg-pink-500/10 text-pink-400" },
+                    ].map((card) => (
+                      <button
+                        key={card.title}
+                        onClick={card.action}
+                        className="text-left bg-white/5 dark:bg-gray-900/40 border border-white/5 hover:border-white/20 rounded-xl p-5 transition shadow-lg"
+                      >
+                        <span className={`text-xs font-semibold tracking-wide uppercase ${card.accent}`}>{card.subtitle}</span>
+                        <p className="text-xl font-bold text-white mt-2">{card.title}</p>
+                        <span className="text-sm text-gray-400 mt-4 inline-flex items-center gap-2">
+                          Hızlı erişim
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <path d="M9 5l7 7-7 7" />
+                          </svg>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="bg-white/5 dark:bg-gray-900/50 rounded-2xl border border-white/5 p-6">
+                    <div className="flex items-center justify-between flex-wrap gap-4">
+                      <div>
+                        <p className="text-sm text-gray-400">Sık Kullanılan Modüller</p>
+                        <h3 className="text-2xl font-bold text-white">Operasyon kısayolları</h3>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { label: "İş Emri", target: "is-emri" },
+                          { label: "Hizmet", target: "hizmet" },
+                          { label: "Cari", target: "cari" },
+                          { label: "MB Sefer", target: "mb-sefer" },
+                        ].map((chip) => (
+                          <button
+                            key={chip.label}
+                            onClick={() => handleNavigate(chip.target)}
+                            className="px-4 py-2 rounded-full bg-white/10 text-sm font-semibold text-white hover:bg-white/20"
+                          >
+                            {chip.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
-              {isAuthenticated && <SidebarMainMenu theme={currentTheme} />}
             </>
           )}
           
@@ -461,6 +523,13 @@ function InnerApp() {
             </ProtectedRoute>
           )}
 
+          {/* İŞ EMRİ ONAYLARI - Yeni sayfa */}
+          {currentPage === "is-emri-onaylar" && (
+            <ProtectedRoute roles={["OPERASYON","SISTEM_YONETICISI"]}>
+              <WorkOrderApprovalList />
+            </ProtectedRoute>
+          )}
+
           {/* İŞ EMRİ MODULE - Tüm iş emri sayfaları için tek modül */}
           {(currentPage === "is-emri-talep" || currentPage === "is-emri-onay" || currentPage === "is-emri-liste") && (
             <ProtectedRoute roles={["SAHA","OPERASYON","SISTEM_YONETICISI"]}>
@@ -503,6 +572,15 @@ function InnerApp() {
             </ProtectedRoute>
           )}
 
+          {/* Admin Araç Evrak Onay Yönetimi */}
+          {currentPage === "admin-vehicle-documents" && (
+            <ProtectedRoute roles={["OPERASYON","SISTEM_YONETICISI"]}>
+              <div className="p-6">
+                <VehicleDocumentApprovalPanel />
+              </div>
+            </ProtectedRoute>
+          )}
+
           {/* PLACEHOLDER MODULES - All other pages */}
           {currentPage !== "menu" && 
            currentPage !== "submenu" && 
@@ -526,7 +604,8 @@ function InnerApp() {
            currentPage !== "motorbot-belge" && 
            currentPage !== "raporlar" && 
            currentPage !== "saha-personel" && 
-           currentPage !== "guvenlik" && (
+           currentPage !== "guvenlik" && 
+           currentPage !== "admin-vehicle-documents" && (
             <PlaceholderModule 
               onNavigateHome={handleBackToMenu}
               onNavigateBack={handleGoBack}

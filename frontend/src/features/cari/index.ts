@@ -8,6 +8,7 @@ export { CariModule } from './CariModule';
 
 // Components
 export { CariList } from './components/CariList';
+export { CariListModern } from './components/CariListModern';
 export { CariForm } from './components/CariForm';
 
 // Hooks

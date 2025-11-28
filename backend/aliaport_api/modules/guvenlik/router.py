@@ -16,7 +16,9 @@ from .models import GateLog, GateChecklistItem
 from .schemas import (
     GateLogCreate, GateLogCreateWithException, GateLogResponse,
     GateChecklistItemCreate, GateChecklistItemUpdate, GateChecklistItemResponse,
-    GateStats
+    GateStats,
+    VehicleEntryRequest, VehicleExitRequest, VehicleExitResponse,
+    PersonIdentityUploadRequest, SecurityApprovalBulkRequest
 )
 
 router = APIRouter(prefix="/api/gatelog", tags=["Güvenlik"])
@@ -317,4 +319,277 @@ def seed_default_checklist(db: Session = Depends(get_db)):
     return success_response(
         data={"created_count": created_count},
         message=f"{created_count} checklist item oluşturuldu"
+    )
+
+
+# ============================================
+# YENİ: ARAÇ GİRİŞ/ÇIKIŞ ENDPOINTS (4 Saat Kuralı)
+# ============================================
+
+@router.post("/vehicle/entry", status_code=201)
+def vehicle_entry(entry_data: VehicleEntryRequest, db: Session = Depends(get_db)):
+    """
+    Araç giriş kaydı oluştur
+    4 saat kuralı için entry_time kaydedilir
+    """
+    from ..isemri.models import WorkOrder
+    
+    # İş emri kontrolü
+    work_order = db.query(WorkOrder).filter(WorkOrder.id == entry_data.work_order_id).first()
+    if not work_order:
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.WO_NOT_FOUND),
+            detail=error_response(
+                code=ErrorCode.WO_NOT_FOUND,
+                message="İş emri bulunamadı",
+                details={"work_order_id": entry_data.work_order_id}
+            )
+        )
+    
+    # GateLog kaydı oluştur
+    new_log = GateLog(
+        work_order_id=entry_data.work_order_id,
+        work_order_person_id=entry_data.work_order_person_id,
+        wo_number=entry_data.wo_number,
+        wo_status="ONAYLANDI",
+        entry_type="GIRIS",
+        security_personnel=entry_data.security_personnel,
+        is_approved=True,
+        vehicle_plate=entry_data.vehicle_plate,
+        vehicle_type=entry_data.vehicle_type,
+        driver_name=entry_data.driver_name,
+        entry_time=entry_data.entry_time,
+        identity_documents_uploaded=entry_data.identity_documents_uploaded,
+        identity_document_count=entry_data.identity_document_count,
+        notes=entry_data.notes
+    )
+    
+    db.add(new_log)
+    db.commit()
+    db.refresh(new_log)
+    
+    log_response = GateLogResponse.model_validate(new_log)
+    return success_response(data=log_response, message="Araç giriş kaydı oluşturuldu")
+
+
+@router.post("/vehicle/exit")
+def vehicle_exit(exit_data: VehicleExitRequest, db: Session = Depends(get_db)):
+    """
+    Araç çıkış kaydı ve 4 saat kuralı hesaplaması
+    
+    4 Saat Kuralı:
+    - İlk 4 saat: Kesin ücret (base_charge)
+    - 4 saatten sonra: Dakika başı ek ücret
+    """
+    # Giriş kaydını bul
+    entry_log = db.query(GateLog).filter(
+        GateLog.id == exit_data.gate_log_id,
+        GateLog.entry_type == "GIRIS"
+    ).first()
+    
+    if not entry_log:
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.GATELOG_NOT_FOUND),
+            detail=error_response(
+                code=ErrorCode.GATELOG_NOT_FOUND,
+                message="Giriş kaydı bulunamadı",
+                details={"gate_log_id": exit_data.gate_log_id}
+            )
+        )
+    
+    if entry_log.exit_time:
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.GATELOG_ALREADY_EXITED),
+            detail=error_response(
+                code=ErrorCode.GATELOG_ALREADY_EXITED,
+                message="Bu araç zaten çıkış yapmış",
+                details={"gate_log_id": exit_data.gate_log_id}
+            )
+        )
+    
+    # Çıkış zamanını kaydet
+    entry_log.exit_time = exit_data.exit_time
+    
+    # Süre hesapla (dakika)
+    if entry_log.entry_time:
+        delta = exit_data.exit_time - entry_log.entry_time
+        duration_minutes = int(delta.total_seconds() / 60)
+        entry_log.duration_minutes = duration_minutes
+        
+        # 4 saat kuralı hesaplaması
+        base_minutes = entry_log.base_charge_hours * 60
+        extra_minutes = max(0, duration_minutes - base_minutes)
+        entry_log.extra_minutes = extra_minutes
+        
+        # Ek ücret hesaplanacaksa (fiyat motoru ile hesaplanmalı - şimdilik sadece flag)
+        needs_extra_charge = extra_minutes > 0
+        
+        if exit_data.notes:
+            entry_log.notes = (entry_log.notes or "") + f"\n[Çıkış] {exit_data.notes}"
+    
+    db.commit()
+    db.refresh(entry_log)
+    
+    # Response oluştur
+    response = VehicleExitResponse(
+        gate_log_id=entry_log.id,
+        vehicle_plate=entry_log.vehicle_plate,
+        entry_time=entry_log.entry_time,
+        exit_time=entry_log.exit_time,
+        duration_minutes=entry_log.duration_minutes or 0,
+        base_charge_hours=entry_log.base_charge_hours,
+        extra_minutes=entry_log.extra_minutes,
+        needs_extra_charge=needs_extra_charge,
+        extra_charge_amount=float(entry_log.extra_charge_calculated) if entry_log.extra_charge_calculated else None,
+        message=f"Araç çıkış kaydı tamamlandı. Kalış süresi: {entry_log.duration_minutes} dakika"
+    )
+    
+    return success_response(data=response, message="Araç çıkış işlemi tamamlandı")
+
+
+@router.get("/vehicle/active")
+def get_active_vehicles(
+    page: int = Query(1, ge=1, description="Sayfa numarası"),
+    page_size: int = Query(50, ge=1, le=500, description="Sayfa başına kayıt"),
+    db: Session = Depends(get_db)
+):
+    """
+    Aktif araçlar (henüz çıkış yapmamış)
+    """
+    query = db.query(GateLog).filter(
+        GateLog.entry_type == "GIRIS",
+        GateLog.vehicle_plate.isnot(None),
+        GateLog.exit_time.is_(None)
+    )
+    
+    total = query.count()
+    
+    active_vehicles = query.order_by(GateLog.entry_time.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    
+    items = [GateLogResponse.model_validate(v) for v in active_vehicles]
+    
+    return paginated_response(
+        data=items,
+        page=page,
+        page_size=page_size,
+        total=total,
+        message=f"{total} araç halen limanda"
+    )
+
+
+# ============================================
+# YENİ: WORKORDERPERSON GÜVENLIK ENTEGRASYONU
+# ============================================
+
+@router.get("/pending-persons")
+def get_pending_security_persons(
+    page: int = Query(1, ge=1, description="Sayfa numarası"),
+    page_size: int = Query(50, ge=1, le=500, description="Sayfa başına kayıt"),
+    db: Session = Depends(get_db)
+):
+    """
+    Güvenlik onayı bekleyen kişiler
+    """
+    from ..isemri.models import WorkOrderPerson
+    
+    query = db.query(WorkOrderPerson).filter(
+        WorkOrderPerson.approved_by_security == False
+    )
+    
+    total = query.count()
+    
+    persons = query.order_by(WorkOrderPerson.created_at.asc()).offset((page - 1) * page_size).limit(page_size).all()
+    
+    # Serialize (WorkOrderPersonResponse import edilmeli)
+    from ..isemri.schemas import WorkOrderPersonResponse
+    items = [WorkOrderPersonResponse.model_validate(p) for p in persons]
+    
+    return paginated_response(
+        data=items,
+        page=page,
+        page_size=page_size,
+        total=total,
+        message=f"{total} kişi güvenlik onayı bekliyor"
+    )
+
+
+@router.post("/person/identity-upload")
+def upload_person_identity(upload_data: PersonIdentityUploadRequest, db: Session = Depends(get_db)):
+    """
+    Kişi kimlik belgesi fotoğrafı yükleme kaydı
+    """
+    from ..isemri.models import WorkOrderPerson
+    
+    person = db.query(WorkOrderPerson).filter(
+        WorkOrderPerson.id == upload_data.work_order_person_id
+    ).first()
+    
+    if not person:
+        raise HTTPException(
+            status_code=get_http_status_for_error(ErrorCode.WO_PERSON_NOT_FOUND),
+            detail=error_response(
+                code=ErrorCode.WO_PERSON_NOT_FOUND,
+                message="Kişi bulunamadı",
+                details={"work_order_person_id": upload_data.work_order_person_id}
+            )
+        )
+    
+    # Kimlik belgesi ID'sini kaydet
+    person.identity_document_id = upload_data.identity_document_id
+    
+    if upload_data.notes:
+        person.security_notes = (person.security_notes or "") + f"\n[Kimlik] {upload_data.notes}"
+    
+    person.updated_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(person)
+    
+    from ..isemri.schemas import WorkOrderPersonResponse
+    person_data = WorkOrderPersonResponse.model_validate(person)
+    
+    return success_response(data=person_data, message="Kimlik belgesi kaydedildi")
+
+
+@router.post("/person/bulk-approval")
+def bulk_security_approval(bulk_data: SecurityApprovalBulkRequest, db: Session = Depends(get_db)):
+    """
+    Toplu güvenlik onayı
+    """
+    from ..isemri.models import WorkOrderPerson
+    
+    persons = db.query(WorkOrderPerson).filter(
+        WorkOrderPerson.id.in_(bulk_data.person_ids)
+    ).all()
+    
+    if len(persons) != len(bulk_data.person_ids):
+        raise HTTPException(
+            status_code=400,
+            detail=error_response(
+                code=ErrorCode.VALIDATION_ERROR,
+                message="Bazı kişiler bulunamadı",
+                details={"requested": len(bulk_data.person_ids), "found": len(persons)}
+            )
+        )
+    
+    updated_count = 0
+    for person in persons:
+        person.approved_by_security = bulk_data.approved
+        person.approved_by_security_user_id = bulk_data.security_user_id
+        person.approved_at = datetime.utcnow() if bulk_data.approved else None
+        
+        if bulk_data.gate_entry_time:
+            person.gate_entry_time = bulk_data.gate_entry_time
+        
+        if bulk_data.notes:
+            person.security_notes = (person.security_notes or "") + f"\n[Toplu Onay] {bulk_data.notes}"
+        
+        person.updated_at = datetime.utcnow()
+        updated_count += 1
+    
+    db.commit()
+    
+    return success_response(
+        data={"updated_count": updated_count, "person_ids": bulk_data.person_ids},
+        message=f"{updated_count} kişi için güvenlik onayı güncellendi"
     )

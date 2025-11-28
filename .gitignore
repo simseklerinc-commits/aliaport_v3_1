@@ -28,7 +28,9 @@ build/
 *.db
 *.sqlite
 *.sqlite3
-aliaport.db
+*_backup_*.db
+# Production database should be tracked
+!backend/aliaport.db
 # BUT keep alembic_version table (tracked by alembic)
 
 # IDE

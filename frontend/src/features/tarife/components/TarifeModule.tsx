@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { TarifeList } from './TarifeList';
+import { PriceListModern } from './PriceListModern';
 import { TarifeForm } from './TarifeForm';
 import type { PriceList } from '../types/tarife.types';
 import {
@@ -66,7 +66,7 @@ export function TarifeModule() {
         </TabsList>
 
         <TabsContent value="list" className="mt-6">
-          <TarifeList
+          <PriceListModern
             onCreate={handleCreate}
             onEdit={handleEdit}
             onView={handleView}

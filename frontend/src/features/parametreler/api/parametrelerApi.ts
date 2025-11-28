@@ -3,7 +3,7 @@
 
 import type { Parametre, ParametreCreate, ParametreUpdate, PaginatedParametreResponse } from '../types/parametreler.types';
 
-const BASE_URL = 'http://localhost:8000/api/parametre';
+const BASE_URL = '/api/parametre';  // Use relative path for proxy
 
 export const parametrelerApi = {
   // Get all parameters (paginated)
@@ -12,6 +12,7 @@ export const parametrelerApi = {
     page_size?: number;
     kategori?: string;
     aktif?: boolean;
+    search?: string;
   }): Promise<PaginatedParametreResponse> => {
     try {
       const queryParams = new URLSearchParams();
@@ -19,10 +20,14 @@ export const parametrelerApi = {
       if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
       if (params?.kategori) queryParams.append('kategori', params.kategori);
       if (params?.aktif !== undefined) queryParams.append('aktif', params.aktif.toString());
+      if (params?.search) queryParams.append('search', params.search);
 
       const url = queryParams.toString() ? `${BASE_URL}?${queryParams}` : BASE_URL;
-      const response = await fetch(url, { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch parameters');
+      const response = await fetch(url, { 
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to fetch parameters`);
       const json = await response.json();
       
       // Backend'den gelen response'u normalize et

@@ -45,19 +45,49 @@ from .modules.kurlar.models import ExchangeRate
 from .modules.parametre.models import Parametre
 from .modules.tarife.models import PriceList, PriceListItem
 from .modules.barinma.models import BarinmaContract
-from .modules.isemri.models import WorkOrder, WorkOrderItem
+from .modules.isemri.models import WorkOrder, WorkOrderItem, WorkOrderPerson
 from .modules.saha.models import WorkLog
 from .modules.guvenlik.models import GateLog, GateChecklistItem
-from .modules.auth.models import User, Role, Permission  # FAZ 4: Authentication models
+from .modules.auth.models import User, Role, Permission, PasswordResetToken  # FAZ 4: Authentication models
+from .modules.dijital_arsiv.models import PortalUser, ArchiveDocument, Notification  # Dijital Arşiv
+from .modules.sgk.models import SgkPeriodCheck  # SGK entegrasyonu
+from .modules.audit.models import AuditEvent  # Audit
 
-# Create all tables on startup
-Base.metadata.create_all(bind=engine)
-logger.info("✅ Database tables created/verified")
+# ============================================
+# DATABASE INITIALIZATION
+# ============================================
+# PRODUCTION: Alembic migrations are the single source of truth
+# DEVELOPMENT: Base.metadata.create_all() for rapid prototyping
+#
+# Production ortamında schema değişiklikleri SADECE Alembic migration'lar ile yapılmalıdır.
+# create_all() sadece development ortamında hızlı prototipleme için kullanılır.
+# Bu sayede migration history bozulmaz ve schema drift önlenir.
+
+APP_ENV = os.getenv("APP_ENV", "production").lower()
+IS_DEVELOPMENT = APP_ENV == "development" or os.getenv("DEBUG", "False").lower() == "true"
+
+if IS_DEVELOPMENT:
+    # Development mode: Auto-create tables from models
+    Base.metadata.create_all(bind=engine)
+    logger.info(f"✅ [DEVELOPMENT] Database tables created/verified via SQLAlchemy models")
+    logger.warning("⚠️  Development mode: create_all() is active. Use Alembic migrations for production!")
+else:
+    # Production mode: Alembic migrations only
+    logger.info(f"✅ [PRODUCTION] Database schema managed by Alembic migrations only")
+    logger.info("   To apply migrations: alembic upgrade head")
+
+# Bootstrap application (Development mode only)
+from .core.bootstrap import bootstrap_application
+if IS_DEVELOPMENT:
+    bootstrap_application()
+    logger.info("✅ [DEVELOPMENT] Bootstrap data initialized")
+else:
+    logger.info("ℹ️  [PRODUCTION] Bootstrap skipped (manual data seeding required)")
 
 # Routers
 from .modules.cari import router as router_cari
 from .modules.motorbot import router as router_motorbot
-# sefer router ayrı modülde (legacy /api/mb-trip)
+# sefer router ayrı modülde (legacy /api/mb-trip)
 try:
     from .modules.sefer import router as router_sefer  # optional mb-trip legacy endpoints
 except Exception:
@@ -68,11 +98,20 @@ from .modules.parametre import router as router_parametre
 from .modules.tarife import router as router_tarife
 from .modules.barinma import router as router_barinma
 from .modules.isemri import router as router_isemri
+from .modules.isemri.work_order_person_router import router as work_order_person_router
 from .modules.saha import router as router_saha
+from .modules.saha.saha_personel_router import router as saha_personel_router
 from .modules.guvenlik import router as router_guvenlik
+from .modules.guvenlik.security_router import router as security_router
 from .modules.auth import auth_router  # FAZ 4: Authentication endpoints
 from .modules.audit.router import router as audit_router
 from .core.monitoring import router as monitoring_router  # FAZ 6: Monitoring
+from .modules.dijital_arsiv.portal_router import router as portal_router  # Portal API
+from .modules.dijital_arsiv.portal_employee_router import router as portal_employee_router  # Portal Employee & Vehicle
+from .modules.dijital_arsiv.admin_employee_router import router as admin_employee_router  # Admin Employee Reports
+from .modules.dijital_arsiv.admin_vehicle_document_router import router as admin_vehicle_document_router  # Admin Vehicle Document Approval
+from .modules.dijital_arsiv.internal_router import router as internal_router  # Internal Dijital Arşiv API
+from .modules.dijital_arsiv import router as dijital_arsiv_router  # Dijital Arşiv API (stats, upload, approve, reject)
 
 # Middleware
 from .middleware.request_logging import RequestLoggingMiddleware
@@ -110,6 +149,8 @@ openapi_tags = [
     {"name": "İş Emri", "description": "İş emri yaşam döngüsü ve kalemleri"},
     {"name": "Saha Personeli", "description": "Saha personel iş kayıtları (WorkLog)"},
     {"name": "Güvenlik", "description": "Giriş/çıkış (GateLog) ve checklist yönetimi"},
+    {"name": "Portal", "description": "Portal kullanıcı API (dış müşteri)"},
+    {"name": "Internal - Dijital Arşiv", "description": "Dijital arşiv yönetimi (Aliaport personeli)"},
 ]
 
 # ============================================
@@ -200,7 +241,26 @@ async def audit_middleware(request: Request, call_next):
 
 # CORS middleware - Frontend'in backend'e erişmesi için
 # Tüm origins'i dev modunda allow et
-ALLOWED_ORIGINS = ["http://localhost:5000", "http://localhost:5173", "http://127.0.0.1:5000", "http://127.0.0.1:5173"]
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # Vite default
+    "http://localhost:3001",  # Alternate Vite port when 3000 busy
+    "http://localhost:5000",
+    "http://localhost:5001",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:5000",
+    "http://127.0.0.1:5001",
+    "http://127.0.0.1:5173",
+    "http://192.168.1.12:5000",
+]
+extra_origins = os.getenv("CORS_EXTRA_ORIGINS", "").strip()
+if extra_origins:
+    ALLOWED_ORIGINS.extend([
+        origin.strip()
+        for origin in extra_origins.split(",")
+        if origin.strip() and origin.strip() not in ALLOWED_ORIGINS
+    ])
 if os.getenv("ENVIRONMENT") == "production":
     ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",")
 
@@ -286,8 +346,21 @@ app.include_router(router_parametre)
 app.include_router(router_tarife, prefix="/api/price-list", tags=["Tarife"])
 app.include_router(router_barinma, prefix="/api/barinma", tags=["Barinma"])
 app.include_router(router_isemri, prefix="/api", tags=["İş Emri"])
+app.include_router(work_order_person_router, prefix="/api", tags=["İş Emri"])
 app.include_router(router_saha)  # /api/worklog
+app.include_router(saha_personel_router, prefix="/api", tags=["Saha Personeli"])
 app.include_router(router_guvenlik)  # /api/gatelog
+app.include_router(security_router, prefix="/api", tags=["Güvenlik"])
+app.include_router(portal_router, prefix="/api/v1")  # Portal API - /api/v1/portal/*
+app.include_router(portal_employee_router, prefix="/api/v1")  # Portal Employee & Vehicle - /api/v1/portal/employees, /vehicles
+app.include_router(admin_employee_router, prefix="/api/v1")  # Admin Employee Reports - /api/v1/admin/*
+app.include_router(admin_vehicle_document_router, prefix="/api/v1")  # Admin Vehicle Document Approval - /api/v1/admin/vehicles/documents/*
+app.include_router(internal_router, prefix="/api/v1")  # Internal Dijital Arşiv API - /api/v1/internal/*
+app.include_router(dijital_arsiv_router, prefix="/api", tags=["Dijital Arşiv"])  # Dijital Arşiv API - /api/archive/*
+
+# Admin vehicle document init (temporary)
+from .admin_vehicle_init import router as admin_vehicle_router
+app.include_router(admin_vehicle_router, prefix="/api/v1", tags=["Admin Utils"])
 
 
 @app.get("/")
@@ -322,6 +395,8 @@ def root():
             "work_order": "/api/work-order",
             "worklog": "/api/worklog",
             "gatelog": "/api/gatelog",
+            "portal": "/api/v1/portal",
+            "internal_archive": "/api/v1/internal",
             "docs": "/docs"
         }
     }

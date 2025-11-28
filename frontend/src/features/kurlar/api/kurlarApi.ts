@@ -1,9 +1,9 @@
 // Kurlar API - Backend communication layer
-// Base URL: http://localhost:8000/api/exchange-rate
+// Base URL: Uses Vite proxy (/api) → http://localhost:8000/api/exchange-rate
 
 import type { ExchangeRate, ExchangeRateCreate, ExchangeRateUpdate, PaginatedExchangeRateResponse, ConversionResult } from '../types/kurlar.types';
 
-const BASE_URL = 'http://localhost:8000/api/exchange-rate';
+const BASE_URL = '/api/exchange-rate';  // Vite proxy handles backend routing
 
 export const kurlarApi = {
   // Get all exchange rates (paginated)
@@ -68,19 +68,24 @@ export const kurlarApi = {
     }
   },
 
-  // Get today's rates
+  // Get today's rates (with auto-fallback for weekends/holidays)
   getToday: async (): Promise<ExchangeRate[]> => {
     try {
       const response = await fetch(`${BASE_URL}/today`);
       if (!response.ok) throw new Error('Failed to fetch today rates');
-      return await response.json();
+      
+      // Backend response includes metadata: { data, metadata: { used_rate_date, is_fallback } }
+      const result = await response.json();
+      
+      // Extract rates from success_response wrapper
+      return result.data || result;
     } catch (error) {
       console.error('kurlarApi.getToday error:', error);
       throw error;
     }
   },
 
-  // Convert currency
+  // Convert currency (with auto-fallback for weekends/holidays)
   convert: async (amount: number, from: string, to: string, date?: string): Promise<ConversionResult> => {
     try {
       const params = new URLSearchParams({
@@ -92,7 +97,11 @@ export const kurlarApi = {
 
       const response = await fetch(`${BASE_URL}/convert?${params}`);
       if (!response.ok) throw new Error('Failed to convert currency');
-      return await response.json();
+      
+      // Backend response: { data: { amount, from, to, rate, converted_amount, used_rate_date, is_fallback } }
+      const result = await response.json();
+      
+      return result.data || result;
     } catch (error) {
       console.error('kurlarApi.convert error:', error);
       throw error;

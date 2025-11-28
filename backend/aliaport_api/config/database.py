@@ -4,8 +4,8 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 from pathlib import Path
 
 # SQLite database - Enterprise yapı
-# Database dosyası backend root'ta (aliaport.db)
-DB_PATH = Path(__file__).parent.parent.parent / "aliaport.db"
+# Database dosyası backend/database klasöründe (database/aliaport.db)
+DB_PATH = Path(__file__).parent.parent.parent / "database" / "aliaport.db"
 DB_PATH.parent.mkdir(exist_ok=True)  # database klasörünü oluştur
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 

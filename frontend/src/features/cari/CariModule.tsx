@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { CariList } from './components/CariList';
+import { CariListModern } from './components/CariListModern';
 import { CariForm } from './components/CariForm';
 import type { Cari } from './types/cari.types';
 import {
@@ -69,7 +69,7 @@ export function CariModule() {
         </TabsList>
 
         <TabsContent value="list" className="mt-6">
-          <CariList
+          <CariListModern
             onCreate={handleCreate}
             onEdit={handleEdit}
             onView={handleView}

@@ -11,7 +11,12 @@ from .responses import (
     error_response,
     paginated_response
 )
-from .error_codes import ErrorCode, get_http_status_for_error, get_default_message
+from .error_codes import (
+    ErrorCode,
+    get_http_status_for_error,
+    get_default_message,
+    raise_api_error
+)
 
 __all__ = [
     'StandardResponse',
@@ -22,5 +27,6 @@ __all__ = [
     'paginated_response',
     'ErrorCode',
     'get_http_status_for_error',
-    'get_default_message'
+    'get_default_message',
+    'raise_api_error'
 ]

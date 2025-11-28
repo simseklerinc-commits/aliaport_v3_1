@@ -4,6 +4,7 @@ Tüm API hata kodları merkezi enum olarak tanımlı
 """
 
 from enum import Enum
+from typing import Optional
 
 
 class ErrorCode(str, Enum):
@@ -122,6 +123,8 @@ class ErrorCode(str, Enum):
     WO_CANNOT_DELETE = "WO_CANNOT_DELETE"
     WO_ALREADY_INVOICED = "WO_ALREADY_INVOICED"
     WO_ITEM_NOT_FOUND = "WO_ITEM_NOT_FOUND"
+    WO_PERSON_NOT_FOUND = "WO_PERSON_NOT_FOUND"
+    WO_ALREADY_APPROVED = "WO_ALREADY_APPROVED"
     
     # ============================================
     # WORKLOG MODÜLÜ
@@ -220,6 +223,7 @@ ERROR_CODE_TO_HTTP_STATUS = {
     ErrorCode.PARAMETRE_NOT_FOUND: 404,
     ErrorCode.WO_NOT_FOUND: 404,
     ErrorCode.WO_ITEM_NOT_FOUND: 404,
+    ErrorCode.WO_PERSON_NOT_FOUND: 404,
     ErrorCode.WORKLOG_NOT_FOUND: 404,
     ErrorCode.GATELOG_NOT_FOUND: 404,
     ErrorCode.ARCHIVE_NOT_FOUND: 404,
@@ -249,6 +253,7 @@ ERROR_CODE_TO_HTTP_STATUS = {
     ErrorCode.WO_INVALID_STATUS_TRANSITION: 422,
     ErrorCode.WORKLOG_WO_COMPLETED: 422,
     ErrorCode.GATELOG_ALREADY_EXITED: 422,
+    ErrorCode.WO_ALREADY_APPROVED: 422,
 
     # 429 Too Many Requests
     ErrorCode.RATE_LIMIT_EXCEEDED: 429,
@@ -326,3 +331,52 @@ def get_default_message(error_code: ErrorCode) -> str:
         Default mesaj (yoksa error code'un kendisi)
     """
     return DEFAULT_ERROR_MESSAGES.get(error_code, error_code.value)
+
+
+# ============================================
+# HELPER: HTTPException Raise Shortcut
+# ============================================
+
+def raise_api_error(
+    error_code: ErrorCode,
+    message: Optional[str] = None,
+    details: Optional[dict] = None,
+    field: Optional[str] = None
+):
+    """
+    ErrorCode ile HTTPException fırlat (merkezi helper)
+    
+    Bu fonksiyon, error_code'dan HTTP status'u otomatik belirler ve
+    standart error_response formatında HTTPException raise eder.
+    
+    Args:
+        error_code: ErrorCode enum
+        message: Custom mesaj (None ise default mesaj kullanılır)
+        details: Ek detaylar dict
+        field: Validation hatası için field adı
+        
+    Raises:
+        HTTPException with proper status code and error_response format
+        
+    Example:
+        raise_api_error(
+            error_code=ErrorCode.CARI_NOT_FOUND,
+            message="Cari bulunamadı",
+            details={"cari_id": 123}
+        )
+    """
+    from fastapi import HTTPException
+    from .responses import error_response
+    
+    status_code = get_http_status_for_error(error_code)
+    msg = message or get_default_message(error_code)
+    
+    raise HTTPException(
+        status_code=status_code,
+        detail=error_response(
+            code=error_code,
+            message=msg,
+            details=details,
+            field=field
+        )
+    )

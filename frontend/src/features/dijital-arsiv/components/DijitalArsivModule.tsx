@@ -12,37 +12,49 @@ import {
 } from '../../../components/ui/card';
 import { FileText, Building2, Users, Car, Anchor, Archive } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { ModuleLayout } from '../../../components/layouts';
+import { DocumentListModern } from './DocumentListModern';
 
 export function DijitalArsivModule() {
+  const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null);
+
   const categories = [
     {
-      id: 'firma-belge',
-      title: 'Firma Belgeleri',
-      description: 'Firma ile ilgili belgeler ve evraklar',
-      icon: Building2,
-      count: 0,
+      id: 'WORK_ORDER',
+      title: 'İş Emri Belgeleri',
+      description: 'İş emirlerine ait belgeler',
+      icon: FileText,
     },
     {
-      id: 'personel-belge',
-      title: 'Firma Personel Belgeleri',
+      id: 'EMPLOYEE',
+      title: 'Personel Belgeleri',
       description: 'Personel evrakları ve belgeler',
       icon: Users,
-      count: 0,
     },
     {
-      id: 'arac-belge',
-      title: 'Firma Araç Belgeleri',
+      id: 'VEHICLE',
+      title: 'Araç Belgeleri',
       description: 'Araç evrakları ve ruhsatlar',
       icon: Car,
-      count: 0,
     },
     {
-      id: 'motorbot-belge',
-      title: 'Firma Motorbot Belgeleri',
+      id: 'MOTORBOT',
+      title: 'Motorbot Belgeleri',
       description: 'Motorbot evrakları ve belgeler',
       icon: Anchor,
-      count: 0,
+    },
+    {
+      id: 'CARI',
+      title: 'Cari Belgeleri',
+      description: 'Cari firma belgeleri',
+      icon: Building2,
+    },
+    {
+      id: 'GENERAL',
+      title: 'Genel Belgeler',
+      description: 'Diğer belgeler',
+      icon: Archive,
     },
   ];
 
@@ -52,40 +64,59 @@ export function DijitalArsivModule() {
       description="Belge ve evrak yönetim sistemi"
       icon={Archive}
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {categories.map((category) => (
-          <Card key={category.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <category.icon className="h-8 w-8 text-primary" />
-                <span className="text-2xl font-bold text-muted-foreground">
-                  {category.count}
-                </span>
-              </div>
-              <CardTitle className="text-lg">{category.title}</CardTitle>
-              <CardDescription>{category.description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="outline" className="w-full">
-                <FileText className="h-4 w-4 mr-2" />
-                Belgeleri Görüntüle
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Tabs defaultValue="belgeler" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 h-12">
+          <TabsTrigger value="belgeler" className="text-base">
+            <FileText className="h-5 w-5 mr-2" />
+            Tüm Belgeler
+          </TabsTrigger>
+          <TabsTrigger value="kategoriler" className="text-base">
+            <Archive className="h-5 w-5 mr-2" />
+            Kategoriler
+          </TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Son Yüklenen Belgeler</CardTitle>
-          <CardDescription>Yakın zamanda sisteme eklenen belgeler</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            Henüz belge bulunmuyor
-          </div>
-        </CardContent>
-      </Card>
+        {/* Tüm Belgeler - Modern Liste */}
+        <TabsContent value="belgeler">
+          <DocumentListModern category={selectedCategory} />
+        </TabsContent>
+
+        {/* Kategoriler - VisitPro Style Sekmeli Görünüm */}
+        <TabsContent value="kategoriler" className="space-y-4">
+          {/* Kategori Sekmeleri */}
+          <Tabs defaultValue="all" onValueChange={(value) => setSelectedCategory(value === 'all' ? null : value)}>
+            <TabsList className="w-full justify-start overflow-x-auto">
+              <TabsTrigger value="all" className="flex items-center gap-2">
+                <Archive className="h-4 w-4" />
+                Tümü
+              </TabsTrigger>
+              {categories.map((category) => (
+                <TabsTrigger key={category.id} value={category.id} className="flex items-center gap-2">
+                  <category.icon className="h-4 w-4" />
+                  {category.title}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            <TabsContent value="all" className="mt-6">
+              <DocumentListModern />
+            </TabsContent>
+
+            {categories.map((category) => (
+              <TabsContent key={category.id} value={category.id} className="mt-6">
+                <div className="mb-4 flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <category.icon className="h-8 w-8 text-blue-600" />
+                  <div>
+                    <h3 className="font-semibold text-lg text-gray-900">{category.title}</h3>
+                    <p className="text-sm text-gray-600">{category.description}</p>
+                  </div>
+                </div>
+                <DocumentListModern category={category.id} />
+              </TabsContent>
+            ))}
+          </Tabs>
+        </TabsContent>
+      </Tabs>
     </ModuleLayout>
   );
 }

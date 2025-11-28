@@ -1,0 +1,1 @@
+"""SGK modülü paket tanımı."""

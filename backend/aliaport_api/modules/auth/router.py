@@ -46,7 +46,7 @@ async def login(
     Login endpoint: authenticate user and return JWT tokens.
     
     - **email**: User email address
-    - **password**: User password (optional - if not provided, auto-login)
+    - **password**: User password
     
     Returns:
         - access_token: Short-lived JWT (15 minutes)
@@ -54,15 +54,8 @@ async def login(
         - token_type: "bearer"
         - expires_in: Access token expiry in seconds
     """
-    # Şifresiz giriş: email varsa otomatik login
-    user = None
-    
-    if not credentials.password:
-        # Şifresiz giriş - email ile bul
-        user = db.query(User).filter(User.email == credentials.email).first()
-    else:
-        # Normal giriş
-        user = AuthService.authenticate_user(db, credentials.email, credentials.password)
+    # Şifre ile giriş
+    user = AuthService.authenticate_user(db, credentials.email, credentials.password)
     
     if not user:
         raise HTTPException(

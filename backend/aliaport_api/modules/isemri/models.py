@@ -33,14 +33,19 @@ class WorkOrderPriority(str, enum.Enum):
 
 class WorkOrderStatus(str, enum.Enum):
     """İş Emri Durumu"""
-    DRAFT = "DRAFT"              # Taslak
-    SUBMITTED = "SUBMITTED"      # Gönderildi
-    APPROVED = "APPROVED"        # Onaylandı
-    SAHADA = "SAHADA"           # Sahada
-    TAMAMLANDI = "TAMAMLANDI"   # Tamamlandı
-    FATURALANDI = "FATURALANDI" # Faturalandı
-    KAPANDI = "KAPANDI"         # Kapatıldı
-    REJECTED = "REJECTED"        # Reddedildi
+    DRAFT = "DRAFT"                      # Taslak
+    SUBMITTED = "SUBMITTED"              # Gönderildi (onay bekliyor)
+    PENDING_APPROVAL = "PENDING_APPROVAL"  # Belge onayı bekliyor
+    APPROVED = "APPROVED"                # Onaylandı (başlatılabilir)
+    IN_PROGRESS = "IN_PROGRESS"          # İşlemde (başlatıldı)
+    COMPLETED = "COMPLETED"              # Tamamlandı
+    INVOICED = "INVOICED"                # Faturalandı
+    CLOSED = "CLOSED"                    # Kapatıldı
+    REJECTED = "REJECTED"                # Reddedildi
+    SAHADA = "SAHADA"                   # Sahada (legacy - kullanılmayacak)
+    TAMAMLANDI = "TAMAMLANDI"           # Tamamlandı (legacy)
+    FATURALANDI = "FATURALANDI"         # Faturalandı (legacy)
+    KAPANDI = "KAPANDI"                 # Kapatıldı (legacy)
 
 
 class WorkOrderItemType(str, enum.Enum):
@@ -74,6 +79,11 @@ class WorkOrder(Base):
     requester_user_id = Column(Integer, nullable=True)
     requester_user_name = Column(String(100), nullable=True)
     
+    # Portal kullanıcı (dış müşteri talebi ise)
+    # ORIGINAL: portal_user_id = Column(Integer, ForeignKey("portal_user.id"), nullable=True, index=True)
+    # TEMPORARY: ForeignKey devre dışı - circular dependency çözülene kadar
+    portal_user_id = Column(Integer, nullable=True, index=True)
+    
     # İş emri detayları
     type = Column(SQLEnum(WorkOrderType), nullable=False, index=True)
     service_code = Column(String(50), nullable=True)  # Hizmet kartı kodu (opsiyonel)
@@ -88,6 +98,27 @@ class WorkOrder(Base):
     actual_start = Column(DateTime, nullable=True)
     actual_end = Column(DateTime, nullable=True)
     
+    # İş emri başlatma ve tamamlama
+    # ORIGINAL: started_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # TEMPORARY: ForeignKey devre dışı - circular dependency çözülene kadar
+    started_by_id = Column(Integer, nullable=True)
+    started_at = Column(DateTime, nullable=True)
+    estimated_completion = Column(DateTime, nullable=True)
+    
+    # ORIGINAL: completed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # TEMPORARY: ForeignKey devre dışı
+    completed_by_id = Column(Integer, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    completion_notes = Column(Text, nullable=True)
+    
+    # Dijital arşiv onay durumu
+    approval_status = Column(String(20), nullable=True, index=True)  # PENDING, APPROVED, REJECTED
+    # ORIGINAL: approved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # TEMPORARY: ForeignKey devre dışı
+    approved_by_id = Column(Integer, nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+    
     # Durum
     status = Column(SQLEnum(WorkOrderStatus), default=WorkOrderStatus.DRAFT, nullable=False, index=True)
     
@@ -100,13 +131,57 @@ class WorkOrder(Base):
     # Özel durumlar
     is_cabatoge_tr_flag = Column(Boolean, default=False)  # Türk bayraklı & kabotaj indirim
     apply_rule_addons = Column(Boolean, default=True)  # Kural kaynaklı ek ücretleri uygula
-    security_exit_time = Column(DateTime, nullable=True)  # Güvenlik çıkış anı
-    attached_letter_approved = Column(Boolean, default=False)  # Dış vinç dilekçe onayı
+    # İlişkiler (lazy="raise" prevents accidental N+1 queries)
+    items = relationship(
+        "WorkOrderItem",
+        back_populates="work_order",
+        cascade="all, delete-orphan",
+        lazy="raise"  # Forces explicit eager loading (dev safety)
+    )
     
-    # Notlar
-    notes = Column(Text, nullable=True)
+    # Dijital arşiv ilişkileri - TEMPORARILY COMMENTED OUT (circular import issues)
+    # portal_user = relationship("PortalUser", foreign_keys=[portal_user_id], back_populates="work_orders")
+    # documents = relationship("ArchiveDocument", back_populates="work_order", foreign_keys="ArchiveDocument.work_order_id")
+    # approved_by = relationship("User", foreign_keys=[approved_by_id])
+    # started_by = relationship("User", foreign_keys=[started_by_id])
+    # completed_by = relationship("User", foreign_keys=[completed_by_id])
     
-    # Sistem
+    # Computed properties
+    @property
+    def is_portal_created(self) -> bool:
+        """Portal kullanıcı tarafından mı oluşturuldu?"""
+        return self.portal_user_id is not None
+    
+    @property
+    def has_required_documents(self, db) -> bool:
+        """Zorunlu belgeler yüklendi mi?"""
+        from ..dijital_arsiv.models import ArchiveDocument, DocumentType, DocumentStatus
+        
+        # GUMRUK_IZIN_BELGESI zorunlu
+        return db.query(ArchiveDocument).filter(
+            ArchiveDocument.work_order_id == self.id,
+            ArchiveDocument.document_type == DocumentType.GUMRUK_IZIN_BELGESI,
+            ArchiveDocument.status == DocumentStatus.APPROVED,
+            ArchiveDocument.is_latest_version == True
+        ).count() > 0
+    
+    @property
+    def pending_documents_count(self) -> int:
+        """Onay bekleyen belge sayısı"""
+        from ..dijital_arsiv.models import ArchiveDocument, DocumentStatus
+        from ...config.database import get_db
+        
+        db = next(get_db())
+        try:
+            return db.query(ArchiveDocument).filter(
+                ArchiveDocument.work_order_id == self.id,
+                ArchiveDocument.status == DocumentStatus.UPLOADED,
+                ArchiveDocument.is_latest_version == True
+            ).count()
+        finally:
+            db.close()
+    
+    # Sistem alanları
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     created_by = Column(Integer, nullable=True)
@@ -182,3 +257,131 @@ class WorkOrderItem(Base):
         back_populates="items",
         lazy="raise"  # Forces explicit eager loading (dev safety)
     )
+
+
+class WorkOrderPerson(Base):
+    """
+    İŞ EMRİ KİŞİ LİSTESİ
+    
+    Hizmet kartlarında kişi sayısı gerekli olan işlemler için
+    personel listesi ve kimlik bilgileri.
+    
+    Kullanım Senaryoları:
+    - Teknik personel transferi (her kişi için kimlik bilgisi)
+    - Gemi adamı giriş/çıkış (pasaport kontrolü)
+    - Ziyaretçi girişi (TC kimlik no)
+    
+    Güvenlik Entegrasyonu:
+    - Güvenlik bu listeyi görür
+    - Kimlik belgesi fotoğrafı çeker (identity_document_id)
+    - Giriş/çıkış saati kaydeder
+    - Onay verir
+    """
+    __tablename__ = "work_order_person"
+    __table_args__ = {"extend_existing": True}
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # İş Emri İlişkileri
+    work_order_id = Column(Integer, ForeignKey("work_order.id"), nullable=False, index=True)
+    work_order_item_id = Column(Integer, ForeignKey("work_order_item.id"), nullable=True, index=True)  # Hangi kalem için
+    
+    # Kişi Bilgileri
+    full_name = Column(String(200), nullable=False)  # Ad Soyad
+    tc_kimlik_no = Column(String(11), nullable=True, index=True)  # TC Kimlik No (11 haneli)
+    passport_no = Column(String(20), nullable=True, index=True)   # Pasaport No
+    nationality = Column(String(3), nullable=True)  # Uyruk (ISO 3166 Alpha-3: TUR, USA, vb.)
+    phone = Column(String(20), nullable=True)  # Telefon
+    
+    # Kimlik Belgesi (Dijital Arşiv Entegrasyonu)
+    identity_document_id = Column(Integer, ForeignKey("archive_document.id"), nullable=True)
+    identity_photo_url = Column(String(500), nullable=True)  # Fotoğraf URL (deprecated - use identity_document_id)
+    
+    # Güvenlik Onayı
+    gate_entry_time = Column(DateTime, nullable=True)  # Giriş saati
+    gate_exit_time = Column(DateTime, nullable=True)   # Çıkış saati
+    approved_by_security = Column(Boolean, default=False, nullable=False, index=True)
+    # ORIGINAL: approved_by_security_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # TEMPORARY: ForeignKey devre dışı
+    approved_by_security_user_id = Column(Integer, nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    security_notes = Column(Text, nullable=True)  # Güvenlik notları
+    
+    # Durum
+    is_active = Column(Boolean, default=True, nullable=False)
+    
+    # Audit
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    # ORIGINAL: created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # TEMPORARY: ForeignKey devre dışı
+    created_by = Column(Integer, nullable=True)
+    updated_at = Column(DateTime, nullable=True, onupdate=datetime.utcnow)
+    # ORIGINAL: updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # TEMPORARY: ForeignKey devre dışı
+    updated_by = Column(Integer, nullable=True)
+    
+    # İlişkiler - HEPSİ KALDIRILDI (ForeignKey hatası nedeniyle)
+    # work_order = relationship("WorkOrder", foreign_keys=[work_order_id])
+    # work_order_item = relationship("WorkOrderItem", foreign_keys=[work_order_item_id])
+    # identity_document = relationship("ArchiveDocument", foreign_keys=[identity_document_id])
+    # approved_by_user = relationship("User", foreign_keys=[approved_by_security_user_id])
+    
+    # Computed properties
+    @property
+    def duration_minutes(self) -> int:
+        """Kalış süresi (dakika)"""
+        if self.gate_entry_time and self.gate_exit_time:
+            delta = self.gate_exit_time - self.gate_entry_time
+            return int(delta.total_seconds() / 60)
+        return 0
+    
+    @property
+    def has_identity_document(self) -> bool:
+        """Kimlik belgesi yüklendi mi?"""
+        return self.identity_document_id is not None
+    
+    @property
+    def identity_type(self) -> str:
+        """Kimlik tipi (TC/PASSPORT)"""
+        if self.tc_kimlik_no:
+            return "TC"
+        elif self.passport_no:
+            return "PASSPORT"
+        return "UNKNOWN"
+
+
+class WorkOrderEmployee(Base):
+    """
+    İŞ EMRİ - PORTAL ÇALIŞAN İLİŞKİSİ
+    
+    Portal'dan iş emri oluştururken firma çalışanlarından seçim yapılır.
+    Bu tablo iş emrinde hangi firma çalışanlarının görevli olduğunu tutar.
+    
+    WorkOrderPerson'dan farkı:
+    - WorkOrderPerson: Personel transferi hizmeti için (her seferinde manuel girilir)
+    - WorkOrderEmployee: Firma çalışanları master datasından seçilir (tekrar kullanılabilir)
+    """
+    __tablename__ = "work_order_employee"
+    __table_args__ = {"extend_existing": True}
+    
+    id = Column(Integer, primary_key=True, index=True)
+    work_order_id = Column(Integer, ForeignKey("work_order.id"), nullable=False, index=True)
+    employee_id = Column(Integer, ForeignKey("portal_employee.id"), nullable=False, index=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+
+class WorkOrderVehicle(Base):
+    """
+    İŞ EMRİ - PORTAL ARAÇ İLİŞKİSİ
+    
+    Portal'dan iş emri oluştururken firma araçlarından seçim yapılır.
+    """
+    __tablename__ = "work_order_vehicle"
+    __table_args__ = {"extend_existing": True}
+    
+    id = Column(Integer, primary_key=True, index=True)
+    work_order_id = Column(Integer, ForeignKey("work_order.id"), nullable=False, index=True)
+    vehicle_id = Column(Integer, ForeignKey("portal_vehicle.id"), nullable=False, index=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

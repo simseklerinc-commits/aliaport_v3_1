@@ -36,6 +36,20 @@ def register_jobs():
     except ImportError as e:
         logger.warning(f"⚠️  Audit archive job not available: {e}")
     
+    try:
+        from .document_expiry_job import register_document_expiry_job
+        register_document_expiry_job(scheduler)
+        logger.info("✅ Document expiry job registered")
+    except ImportError as e:
+        logger.warning(f"⚠️  Document expiry job not available: {e}")
+
+    try:
+        from .sgk_reminder_job import register_sgk_reminder_job
+        register_sgk_reminder_job(scheduler)
+        logger.info("✅ SGK reminder job registered")
+    except ImportError as e:
+        logger.warning(f"⚠️  SGK reminder job not available: {e}")
+    
     # Gelecekte eklenecek job'lar
     # try:
     #     from .backup_job import register_backup_job

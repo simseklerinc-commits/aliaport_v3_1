@@ -51,14 +51,19 @@ export default defineConfig({
   build: {
     target: 'esnext',
     outDir: 'build',
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        portal: path.resolve(__dirname, 'portal.html'),
+      },
+    },
   },
   server: {
-    host: '0.0.0.0',
-    port: 5000,
-    strictPort: true,
-    allowedHosts: true,
+    host: 'localhost',
+    port: 3000,
+    strictPort: false,
     hmr: {
-      clientPort: 5000,
+      clientPort: 3000,
     },
     proxy: {
       '/api': {

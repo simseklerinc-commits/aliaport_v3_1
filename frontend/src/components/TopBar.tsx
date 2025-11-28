@@ -2,6 +2,7 @@ import { Bell, Search, User, LogOut, ArrowLeft } from "lucide-react";
 import { Theme } from "./ThemeSelector";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
+import { VehicleDocumentNotificationBadge } from "@/features/admin/VehicleDocumentNotificationBadge";
 
 interface TopBarProps {
   theme: Theme;
@@ -9,9 +10,10 @@ interface TopBarProps {
   subtitle?: string;
   showBackButton?: boolean;
   onBackClick?: () => void;
+  onNavigate?: (page: string) => void;
 }
 
-export function TopBar({ theme, title = "Dashboard", subtitle, showBackButton = false, onBackClick }: TopBarProps) {
+export function TopBar({ theme, title = "Dashboard", subtitle, showBackButton = false, onBackClick, onNavigate }: TopBarProps) {
   return (
     <div className={`${theme.colors.bgCard} border-b ${theme.colors.border} px-6 py-4 sticky top-0 z-40`}>
       <div className="flex items-center justify-between">
@@ -46,17 +48,10 @@ export function TopBar({ theme, title = "Dashboard", subtitle, showBackButton = 
             />
           </div>
 
-          {/* Notifications */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="bg-transparent border-gray-700 text-white hover:bg-gray-800 relative"
-          >
-            <Bell className="w-4 h-4" />
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-xs flex items-center justify-center">
-              3
-            </span>
-          </Button>
+          {/* Vehicle Document Notifications */}
+          <VehicleDocumentNotificationBadge 
+            onNotificationClick={() => onNavigate?.("admin-vehicle-documents")}
+          />
 
           {/* User Menu */}
           <div className="flex items-center gap-3">

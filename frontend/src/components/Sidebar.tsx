@@ -1,4 +1,4 @@
-import { FileText, Wrench, Users, Ship, Anchor, DollarSign, Settings, Archive, ChevronLeft, ChevronRight, BarChart3, Receipt, Tablet, Shield } from "lucide-react";
+import { FileText, Wrench, Users, Ship, Anchor, DollarSign, Settings, Archive, ChevronLeft, ChevronRight, BarChart3, Receipt, Tablet, Shield, FileCheck, LayoutDashboard } from "lucide-react";
 import { Theme } from "./ThemeSelector";
 import { useState } from "react";
 import { queryClient } from "@/core/cache/queryClient";
@@ -78,6 +78,11 @@ interface SidebarProps {
 
 const menuItems = [
   {
+    id: "menu",
+    title: "Dashboard",
+    icon: LayoutDashboard,
+  },
+  {
     id: "is-emri",
     title: "İş Emri",
     icon: Wrench,
@@ -121,6 +126,11 @@ const menuItems = [
     id: "raporlar",
     title: "Raporlar",
     icon: BarChart3,
+  },
+  {
+    id: "admin-vehicle-documents",
+    title: "Araç Evrak Onayları",
+    icon: FileCheck,
   },
 ];
 

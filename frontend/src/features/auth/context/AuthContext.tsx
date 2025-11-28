@@ -65,6 +65,8 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const hasRole = useCallback((roleNames: string[]) => {
     if (!user) return false;
     const userRoleNames = user.roles.map(r => r.name);
+    // ADMIN and SISTEM_YONETICISI have access to all roles
+    if (userRoleNames.includes('ADMIN') || userRoleNames.includes('SISTEM_YONETICISI')) return true;
     return roleNames.some(r => userRoleNames.includes(r));
   }, [user]);
 

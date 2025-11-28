@@ -8,18 +8,21 @@
  * - Pagination with skeleton loading
  * - Toast notifications for mutations
  * - Status toggle (Aktif/Pasif)
+ * - Inline value editing (Deger field) - save on blur/ENTER
+ * - Quick create with prompt
  * - Responsive design
  * 
  * @example
  * <ParametreListModern />
  */
 
-import { useState } from 'react';
-import { useParametreList, useUpdateParametreValue, useDeleteParametre } from '@/core/hooks/queries/useParametreQueries';
-import { Icon } from '@/shared/ui/Icon';
-import { Skeleton, TableSkeleton } from '@/shared/ui/Skeleton';
-import { StatusBadge } from '@/shared/ui/StatusBadge';
-import { SimplePagination } from '@/shared/ui/Pagination';
+import { useState, useRef, useEffect } from 'react';
+import { useParametreList, useUpdateParametreValue, useDeleteParametre, useCreateParametre } from '../../../core/hooks/queries/useParametreQueries';
+import { Icon } from '../../../shared/ui/Icon';
+import { Skeleton, TableSkeleton } from '../../../shared/ui/Skeleton';
+import { StatusBadge } from '../../../shared/ui/StatusBadge';
+import { SimplePagination } from '../../../shared/ui/Pagination';
+import type { Parametre } from '../../../shared/types/parametre';
 
 // Category themes (consistent with existing design)
 const CATEGORY_THEMES: Record<string, { bg: string; text: string; border: string }> = {
@@ -39,6 +42,9 @@ export function ParametreListModern() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [inlineEditingId, setInlineEditingId] = useState<number | null>(null);
+  const [inlineValue, setInlineValue] = useState<string>('');
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   // React Query hooks
   const { data: paginatedData, isLoading, error } = useParametreList({
@@ -50,11 +56,50 @@ export function ParametreListModern() {
 
   const updateValueMutation = useUpdateParametreValue();
   const deleteMutation = useDeleteParametre();
+  const createMutation = useCreateParametre();
 
   // Extract unique categories for filter
   const categories = paginatedData
-    ? Array.from(new Set(paginatedData.map(p => p.Kategori)))
+    ? Array.from(new Set(paginatedData.map((p: Parametre) => p.Kategori)))
     : [];
+
+  // Inline edit handlers
+  const beginInlineEdit = (param: Parametre) => {
+    setInlineEditingId(param.Id);
+    setInlineValue(param.Deger || '');
+  };
+
+  const commitInlineEdit = () => {
+    if (inlineEditingId == null) return;
+    const id = inlineEditingId;
+    const deger = inlineValue.trim();
+    updateValueMutation.mutate({ id, deger }, {
+      onSuccess: () => {
+        setInlineEditingId(null);
+        setInlineValue('');
+      },
+    });
+  };
+
+  const cancelInlineEdit = () => {
+    setInlineEditingId(null);
+    setInlineValue('');
+  };
+
+  useEffect(() => {
+    if (inlineEditingId && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [inlineEditingId]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      commitInlineEdit();
+    } else if (e.key === 'Escape') {
+      cancelInlineEdit();
+    }
+  };
 
   // Handlers
   const handleToggleAktif = async (id: number, currentValue: string) => {
@@ -66,6 +111,20 @@ export function ParametreListModern() {
     if (confirm('Bu parametreyi silmek istediğinizden emin misiniz?')) {
       await deleteMutation.mutateAsync(id);
     }
+  };
+
+  const handleQuickCreate = () => {
+    const kod = prompt('Yeni parametre kodu girin (örn: NEW_FLAG):');
+    if (!kod) return;
+    const ad = prompt('Parametre adı girin:') || kod;
+    const deger = prompt('Başlangıç değeri (opsiyonel):') || '';
+    const kat = categoryFilter || categories[0] || 'GENEL';
+    createMutation.mutate({ 
+      Kategori: kat, 
+      Kod: kod.toUpperCase(), 
+      Ad: ad, 
+      Deger: deger 
+    });
   };
 
   // Loading state
@@ -154,7 +213,7 @@ export function ParametreListModern() {
             className="w-full appearance-none rounded-lg border border-slate-700 bg-slate-800/50 py-2 pl-10 pr-10 text-sm text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           >
             <option value="">Tüm Kategoriler</option>
-            {categories.map(cat => (
+            {categories.map((cat: string) => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
@@ -202,7 +261,7 @@ export function ParametreListModern() {
                   </td>
                 </tr>
               ) : (
-                items.map((param) => {
+                items.map((param: Parametre) => {
                   const theme = CATEGORY_THEMES[param.Kategori] || CATEGORY_THEMES.SISTEM;
                   return (
                     <tr key={param.Id} className="hover:bg-slate-700/30 transition-colors">
@@ -219,10 +278,46 @@ export function ParametreListModern() {
                       </td>
 
                       {/* Ad */}
+                      {/* Değer - Inline Editable */}
                       <td className="px-6 py-4">
-                        <span className="text-sm text-slate-300">{param.Ad}</span>
+                        {inlineEditingId === param.Id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              ref={inputRef}
+                              value={inlineValue}
+                              onChange={(e) => setInlineValue(e.target.value)}
+                              onBlur={commitInlineEdit}
+                              onKeyDown={handleKeyDown}
+                              className="px-2 py-1 border border-blue-500/50 rounded bg-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                              onClick={commitInlineEdit}
+                              disabled={updateValueMutation.isPending}
+                              className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 disabled:opacity-50"
+                            >
+                              Kaydet
+                            </button>
+                            <button
+                              onClick={cancelInlineEdit}
+                              className="px-2 py-1 bg-slate-600 text-white rounded text-xs hover:bg-slate-700"
+                            >
+                              İptal
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => beginInlineEdit(param)}
+                            className="group px-2 py-1 rounded hover:bg-slate-700/50 transition-colors text-left w-full"
+                            title="Değeri düzenle (çift tıkla)"
+                          >
+                            <span className="font-mono text-sm text-slate-200 group-hover:text-blue-400 group-hover:underline">
+                              {param.Deger && param.Deger.length > 40 
+                                ? param.Deger.slice(0, 40) + '…' 
+                                : (param.Deger || '-')}
+                            </span>
+                          </button>
+                        )}
                       </td>
-
                       {/* Değer */}
                       <td className="px-6 py-4">
                         <span className="font-mono text-sm text-slate-200">{param.Deger || '-'}</span>

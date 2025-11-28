@@ -64,6 +64,11 @@ DEFAULT_PERMISSIONS = [
 # Default roles with permission assignments
 DEFAULT_ROLES = [
     {
+        "name": "ADMIN",
+        "description": "Super admin - tüm yetkiler",
+        "permissions": ["admin:*"]  # Wildcard grants everything
+    },
+    {
         "name": "SISTEM_YONETICISI",
         "description": "Tam yetki - tüm modüllere erişim",
         "permissions": ["admin:*"]  # Wildcard grants everything

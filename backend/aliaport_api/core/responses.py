@@ -181,6 +181,8 @@ def success_response(
     Returns:
         StandardResponse dict
     """
+    import uuid
+    
     response = StandardResponse(
         success=True,
         data=data,
@@ -189,6 +191,13 @@ def success_response(
     # Datetime'ı ISO format string'e çevir
     result = response.model_dump()
     result['timestamp'] = result['timestamp'].isoformat() if isinstance(result.get('timestamp'), datetime) else result.get('timestamp')
+    
+    # Meta structure ekle (Frontend uyumluluğu için)
+    result['meta'] = {
+        'timestamp': result.get('timestamp'),
+        'request_id': str(uuid.uuid4())
+    }
+    
     return result
 
 
@@ -210,6 +219,8 @@ def error_response(
     Returns:
         ErrorResponse dict
     """
+    import uuid
+    
     response = ErrorResponse(
         success=False,
         error=ErrorDetail(
@@ -222,6 +233,13 @@ def error_response(
     # Datetime'ı ISO format string'e çevir
     result = response.model_dump()
     result['timestamp'] = result['timestamp'].isoformat() if isinstance(result.get('timestamp'), datetime) else result.get('timestamp')
+    
+    # Meta structure ekle (Frontend uyumluluğu için)
+    result['meta'] = {
+        'timestamp': result.get('timestamp'),
+        'request_id': str(uuid.uuid4())
+    }
+    
     return result
 
 
@@ -246,6 +264,7 @@ def paginated_response(
         PaginatedResponse dict
     """
     import math
+    import uuid
     
     total_pages = math.ceil(total / page_size) if page_size > 0 else 0
     
@@ -265,6 +284,13 @@ def paginated_response(
     # Datetime'ı ISO format string'e çevir
     result = response.model_dump()
     result['timestamp'] = result['timestamp'].isoformat() if isinstance(result.get('timestamp'), datetime) else result.get('timestamp')
+    
+    # Meta structure ekle (Frontend uyumluluğu için)
+    result['meta'] = {
+        'timestamp': result.get('timestamp'),
+        'request_id': str(uuid.uuid4())
+    }
+    
     return result
 
 

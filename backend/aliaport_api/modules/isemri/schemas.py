@@ -30,12 +30,17 @@ class WorkOrderPriority(str, Enum):
 class WorkOrderStatus(str, Enum):
     DRAFT = "DRAFT"
     SUBMITTED = "SUBMITTED"
+    PENDING_APPROVAL = "PENDING_APPROVAL"
     APPROVED = "APPROVED"
-    SAHADA = "SAHADA"
-    TAMAMLANDI = "TAMAMLANDI"
-    FATURALANDI = "FATURALANDI"
-    KAPANDI = "KAPANDI"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    INVOICED = "INVOICED"
+    CLOSED = "CLOSED"
     REJECTED = "REJECTED"
+    SAHADA = "SAHADA"  # Legacy
+    TAMAMLANDI = "TAMAMLANDI"  # Legacy
+    FATURALANDI = "FATURALANDI"  # Legacy
+    KAPANDI = "KAPANDI"  # Legacy
 
 
 class WorkOrderItemType(str, Enum):
@@ -66,24 +71,48 @@ class WorkOrderBase(BaseModel):
     ActualStart: Optional[datetime] = Field(None, alias="actual_start")
     ActualEnd: Optional[datetime] = Field(None, alias="actual_end")
     Status: WorkOrderStatus = Field(WorkOrderStatus.DRAFT, alias="status")
-    GateRequired: bool = Field(False, alias="gate_required")
-    SahaKayitYetkisi: bool = Field(True, alias="saha_kayit_yetkisi")
-    AttachmentsCount: int = Field(0, alias="attachments_count")
-    HasSignature: bool = Field(False, alias="has_signature")
-    IsCabatogeTrFlag: bool = Field(False, alias="is_cabatoge_tr_flag")
-    ApplyRuleAddons: bool = Field(True, alias="apply_rule_addons")
+    GateRequired: Optional[bool] = Field(None, alias="gate_required")
+    SahaKayitYetkisi: Optional[bool] = Field(None, alias="saha_kayit_yetkisi")
+    AttachmentsCount: Optional[int] = Field(None, alias="attachments_count")
+    HasSignature: Optional[bool] = Field(None, alias="has_signature")
+    IsCabatogeTrFlag: Optional[bool] = Field(None, alias="is_cabatoge_tr_flag")
+    ApplyRuleAddons: Optional[bool] = Field(None, alias="apply_rule_addons")
     SecurityExitTime: Optional[datetime] = Field(None, alias="security_exit_time")
-    AttachedLetterApproved: bool = Field(False, alias="attached_letter_approved")
+    AttachedLetterApproved: Optional[bool] = Field(None, alias="attached_letter_approved")
     Notes: Optional[str] = Field(None, alias="notes")
-    IsActive: bool = Field(True, alias="is_active")
+    IsActive: Optional[bool] = Field(None, alias="is_active")
 
     class Config:
         populate_by_name = True
 
+    @field_validator(
+        "GateRequired",
+        "SahaKayitYetkisi",
+        "HasSignature",
+        "IsCabatogeTrFlag",
+        "ApplyRuleAddons",
+        "AttachedLetterApproved",
+        "IsActive",
+        mode="before",
+    )
+    def set_boolean_defaults(cls, value):
+        if value is None:
+            return False
+        return value
+
+    @field_validator("AttachmentsCount", mode="before")
+    def set_integer_defaults(cls, value):
+        if value is None:
+            return 0
+        return value
+
 
 class WorkOrderCreate(WorkOrderBase):
     """Schema for creating a new WorkOrder"""
-    pass
+    ServiceCodes: Optional[List[str]] = Field(None, alias="service_codes", description="Ek hizmet kodları listesi")
+    EmployeeIds: Optional[List[int]] = Field(None, alias="employee_ids", description="PortalEmployee kayıt ID listesi")
+    VehicleIds: Optional[List[int]] = Field(None, alias="vehicle_ids", description="PortalVehicle kayıt ID listesi")
+    PersonelList: Optional[List[dict]] = Field(None, alias="personel_list", description="Personel transfer için kişi listesi: [{full_name, tc_kimlik, pasaport, nationality, phone}]")
 
 
 class WorkOrderUpdate(BaseModel):
@@ -224,11 +253,121 @@ class WorkOrderStatusChange(BaseModel):
 
 
 class WorkOrderStats(BaseModel):
-    """Schema for work order statistics"""
+    """Schema for work order statistics - RUNBOOK UYUMLU"""
     Total: int = Field(..., alias="total")
     ByStatus: dict = Field(..., alias="by_status")
     ByPriority: dict = Field(..., alias="by_priority")
     ByType: dict = Field(..., alias="by_type")
+    MissingDocuments: int = Field(0, alias="missing_documents")  # Eksik belgeler
+    Active: int = Field(0, alias="active")  # Aktif iş emirleri (SAHADA + IN_PROGRESS + APPROVED)
+    DueToday: int = Field(0, alias="due_today")  # Bugün biten
 
+    class Config:
+        populate_by_name = True
+
+
+# ============================================
+# WORK ORDER PERSON SCHEMAS
+# ============================================
+
+class WorkOrderPersonBase(BaseModel):
+    """Base schema for WorkOrderPerson"""
+    WorkOrderId: int = Field(..., alias="work_order_id")
+    WorkOrderItemId: Optional[int] = Field(None, alias="work_order_item_id")
+    FullName: str = Field(..., min_length=2, max_length=200, alias="full_name")
+    TcKimlikNo: Optional[str] = Field(None, min_length=11, max_length=11, alias="tc_kimlik_no")
+    PassportNo: Optional[str] = Field(None, max_length=20, alias="passport_no")
+    Nationality: Optional[str] = Field(None, max_length=3, alias="nationality")
+    Phone: Optional[str] = Field(None, max_length=20, alias="phone")
+    IdentityDocumentId: Optional[int] = Field(None, alias="identity_document_id")
+    IdentityPhotoUrl: Optional[str] = Field(None, max_length=500, alias="identity_photo_url")
+    SecurityNotes: Optional[str] = Field(None, alias="security_notes")
+
+    class Config:
+        populate_by_name = True
+
+
+class WorkOrderPersonCreate(WorkOrderPersonBase):
+    """Schema for creating a new WorkOrderPerson"""
+    pass
+
+
+class WorkOrderPersonUpdate(BaseModel):
+    """Schema for updating WorkOrderPerson"""
+    FullName: Optional[str] = Field(None, min_length=2, max_length=200, alias="full_name")
+    TcKimlikNo: Optional[str] = Field(None, min_length=11, max_length=11, alias="tc_kimlik_no")
+    PassportNo: Optional[str] = Field(None, max_length=20, alias="passport_no")
+    Nationality: Optional[str] = Field(None, max_length=3, alias="nationality")
+    Phone: Optional[str] = Field(None, max_length=20, alias="phone")
+    IdentityDocumentId: Optional[int] = Field(None, alias="identity_document_id")
+    IdentityPhotoUrl: Optional[str] = Field(None, max_length=500, alias="identity_photo_url")
+    SecurityNotes: Optional[str] = Field(None, alias="security_notes")
+
+    class Config:
+        populate_by_name = True
+
+
+class WorkOrderPersonResponse(WorkOrderPersonBase):
+    """Schema for WorkOrderPerson response"""
+    Id: int = Field(..., alias="id")
+    GateEntryTime: Optional[datetime] = Field(None, alias="gate_entry_time")
+    GateExitTime: Optional[datetime] = Field(None, alias="gate_exit_time")
+    ApprovedBySecurity: bool = Field(False, alias="approved_by_security")
+    ApprovedBySecurityUserId: Optional[int] = Field(None, alias="approved_by_security_user_id")
+    ApprovedAt: Optional[datetime] = Field(None, alias="approved_at")
+    CreatedAt: datetime = Field(..., alias="created_at")
+    UpdatedAt: Optional[datetime] = Field(None, alias="updated_at")
+
+    class Config:
+        from_attributes = True
+        populate_by_name = True
+
+
+class SecurityApprovalRequest(BaseModel):
+    """Schema for security approval of person entry"""
+    ApprovedBySecurity: bool = Field(..., alias="approved_by_security")
+    SecurityUserId: int = Field(..., alias="security_user_id")
+    GateEntryTime: Optional[datetime] = Field(None, alias="gate_entry_time")
+    GateExitTime: Optional[datetime] = Field(None, alias="gate_exit_time")
+    SecurityNotes: Optional[str] = Field(None, max_length=500, alias="security_notes")
+
+    class Config:
+        populate_by_name = True
+
+
+# ============================================
+# PRICING SCHEMAS
+# ============================================
+
+class PriceCalculationRequest(BaseModel):
+    """Schema for price calculation request"""
+    ServiceCode: str = Field(..., min_length=1, max_length=50, alias="service_code", description="Hizmet kodu")
+    Quantity: Optional[float] = Field(1.0, alias="quantity", description="Miktar (adet, ton, vb.)")
+    Weight: Optional[float] = Field(None, alias="weight", description="Ağırlık (KG)")
+    Days: Optional[int] = Field(None, alias="days", description="Gün sayısı")
+    Minutes: Optional[int] = Field(None, alias="minutes", description="Dakika")
+    Hours: Optional[float] = Field(None, alias="hours", description="Saat")
+    Grt: Optional[float] = Field(None, alias="grt", description="Gross Registered Tonnage")
+    SqMeter: Optional[float] = Field(None, alias="sqmeter", description="Metrekare")
+    CalculationDate: Optional[datetime] = Field(None, alias="calculation_date", description="Hesaplama tarihi (kur için)")
+    
+    class Config:
+        populate_by_name = True
+
+
+class PriceCalculationResponse(BaseModel):
+    """Schema for price calculation response"""
+    ServiceCode: str = Field(..., alias="service_code")
+    ServiceName: str = Field(..., alias="service_name")
+    BasePrice: float = Field(..., alias="base_price", description="Baz fiyat (orijinal para birimi)")
+    BaseCurrency: str = Field(..., alias="base_currency", description="Baz para birimi")
+    ConvertedPrice: float = Field(..., alias="converted_price", description="TRY'ye çevrilmiş fiyat")
+    VatRate: float = Field(..., alias="vat_rate", description="KDV oranı (%)")
+    VatAmount: float = Field(..., alias="vat_amount", description="KDV tutarı (TRY)")
+    GrandTotal: float = Field(..., alias="grand_total", description="KDV dahil toplam (TRY)")
+    CalculationDetails: str = Field(..., alias="calculation_details", description="Hesaplama açıklaması")
+    Breakdown: dict = Field(..., alias="breakdown", description="Detaylı kırılım")
+    ExchangeRate: Optional[float] = Field(None, alias="exchange_rate", description="Kur (USD/EUR -> TRY)")
+    
     class Config:
         populate_by_name = True

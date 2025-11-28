@@ -5,7 +5,7 @@ Günlük döviz kurlarını TCMB XML API'den çekme
 
 import requests
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import List, Dict, Optional
 import logging
 
@@ -51,12 +51,16 @@ class TCMBClient:
             "Accept": "application/xml, text/xml"
         })
     
-    def get_daily_rates(self, target_date: Optional[date] = None) -> List[Dict]:
+    def get_daily_rates(self, target_date: Optional[date] = None, auto_fallback: bool = True) -> List[Dict]:
         """
         Günlük döviz kurlarını çek
         
+        TCMB hafta sonları kur yayınlamaz, son iş günü kurunu kullanır.
+        Örnek: Pazartesi -> Cuma kurunu kullan
+        
         Args:
             target_date: Hangi tarih için kur? (None = bugün)
+            auto_fallback: Hafta sonu/tatil için geriye gitsin mi? (True)
         
         Returns:
             List[Dict]: Kur listesi
@@ -74,10 +78,17 @@ class TCMBClient:
         Raises:
             TCMBAPIError: API çağrısı başarısız olursa
         """
+        target_date = target_date or date.today()
+        
+        # Hafta sonu/tatil kontrolü: Son yayınlanan kuru bul
+        if auto_fallback:
+            actual_date = self._find_last_published_date(target_date)
+            if actual_date != target_date:
+                logger.info(f"📅 {target_date} hafta sonu/tatil - TCMB son yayın: {actual_date}")
+            target_date = actual_date
+        
         try:
             # TCMB today.xml her zaman en güncel kuru döndürür
-            # Tarihsel veriler için /kurlar/YYYYMM/DDMMYYYY.xml formatı kullanılabilir
-            # Ama günlük sync için today.xml güvenilir
             url = f"{self.BASE_URL}/today.xml"
             
             logger.info(f"TCMB API çağrısı: {url}")
@@ -138,6 +149,35 @@ class TCMBClient:
         except re.error as e:
             logger.error(f"❌ TCMB regex parse error: {e}")
             raise TCMBAPIError(f"TCMB regex parse hatası: {str(e)}") from e
+    
+    def _find_last_published_date(self, target_date: date, max_days: int = 10) -> date:
+        """
+        TCMB'de son yayınlanan kur tarihini bul (hafta sonu/tatil kontrolü)
+        
+        TCMB hafta sonları kur yayınlamaz (Cumartesi, Pazar).
+        Pazartesi günü Cuma kurunu kullanır.
+        
+        Args:
+            target_date: Hedef tarih
+            max_days: Maksimum kaç gün geriye bakılacak (default: 10)
+        
+        Returns:
+            date: Son yayınlanan kur tarihi
+        """
+        current_date = target_date
+        weekday = current_date.weekday()
+        
+        # Hızlı hafta sonu kontrolü
+        if weekday == 6:  # Pazar -> 2 gün geriye (Cuma)
+            return current_date - timedelta(days=2)
+        elif weekday == 5:  # Cumartesi -> 1 gün geriye (Cuma)
+            return current_date - timedelta(days=1)
+        elif weekday == 0:  # Pazartesi -> 3 gün geriye (Cuma)
+            logger.info(f"📅 Pazartesi ({target_date}) - Cuma ({current_date - timedelta(days=3)}) kurunu kullan")
+            return current_date - timedelta(days=3)
+        
+        # Hafta içi - mevcut tarihi kullan
+        return target_date
     
     def get_today_url(self) -> str:
         """

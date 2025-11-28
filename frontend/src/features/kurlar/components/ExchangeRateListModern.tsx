@@ -1,24 +1,11 @@
 /**
- * KURLAR MODULE - Modern Exchange Rate List Component
- *
- * Özellikler:
- *  - Arama (CurrencyFrom / CurrencyTo / Source)
- *  - Döviz çifti filtre (CurrencyFrom, CurrencyTo ayrı select)
- *  - Tarih filtre (RateDate)
- *  - TCMB'den güncel kurları çekme (useFetchTCMBRates)
- *  - Satış kuru gösterimi (SellRate) mevcutsa
- *  - En güncel tarih satırlarını vurgulama (highlight)
- *  - Silme (useDeleteExchangeRate)
- *  - Hızlı manuel kur ekleme (prompt tabanlı - ileride form ile değiştirilecek)
- *  - Pagination placeholder (backend meta hazır olduğunda SimplePagination entegre edilecek)
- *
- * @see core/hooks/queries/useKurlarQueries.ts
+ * KURLAR MODULE - Modern Exchange Rate List
  */
 
 import { useMemo, useState } from 'react';
 import {
   useExchangeRateList,
-  useFetchTCMBRates,
+  useFetchEVDSRates,
   useDeleteExchangeRate,
   useCreateExchangeRate,
 } from '../../../core/hooks/queries/useKurlarQueries';
@@ -29,15 +16,16 @@ import { ErrorMessage } from '../../../shared/ui/ErrorMessage';
 interface ExchangeRateListModernProps {
   onViewRate?: (rate: ExchangeRate) => void;
   onEditRate?: (rate: ExchangeRate) => void;
-  onCreateAdvanced?: () => void; // Gelişmiş form açmak istenirse
 }
 
-export function ExchangeRateListModern({ onViewRate, onEditRate, onCreateAdvanced }: ExchangeRateListModernProps) {
-  const [page, setPage] = useState(1); // backend pagination meta entegrasyonu sonrası
+export function ExchangeRateListModern({ onViewRate, onEditRate }: ExchangeRateListModernProps) {
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [currencyFrom, setCurrencyFrom] = useState('');
   const [currencyTo, setCurrencyTo] = useState('');
   const [rateDate, setRateDate] = useState('');
+  const [showBanknote, setShowBanknote] = useState(true);
+  const [fetchDate, setFetchDate] = useState('');
 
   const { data: rates, isLoading, error } = useExchangeRateList({
     page,
@@ -47,28 +35,30 @@ export function ExchangeRateListModern({ onViewRate, onEditRate, onCreateAdvance
     rate_date: rateDate || undefined,
   });
 
-  const fetchTcmbMutation = useFetchTCMBRates();
+  const fetchEvdsMutation = useFetchEVDSRates();
   const deleteMutation = useDeleteExchangeRate();
   const createMutation = useCreateExchangeRate();
 
   const uniqueFrom = useMemo(() => {
+    if (!Array.isArray(rates)) return [];
     const set = new Set<string>();
     rates?.forEach(r => set.add(r.CurrencyFrom));
     return Array.from(set).sort();
   }, [rates]);
 
   const uniqueTo = useMemo(() => {
+    if (!Array.isArray(rates)) return [];
     const set = new Set<string>();
     rates?.forEach(r => set.add(r.CurrencyTo));
     return Array.from(set).sort();
   }, [rates]);
 
   const latestDate = useMemo(() => {
-    if (!rates || rates.length === 0) return undefined;
+    if (!rates || !Array.isArray(rates) || rates.length === 0) return undefined;
     return rates.map(r => r.RateDate).sort().reverse()[0];
   }, [rates]);
 
-  const filtered = (rates || []).filter(r => {
+  const filtered = (Array.isArray(rates) ? rates : []).filter(r => {
     if (!search) return true;
     const s = search.toLowerCase();
     return (
@@ -85,32 +75,40 @@ export function ExchangeRateListModern({ onViewRate, onEditRate, onCreateAdvance
     });
   };
 
-  const handleFetchTcmb = () => {
-    const d = rateDate || undefined; // Belirli tarih seçildiyse onu kullan
-    fetchTcmbMutation.mutate({ date: d }, {
-      onError: (err) => alert(`TCMB çekme hatası: ${err.error.message}`),
+  const handleFetchEvds = () => {
+    const d = fetchDate || undefined;
+    const curr = currencyFrom ? [currencyFrom] : undefined;
+    fetchEvdsMutation.mutate({ date: d, currencies: curr }, {
+      onError: (err) => alert(`EVDS çekme hatası: ${err.error.message}`),
     });
   };
 
-  const handleQuickCreate = () => {
+  const handleQuickManualAdd = () => {
     const cf = prompt('Kaynak para birimi (örn: USD):');
     if (!cf) return;
-    const ct = prompt('Hedef para birimi (örn: TRY):') || 'TRY';
-    const rateStr = prompt('Kur (alış):');
+    const ct = prompt('Hedef para birimi (örn: TRY):', 'TRY');
+    if (!ct) return;
+    const rateStr = prompt('Döviz Alış Kuru:');
     if (!rateStr) return;
     const rateNum = Number(rateStr.replace(',', '.'));
     if (Number.isNaN(rateNum)) {
       alert('Geçersiz kur değeri');
       return;
     }
-    const sellStr = prompt('Satış kuru (opsiyonel):');
+    const sellStr = prompt('Döviz Satış Kuru (opsiyonel):');
     const sellNum = sellStr ? Number(sellStr.replace(',', '.')) : undefined;
+    const bnBuyStr = prompt('Efektif Alış Kuru (opsiyonel):');
+    const bnBuyNum = bnBuyStr ? Number(bnBuyStr.replace(',', '.')) : undefined;
+    const bnSellStr = prompt('Efektif Satış Kuru (opsiyonel):');
+    const bnSellNum = bnSellStr ? Number(bnSellStr.replace(',', '.')) : undefined;
     const dateStr = rateDate || new Date().toISOString().slice(0, 10);
     createMutation.mutate({
       CurrencyFrom: cf.toUpperCase(),
       CurrencyTo: ct.toUpperCase(),
       Rate: rateNum,
       SellRate: sellNum,
+      BanknoteBuyingRate: bnBuyNum,
+      BanknoteSellRate: bnSellNum,
       RateDate: dateStr,
       Source: 'MANUAL'
     }, {
@@ -118,209 +116,259 @@ export function ExchangeRateListModern({ onViewRate, onEditRate, onCreateAdvance
     });
   };
 
+  const getSourceBadge = (source?: string) => {
+    if (!source) return null;
+    const colors: Record<string, string> = {
+      EVDS: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+      TCMB: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
+      MANUAL: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+    };
+    return (
+      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${colors[source] || 'bg-gray-100 text-gray-800'}`}>
+        {source}
+      </span>
+    );
+  };
+
   if (isLoading) {
-    return <Loader message="Kurlar yükleniyor..." />;
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader message="Kurlar yükleniyor" />
+      </div>
+    );
   }
 
   if (error) {
     return <ErrorMessage message={error.error.message} />;
   }
 
-  if (!filtered || filtered.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-gray-500 mb-4">{search || currencyFrom || currencyTo || rateDate ? 'Filtre/arama sonucu yok' : 'Henüz kur kaydı yok'}</p>
-        <div className="flex items-center justify-center gap-2">
-          <button
-            onClick={handleFetchTcmb}
-            disabled={fetchTcmbMutation.isPending}
-            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {fetchTcmbMutation.isPending ? 'Çekiliyor...' : 'TCMB Kurlarını Çek'}
-          </button>
-          <button
-            onClick={handleQuickCreate}
-            disabled={createMutation.isPending}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-          >
-            {createMutation.isPending ? 'Oluşturuluyor...' : 'Manuel Kur Ekle'}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Döviz Kurları</h2>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleFetchTcmb}
-            disabled={fetchTcmbMutation.isPending}
-            className="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm disabled:opacity-50"
-          >
-            {fetchTcmbMutation.isPending ? 'TCMB Çekiliyor...' : 'TCMB Güncelle'}
-          </button>
-          <button
-            onClick={handleQuickCreate}
-            disabled={createMutation.isPending}
-            className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm disabled:opacity-50"
-          >
-            {createMutation.isPending ? 'Ekleniyor...' : 'Manuel Kur'}
-          </button>
-          {onCreateAdvanced && (
+    <div className="space-y-6">
+      {/* Header Card */}
+      <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-800 dark:via-blue-900 dark:to-indigo-900 rounded-2xl shadow-xl p-6 text-white">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold mb-1">Döviz Kurları</h1>
+              <p className="text-blue-100 text-sm">EVDS API entegrasyonu ile güncel kurlar</p>
+            </div>
+          </div>
+          <div className="flex gap-3">
             <button
-              onClick={onCreateAdvanced}
-              className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+              onClick={() => setShowBanknote(!showBanknote)}
+              className={`px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 ${
+                showBanknote 
+                  ? 'bg-white text-blue-700 shadow-lg scale-105' 
+                  : 'bg-white/20 backdrop-blur-sm text-white hover:bg-white/30'
+              }`}
             >
-              Gelişmiş Oluştur
+              📊 Efektif {showBanknote && '✓'}
             </button>
-          )}
+            <button
+              onClick={handleQuickManualAdd}
+              disabled={createMutation.isPending}
+              className="px-5 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+            >
+              + Manuel Kur
+            </button>
+          </div>
+        </div>
+
+        {/* EVDS Section */}
+        <div className="mt-6 pt-6 border-t border-white/20">
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="text-sm font-medium text-blue-100">EVDS Güncelleme:</label>
+            <input
+              type="date"
+              value={fetchDate}
+              onChange={(e) => setFetchDate(e.target.value)}
+              className="px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-blue-200 focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+            />
+            <button
+              onClick={handleFetchEvds}
+              disabled={fetchEvdsMutation.isPending}
+              className="px-5 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-lg font-medium transition-all disabled:opacity-50 border border-white/30"
+            >
+              {fetchEvdsMutation.isPending ? '⏳ Çekiliyor...' : '🔄 EVDS Güncelle'}
+            </button>
+            {fetchEvdsMutation.isSuccess && <span className="text-sm text-green-200">✓ Başarılı!</span>}
+          </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Filtreler</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Ara</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ara</label>
             <input
               type="text"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              placeholder="USD, TCMB veya TRY..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="USD, EUR, EVDS..."
+              className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Kaynak (From)</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Kaynak</label>
             <select
               value={currencyFrom}
               onChange={(e) => { setCurrencyFrom(e.target.value); setPage(1); }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
             >
               <option value="">Tümü</option>
               {uniqueFrom.map(cf => <option key={cf} value={cf}>{cf}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Hedef (To)</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Hedef</label>
             <select
               value={currencyTo}
               onChange={(e) => { setCurrencyTo(e.target.value); setPage(1); }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
             >
               <option value="">Tümü</option>
               {uniqueTo.map(ct => <option key={ct} value={ct}>{ct}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tarih</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tarih</label>
             <input
               type="date"
               value={rateDate}
               onChange={(e) => { setRateDate(e.target.value); setPage(1); }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
             />
           </div>
         </div>
-        <div className="text-xs text-gray-500">
-          En güncel tarih: <span className="font-semibold">{latestDate || '—'}</span>
-        </div>
+        {(search || currencyFrom || currencyTo || rateDate) && (
+          <button
+            onClick={() => { setSearch(''); setCurrencyFrom(''); setCurrencyTo(''); setRateDate(''); setPage(1); }}
+            className="mt-4 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 font-medium flex items-center gap-1"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Filtreleri Temizle
+          </button>
+        )}
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pair</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Alış (Rate)</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Satış (Sell)</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kaynak</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filtered.map(rate => {
-                const isLatest = rate.RateDate === latestDate;
-                return (
-                  <tr key={rate.Id} className={isLatest ? 'bg-green-50 hover:bg-green-100' : 'hover:bg-gray-50'}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                      {rate.CurrencyFrom}/{rate.CurrencyTo}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                      {rate.Rate.toLocaleString('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-700">
-                      {rate.SellRate != null ? rate.SellRate.toLocaleString('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : '—'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{rate.RateDate}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${
-                        rate.Source === 'TCMB'
-                          ? 'bg-indigo-100 text-indigo-700 border-indigo-200'
-                          : rate.Source === 'MANUAL'
-                          ? 'bg-yellow-100 text-yellow-700 border-yellow-200'
-                          : 'bg-gray-100 text-gray-700 border-gray-300'
-                      }`}>{rate.Source || '—'}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {onViewRate && (
-                          <button
-                            onClick={() => onViewRate(rate)}
-                            className="text-blue-600 hover:text-blue-900"
-                            title="Görüntüle"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          </button>
-                        )}
-                        {onEditRate && (
-                          <button
-                            onClick={() => onEditRate(rate)}
-                            className="text-indigo-600 hover:text-indigo-900"
-                            title="Düzenle"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                        )}
+      {filtered.length === 0 ? (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-12 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full mb-4">
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+            {search || currencyFrom || currencyTo || rateDate ? 'Sonuç bulunamadı' : 'Henüz kur kaydı yok'}
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400">
+            {search || currencyFrom || currencyTo || rateDate ? 'Farklı filtreler deneyin' : 'EVDS\'den kur çekin veya manuel ekleyin'}
+          </p>
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Döviz Çifti</th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Döviz Alış</th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Döviz Satış</th>
+                  {showBanknote && (
+                    <>
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Efektif Alış</th>
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Efektif Satış</th>
+                    </>
+                  )}
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Tarih</th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Kaynak</th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">İşlemler</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {filtered.map((rate) => {
+                  const isLatest = rate.RateDate === latestDate;
+                  return (
+                    <tr 
+                      key={rate.Id}
+                      className={`transition-colors ${isLatest ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-gray-900 dark:text-white">{rate.CurrencyFrom}</span>
+                          <span className="text-gray-400">/</span>
+                          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{rate.CurrencyTo}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">{rate.Rate?.toFixed(4) || '—'}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">{rate.SellRate?.toFixed(4) || '—'}</span>
+                      </td>
+                      {showBanknote && (
+                        <>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <span className="text-sm text-gray-700 dark:text-gray-300">{rate.BanknoteBuyingRate?.toFixed(4) || '—'}</span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <span className="text-sm text-gray-700 dark:text-gray-300">{rate.BanknoteSellRate?.toFixed(4) || '—'}</span>
+                          </td>
+                        </>
+                      )}
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">{rate.RateDate}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">{getSourceBadge(rate.Source)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
                         <button
                           onClick={() => handleDelete(rate)}
                           disabled={deleteMutation.isPending}
-                          className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                          className="text-red-600 hover:text-red-800 dark:text-red-400 disabled:opacity-50 transition-colors p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
                           title="Sil"
                         >
-                          {deleteMutation.isPending ? (
-                            <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                            </svg>
-                          ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          )}
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
                         </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Footer */}
+          <div className="bg-gray-50 dark:bg-gray-700/30 px-6 py-4 border-t border-gray-200 dark:border-gray-600">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600 dark:text-gray-400">
+                Toplam <span className="font-semibold text-gray-900 dark:text-white">{filtered.length}</span> kur
+              </span>
+              {latestDate && (
+                <span className="text-gray-600 dark:text-gray-400">
+                  En güncel: <span className="font-semibold text-gray-900 dark:text-white">{latestDate}</span>
+                </span>
+              )}
+            </div>
+          </div>
         </div>
-        {/* Pagination placeholder */}
-      </div>
+      )}
     </div>
   );
 }

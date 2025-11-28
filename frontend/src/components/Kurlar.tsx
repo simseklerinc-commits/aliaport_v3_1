@@ -16,7 +16,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Badge } from "./ui/badge";
 import { Theme } from "./ThemeSelector";
-import { kurlarApi, type ExchangeRate } from "../lib/api/kurlar";
+// REFACTORED: Modern API client kullanımı (features-based architecture)
+import { kurlarApi } from "../features/kurlar/api/kurlarApi";
+import type { ExchangeRate } from "../features/kurlar/types/kurlar.types";
 import { currencyMasterData } from "../data/parametersData";
 import { toast } from "sonner";
 
@@ -176,12 +178,12 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
   };
 
   // Arama filtresi
-  const filteredRates = rates.filter(rate => {
-    const currency = currencyMasterData.find(c => c.code === rate.currency_from);
+  const filteredRates = rates.filter((rate) => {
+    const currency = currencyMasterData.find(c => c.code === rate.CurrencyFrom);
     const searchLower = searchTerm.toLowerCase();
     
     return (
-      rate.currency_from.toLowerCase().includes(searchLower) ||
+      rate.CurrencyFrom.toLowerCase().includes(searchLower) ||
       (currency?.name.toLowerCase().includes(searchLower))
     );
   });
@@ -270,15 +272,15 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
           const isPositive = change > 0;
           
           return (
-            <Card key={rate.id} className={`${theme.colors.bgCard} border-${theme.colors.border}`}>
+            <Card key={rate.Id} className={`${theme.colors.bgCard} border-${theme.colors.border}`}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl">{CURRENCY_FLAGS[rate.currency_from] || "🏳️"}</span>
+                    <span className="text-2xl">{CURRENCY_FLAGS[rate.CurrencyFrom] || "🏳️"}</span>
                     <div>
-                      <CardTitle className="text-lg">{rate.currency_from}</CardTitle>
+                      <CardTitle className="text-lg">{rate.CurrencyFrom}</CardTitle>
                       <CardDescription className="text-sm text-gray-300">
-                        {getCurrencyName(rate.currency_from)}
+                        {getCurrencyName(rate.CurrencyFrom)}
                       </CardDescription>
                     </div>
                   </div>
@@ -353,28 +355,28 @@ export function Kurlar({ onNavigateHome, onNavigateBack, theme }: KurlarProps) {
                 </TableHeader>
                 <TableBody>
                   {filteredRates.map((rate, index) => {
-                    const change = calculateChange(rate.rate);
+                    const change = calculateChange(rate.Rate);
                     const isPositive = change > 0;
-                    const buyRate = rate.rate; // Döviz Alış (TCMB resmi)
-                    const sellRate = rate.sell_rate || rate.rate; // Döviz Satış (TCMB resmi)
-                    const effectiveBuy = rate.rate; // Efektif Alış (şimdilik Alış ile aynı)
-                    const effectiveSell = rate.sell_rate || rate.rate; // Efektif Satış (şimdilik Satış ile aynı)
+                    const buyRate = rate.Rate; // Döviz Alış (TCMB resmi)
+                    const sellRate = rate.SellRate || rate.Rate; // Döviz Satış (TCMB resmi)
+                    const effectiveBuy = rate.Rate; // Efektif Alış (şimdilik Alış ile aynı)
+                    const effectiveSell = rate.SellRate || rate.Rate; // Efektif Satış (şimdilik Satış ile aynı)
                     
                     return (
                       <TableRow 
-                        key={rate.id} 
+                        key={rate.Id} 
                         className={index % 2 === 0 ? 'bg-gray-900/30' : 'bg-gray-900/50'}
                       >
                         <TableCell className="text-2xl">
-                          {CURRENCY_FLAGS[rate.currency_from] || "🏳️"}
+                          {CURRENCY_FLAGS[rate.CurrencyFrom] || "🏳️"}
                         </TableCell>
                         <TableCell>
                           <code className="text-base bg-gray-800 px-3 py-1.5 rounded text-white">
-                            {rate.currency_from}
+                            {rate.CurrencyFrom}
                           </code>
                         </TableCell>
                         <TableCell className="text-base text-white">
-                          {getCurrencyName(rate.currency_from)}
+                          {getCurrencyName(rate.CurrencyFrom)}
                         </TableCell>
                         <TableCell className="text-base text-gray-300 text-right">
                           1

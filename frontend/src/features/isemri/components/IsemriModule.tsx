@@ -3,7 +3,8 @@
  */
 
 import React from 'react';
-import { useIsemriList, useIsemriStats } from '../hooks/useIsemri';
+import { WorkOrderListModern } from './IsemriListModern';
+import { useIsemriStats } from '../hooks/useIsemri';
 import { Button } from '../../../components/ui/button';
 import {
   Card,
@@ -26,55 +27,7 @@ import { Badge } from '../../../components/ui/badge';
 import { WorkOrderStatus, WorkOrderPriority } from '../types/isemri.types';
 
 export function IsemriModule() {
-  const { isemriList, isLoading, error, refetch } = useIsemriList();
   const { stats } = useIsemriStats();
-
-  if (isLoading) {
-    return (
-      <div className="container mx-auto py-6">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="container mx-auto py-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <p className="text-destructive mb-4">{error}</p>
-            <Button onClick={refetch}>Tekrar Dene</Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const getStatusBadge = (status: WorkOrderStatus) => {
-    const variants: Record<WorkOrderStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      [WorkOrderStatus.DRAFT]: 'outline',
-      [WorkOrderStatus.SUBMITTED]: 'secondary',
-      [WorkOrderStatus.APPROVED]: 'default',
-      [WorkOrderStatus.SAHADA]: 'default',
-      [WorkOrderStatus.TAMAMLANDI]: 'default',
-      [WorkOrderStatus.FATURALANDI]: 'default',
-      [WorkOrderStatus.KAPANDI]: 'secondary',
-      [WorkOrderStatus.REJECTED]: 'destructive',
-    };
-    return <Badge variant={variants[status]}>{status}</Badge>;
-  };
-
-  const getPriorityBadge = (priority: WorkOrderPriority) => {
-    const variants: Record<WorkOrderPriority, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      [WorkOrderPriority.LOW]: 'outline',
-      [WorkOrderPriority.MEDIUM]: 'secondary',
-      [WorkOrderPriority.HIGH]: 'default',
-      [WorkOrderPriority.URGENT]: 'destructive',
-    };
-    return <Badge variant={variants[priority]}>{priority}</Badge>;
-  };
 
   return (
     <ModuleLayout
@@ -82,121 +35,81 @@ export function IsemriModule() {
       description="İş emri takip ve yönetim sistemi"
       icon={ClipboardList}
     >
-      {/* Stats Cards */}
+      {/* Stats Cards - Runbook Uyumlu */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Toplam İş Emri
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.Total}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
                 Onay Bekleyen
+                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                  {stats.ByStatus?.SUBMITTED || 0}
+                </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-yellow-600">
                 {stats.ByStatus?.SUBMITTED || 0}
               </div>
+              <p className="text-xs text-muted-foreground mt-1">İş emirleri onay bekliyor</p>
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Sahada
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+                Eksik Belgeler
+                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                  {stats.MissingDocuments || 0}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">
+                {stats.MissingDocuments || 0}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Zorunlu belgeler eksik</p>
+            </CardContent>
+          </Card>
+          
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+                Aktif İş Emirleri
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  {stats.Active || 0}
+                </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">
-                {stats.ByStatus?.SAHADA || 0}
+                {stats.Active || 0}
               </div>
+              <p className="text-xs text-muted-foreground mt-1">Sahada veya devam eden</p>
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Tamamlanan
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+                Bugün Biten
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                  {stats.DueToday || 0}
+                </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {stats.ByStatus?.TAMAMLANDI || 0}
+                {stats.DueToday || 0}
               </div>
+              <p className="text-xs text-muted-foreground mt-1">Bugün tamamlanmalı</p>
             </CardContent>
           </Card>
         </div>
       )}
 
-      {/* Work Orders List */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>İş Emri Listesi</CardTitle>
-              <CardDescription>Toplam {isemriList.length} iş emri</CardDescription>
-            </div>
-            <Button onClick={refetch}>
-              <FileText className="h-4 w-4 mr-2" />
-              Yenile
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>İş Emri No</TableHead>
-                  <TableHead>Cari</TableHead>
-                  <TableHead>Konu</TableHead>
-                  <TableHead>Tip</TableHead>
-                  <TableHead>Öncelik</TableHead>
-                  <TableHead>Durum</TableHead>
-                  <TableHead>Tarih</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isemriList.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      Henüz iş emri kaydı bulunmuyor
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  isemriList.map((wo) => (
-                    <TableRow key={wo.Id}>
-                      <TableCell className="font-medium">{wo.WONumber}</TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{wo.CariCode}</div>
-                          <div className="text-sm text-muted-foreground">{wo.CariTitle}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate">{wo.Subject}</TableCell>
-                      <TableCell>{wo.Type}</TableCell>
-                      <TableCell>{getPriorityBadge(wo.Priority)}</TableCell>
-                      <TableCell>{getStatusBadge(wo.Status)}</TableCell>
-                      <TableCell>
-                        {new Date(wo.CreatedAt).toLocaleDateString('tr-TR')}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Modern Work Orders List */}
+      <WorkOrderListModern />
     </ModuleLayout>
   );
 }
