@@ -15,6 +15,7 @@ import os
 from ...config.database import get_db
 from .models import PortalEmployee, PortalEmployeeDocument, PortalUser
 from .portal_router import get_current_portal_user
+from .sgk_status import EmployeeSgkStatus, compute_employee_sgk_status
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/admin", tags=["Admin - Employee Reports"])
@@ -50,6 +51,7 @@ class EmployeeReportResponse(BaseModel):
     is_active: bool
     sgk_last_check_period: Optional[str]
     sgk_is_active_last_period: bool
+    sgk_status: Optional[EmployeeSgkStatus] = None
     cari_id: int
     cari_code: Optional[str]
     cari_title: Optional[str]
@@ -124,6 +126,7 @@ def get_all_employees(
                 continue
         
         # Response oluştur
+        emp.documents = docs
         emp_response = EmployeeReportResponse(
             id=emp.id,
             full_name=emp.full_name,
@@ -135,6 +138,7 @@ def get_all_employees(
             is_active=emp.is_active,
             sgk_last_check_period=emp.sgk_last_check_period,
             sgk_is_active_last_period=emp.sgk_is_active_last_period,
+            sgk_status=compute_employee_sgk_status(db, emp),
             cari_id=emp.cari_id,
             cari_code=emp.cari.CariKod if emp.cari else None,
             cari_title=emp.cari.CariIsim if emp.cari else None,

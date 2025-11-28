@@ -15,6 +15,10 @@ from ...config.database import get_db
 from .models import PortalEmployee, PortalVehicle, PortalUser, PortalEmployeeDocument, VehicleDocument, VehicleDocumentType
 from .portal_router import get_current_portal_user
 from .vehicle_documents import compute_vehicle_status, create_default_vehicle_documents
+from .sgk_status import (
+    EmployeeSgkStatus,
+    compute_employee_sgk_status,
+)
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/portal", tags=["Portal Employees & Vehicles"])
@@ -59,6 +63,7 @@ class PortalEmployeeResponse(PortalEmployeeBase):
     created_at: datetime
     sgk_is_active_last_period: bool = Field(False, description="Son SGK döneminde aktif mi")
     sgk_last_check_period: Optional[str] = Field(None, description="YYYYMM formatında son SGK kontrol dönemi")
+    sgk_status: Optional[EmployeeSgkStatus] = Field(None, description="TAM / EKSİK / ONAY_BEKLIYOR")
     documents: List['PortalEmployeeDocumentResponse'] = []
     
     class Config:
@@ -158,7 +163,9 @@ def get_employees(
     db: Session = Depends(get_db)
 ):
     """Firma çalışanları listesi"""
-    query = db.query(PortalEmployee).filter(
+    query = db.query(PortalEmployee).options(
+        joinedload(PortalEmployee.documents)
+    ).filter(
         PortalEmployee.cari_id == current_user.cari_id
     )
     
@@ -166,12 +173,9 @@ def get_employees(
         query = query.filter(PortalEmployee.is_active == is_active)
     
     employees = query.order_by(PortalEmployee.full_name).all()
-    
-    # Her çalışan için belgelerini yükle
+
     for emp in employees:
-        emp.documents = db.query(PortalEmployeeDocument).filter(
-            PortalEmployeeDocument.employee_id == emp.id
-        ).all()
+        emp.sgk_status = compute_employee_sgk_status(db, emp)
     
     return employees
 
@@ -183,7 +187,9 @@ def get_employee(
     db: Session = Depends(get_db)
 ):
     """Çalışan detayı"""
-    employee = db.query(PortalEmployee).filter(
+    employee = db.query(PortalEmployee).options(
+        joinedload(PortalEmployee.documents)
+    ).filter(
         PortalEmployee.id == employee_id,
         PortalEmployee.cari_id == current_user.cari_id
     ).first()
@@ -191,6 +197,7 @@ def get_employee(
     if not employee:
         raise HTTPException(status_code=404, detail="Çalışan bulunamadı")
     
+    employee.sgk_status = compute_employee_sgk_status(db, employee)
     return employee
 
 
@@ -231,6 +238,8 @@ def create_employee(
     db.add(employee)
     db.commit()
     db.refresh(employee)
+    employee.sgk_status = compute_employee_sgk_status(db, employee)
+    employee.documents = []
     
     return employee
 
@@ -268,6 +277,10 @@ def update_employee(
     
     db.commit()
     db.refresh(employee)
+    employee.documents = db.query(PortalEmployeeDocument).filter(
+        PortalEmployeeDocument.employee_id == employee.id
+    ).all()
+    employee.sgk_status = compute_employee_sgk_status(db, employee)
     
     return employee
 
@@ -547,9 +560,14 @@ async def upload_employee_document(
     if not employee:
         raise HTTPException(status_code=404, detail="Çalışan bulunamadı")
     
-    # Belge tipi kontrolü
-    if document_type not in ['EHLIYET', 'SRC5', 'SGK_ISE_GIRIS']:
+    normalized_doc_type = (document_type or '').strip().upper()
+    if normalized_doc_type == 'SGK_GIRIS':
+        normalized_doc_type = 'SGK_ISE_GIRIS'
+
+    allowed_document_types = {'EHLIYET', 'SRC5', 'SGK_ISE_GIRIS'}
+    if normalized_doc_type not in allowed_document_types:
         raise HTTPException(status_code=400, detail="Geçersiz belge tipi")
+    document_type = normalized_doc_type
     
     # Dosya boyutu kontrolü (10MB)
     file_content = await file.read()
@@ -620,6 +638,8 @@ async def upload_employee_document(
             from datetime import datetime
             now = datetime.utcnow()
             employee.sgk_last_check_period = f"{now.year}{now.month:02d}"
+    # Güncel SGK statüsünü tekrar hesapla
+    employee.sgk_status = compute_employee_sgk_status(db, employee)
     
     db.commit()
     db.refresh(doc)

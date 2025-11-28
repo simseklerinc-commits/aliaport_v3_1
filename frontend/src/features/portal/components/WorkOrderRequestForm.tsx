@@ -171,6 +171,13 @@ export const WorkOrderRequestForm: React.FC = () => {
     );
   };
 
+  const isEmployeeSgkCompliant = (emp: any) => {
+    if (emp.sgk_status) {
+      return emp.sgk_status === 'TAM';
+    }
+    return Boolean(emp.sgk_is_active_last_period);
+  };
+
   const handleEmployeeToggle = (id: number) => {
     setSelectedEmployeeIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -194,8 +201,8 @@ export const WorkOrderRequestForm: React.FC = () => {
   });
 
   const filteredEmployees = employees.filter((emp) => {
-    // Sadece SGK aktif çalışanları göster
-    if (!emp.sgk_is_active_last_period) return false;
+    // Sadece SGK uyumlu çalışanları göster
+    if (!isEmployeeSgkCompliant(emp)) return false;
     
     const search = employeeSearchTerm.trim().toLowerCase();
     if (!search) return true;
@@ -552,8 +559,8 @@ export const WorkOrderRequestForm: React.FC = () => {
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
                                   <p className="text-sm font-semibold text-gray-900">{emp.full_name}</p>
-                                  {emp.sgk_is_active_last_period && (
-                                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-green-100 text-green-700 rounded">SGK Aktif</span>
+                                  {isEmployeeSgkCompliant(emp) && (
+                                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-green-100 text-green-700 rounded">SGK Uyumlu</span>
                                   )}
                                 </div>
                                 <p className="text-xs text-gray-500 mt-1">

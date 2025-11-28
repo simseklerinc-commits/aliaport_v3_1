@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Users, Plus, Edit, Trash2, Upload, User, FileText, AlertTriangle, Info, CheckCircle2 } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Upload, User, FileText, AlertTriangle, Info, CheckCircle2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { SgkUploadDialog } from './SgkUploadDialog';
@@ -42,6 +42,7 @@ interface Employee {
   is_active: boolean;
   sgk_last_check_period?: string | null;
   sgk_is_active_last_period?: boolean | null;
+  sgk_status?: 'TAM' | 'EKSİK' | 'ONAY_BEKLIYOR';
   documents?: EmployeeDocument[];
 }
 
@@ -85,6 +86,9 @@ export function EmployeeManagement() {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [showSgkDialog, setShowSgkDialog] = useState(false);
   const [sgkStatus, setSgkStatus] = useState<SgkPeriodStatus | null>(null);
+  const [sgkHireDialogEmployee, setSgkHireDialogEmployee] = useState<Employee | null>(null);
+  const [sgkHireFile, setSgkHireFile] = useState<File | null>(null);
+  const [isSgkHireUploading, setIsSgkHireUploading] = useState(false);
   
   // Belge tarihleri
   const [ehliyetIssueDate, setEhliyetIssueDate] = useState('');
@@ -95,6 +99,12 @@ export function EmployeeManagement() {
   const [formData, setFormData] = useState<EmployeeFormState>(() => createEmptyEmployeeForm());
 
   const resetFormData = () => setFormData(createEmptyEmployeeForm());
+
+  const closeSgkHireDialog = () => {
+    setSgkHireDialogEmployee(null);
+    setSgkHireFile(null);
+    setIsSgkHireUploading(false);
+  };
 
   const openEmployeeForm = (employee?: Employee | null) => {
     if (employee) {
@@ -161,51 +171,61 @@ export function EmployeeManagement() {
   };
 
   const getSgkStatusMeta = (employee: Employee) => {
+    const resolvedStatus = employee.sgk_status || (employee.sgk_is_active_last_period ? 'TAM' : 'EKSİK');
     const hasPeriod = Boolean(employee.sgk_last_check_period);
-    const isActive = Boolean(employee.sgk_is_active_last_period);
     const currentRequired = getCurrentRequiredPeriod();
-    const hasHireDeclaration = employee.documents?.some((doc) => doc.document_type === 'SGK_ISE_GIRIS');
-
-    // Eğer yüklenen dönem güncel gerekli dönemden eskiyse = EKSİK
     const isOutdated = hasPeriod && employee.sgk_last_check_period! < currentRequired;
+    const hasHireDeclaration = employee.documents?.some((doc) => doc.document_type === 'SGK_ISE_GIRIS') ?? false;
+    const periodLabel = employee.sgk_last_check_period ? formatSgkPeriod(employee.sgk_last_check_period) : 'Kontrol Yok';
+    const serviceBasedGreen = Boolean(employee.sgk_is_active_last_period && hasPeriod && !isOutdated);
+    const viaHireDeclaration = resolvedStatus === 'TAM' && !serviceBasedGreen && hasHireDeclaration;
 
-    if (hasHireDeclaration && (!isActive || isOutdated || !hasPeriod)) {
+    if (resolvedStatus === 'TAM') {
+      if (viaHireDeclaration) {
+        return {
+          status: resolvedStatus,
+          label: 'İşe Giriş Bildirildi',
+          className: 'border-emerald-500/50 bg-emerald-500/10 text-emerald-600',
+          tooltip: 'İşe giriş bildirgesi yüklendi. SGK hizmet listesi bir sonraki dönemde otomatik doğrulanana kadar personel yeşil kabul edilir.',
+        };
+      }
       return {
-        label: 'İşe Giriş Bildirildi',
-        className: 'border-emerald-500/50 bg-emerald-500/10 text-emerald-600',
-        tooltip: 'İşe giriş bildirgesi yüklendi ve SGK sistemine iletildi. SGK hizmet dökümü bir ay geriden geldiği için yeşil durum gösteriliyor; bir sonraki dönemde otomatik doğrulama yapılacak.',
-      };
-    }
-
-    if (hasPeriod && isActive && !isOutdated) {
-      // Güncel dönem yüklenmiş VE aktif
-      return {
+        status: resolvedStatus,
         label: 'Uyumlu',
         className: 'border-green-500/40 bg-green-500/10 text-green-700',
-        tooltip: `${formatSgkPeriod(employee.sgk_last_check_period)} döneminde SGK listesinde doğrulandı.`,
+        tooltip: `${periodLabel} döneminde SGK listesinde doğrulandı.`,
       };
     }
 
-    if (hasPeriod && !isActive) {
-      // SGK listesinde yok
+    if (resolvedStatus === 'ONAY_BEKLIYOR') {
       return {
+        status: resolvedStatus,
+        label: 'Onay Bekliyor',
+        className: 'border-amber-500/40 bg-amber-500/10 text-amber-700',
+        tooltip: 'İşe giriş bildirgesi alındı ve kontrol edilmek üzere sırada. Onaylanınca durum otomatik yeşile döner.',
+      };
+    }
+
+    if (hasPeriod && !employee.sgk_is_active_last_period) {
+      return {
+        status: resolvedStatus,
         label: 'Listede Yok',
         className: 'border-amber-500/40 bg-amber-500/10 text-amber-700',
-        tooltip: `${formatSgkPeriod(employee.sgk_last_check_period)} döneminde SGK listesinden eşleşme bulunamadı.`,
+        tooltip: `${periodLabel} döneminde SGK listesinden eşleşme bulunamadı.`,
       };
     }
 
     if (isOutdated) {
-      // Eski dönem yüklenmiş, güncelleme gerekli
       return {
-        label: 'Bekleniyor',
+        status: resolvedStatus,
+        label: 'Güncelle',
         className: 'border-red-500/40 bg-red-500/10 text-red-700',
-        tooltip: `Son kontrol: ${formatSgkPeriod(employee.sgk_last_check_period)}. Güncel dönem (${formatSgkPeriod(currentRequired)}) yüklenmedi.`,
+        tooltip: `Son kontrol ${periodLabel}. Güncel dönem (${formatSgkPeriod(currentRequired)}) yüklenmeli.`,
       };
     }
 
-    // Hiç yükleme yapılmamış
     return {
+      status: resolvedStatus,
       label: 'Bekleniyor',
       className: 'border-red-500/40 bg-red-500/10 text-red-700',
       tooltip: 'Bu çalışan için henüz SGK hizmet listesi yüklenmedi.',
@@ -331,8 +351,23 @@ export function EmployeeManagement() {
       }
       fetchEmployees();
       setShowDocumentUpload(false);
+      return true;
     } catch (error: any) {
       toast.error(error.response?.data?.detail || 'Belge yüklenemedi');
+      return false;
+    }
+  };
+
+  const handleSgkHireUpload = async () => {
+    if (!sgkHireDialogEmployee || !sgkHireFile) {
+      toast.error('Lütfen SGK işe giriş bildirgesi için PDF seçin');
+      return;
+    }
+    setIsSgkHireUploading(true);
+    const success = await handleUploadDocument(sgkHireDialogEmployee.id, 'SGK_ISE_GIRIS', sgkHireFile);
+    setIsSgkHireUploading(false);
+    if (success) {
+      closeSgkHireDialog();
     }
   };
 
@@ -429,6 +464,73 @@ export function EmployeeManagement() {
             fetchEmployees();
           }}
         />
+        <Dialog open={Boolean(sgkHireDialogEmployee)} onOpenChange={(open) => { if (!open) closeSgkHireDialog(); }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>SGK İşe Giriş Bildirgesi</DialogTitle>
+              <DialogDescription>
+                Yeni başlayan personeller için SGK hizmet listesi gelmeden önce işe giriş bildirgesini yükleyerek SGK durumunu yeşile çekin.
+              </DialogDescription>
+            </DialogHeader>
+            {sgkHireDialogEmployee && (
+              <div className="space-y-4">
+                <div className="rounded border p-3 bg-slate-50">
+                  <p className="text-sm font-medium text-slate-800">{sgkHireDialogEmployee.full_name}</p>
+                  <p className="text-xs text-slate-500">{sgkHireDialogEmployee.position || 'Pozisyon belirtilmemiş'}</p>
+                </div>
+                {sgkHireDialogEmployee.documents?.some((doc) => doc.document_type === 'SGK_ISE_GIRIS') && (
+                  <div className="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                    <p className="font-semibold">Mevcut Bildirge</p>
+                    <p>{sgkHireDialogEmployee.documents.find((doc) => doc.document_type === 'SGK_ISE_GIRIS')?.file_name}</p>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="sgk-hire-file" className="text-sm font-medium text-slate-700">PDF Dosyası</Label>
+                  <Input
+                    id="sgk-hire-file"
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) {
+                        setSgkHireFile(null);
+                        return;
+                      }
+                      if (file.type !== 'application/pdf') {
+                        toast.error('Sadece PDF belgeleri yükleyebilirsiniz');
+                        event.target.value = '';
+                        return;
+                      }
+                      setSgkHireFile(file);
+                    }}
+                  />
+                  <p className="text-xs text-slate-500">Maksimum 10 MB, sadece PDF.</p>
+                  {sgkHireFile && (
+                    <p className="text-xs text-slate-600">Seçilen dosya: {sgkHireFile.name}</p>
+                  )}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={closeSgkHireDialog} disabled={isSgkHireUploading}>
+                    İptal
+                  </Button>
+                  <Button onClick={handleSgkHireUpload} disabled={!sgkHireFile || isSgkHireUploading}>
+                    {isSgkHireUploading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Yükleniyor...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Bildirge Yükle
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
         <Dialog open={isEmployeeFormOpen} onOpenChange={(open) => { if (!open) closeEmployeeForm(); }}>
           <DialogContent className="max-w-3xl">
             <DialogHeader>
@@ -602,9 +704,15 @@ export function EmployeeManagement() {
                         <td className="p-4">
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Badge variant="outline" className={sgkMeta.className}>
-                                {sgkMeta.label}
-                              </Badge>
+                              <button
+                                type="button"
+                                className="focus:outline-none"
+                                onClick={() => setSgkHireDialogEmployee(emp)}
+                              >
+                                <Badge variant="outline" className={sgkMeta.className}>
+                                  {sgkMeta.label}
+                                </Badge>
+                              </button>
                             </TooltipTrigger>
                             <TooltipContent className="max-w-xs text-sm">
                               {sgkMeta.tooltip}
@@ -616,11 +724,11 @@ export function EmployeeManagement() {
                         </td>
                         <td className="p-4">
                           <div className="flex items-center justify-end gap-2">
-                          {!emp.sgk_is_active_last_period && (
+                          {(!emp.sgk_is_active_last_period || emp.sgk_status !== 'TAM') && (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => { setSelectedEmployee(emp); setShowDocumentUpload(true); }}
+                              onClick={() => setSgkHireDialogEmployee(emp)}
                               className="gap-1"
                             >
                               <FileText className="h-3 w-3" />

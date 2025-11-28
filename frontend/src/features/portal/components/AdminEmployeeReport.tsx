@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Users, FileText, Filter, Download } from 'lucide-react';
 import { portalTokenStorage } from '../utils/portalTokenStorage';
+import { formatPeriod } from '../utils/sgkPeriodCheck';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -48,6 +49,7 @@ interface EmployeeReport {
   is_active: boolean;
   sgk_last_check_period?: string;
   sgk_is_active_last_period: boolean;
+  sgk_status?: 'TAM' | 'EKSİK' | 'ONAY_BEKLIYOR';
   cari_id: number;
   cari_code?: string;
   cari_title?: string;
@@ -355,8 +357,16 @@ export function AdminEmployeeReport() {
                   </tr>
                 </thead>
                 <tbody>
-                  {employees.map((emp) => (
-                    <tr key={emp.id} className="border-b hover:bg-gray-50">
+                  {employees.map((emp) => {
+                    const sgkStatus = emp.sgk_status || (emp.sgk_is_active_last_period ? 'TAM' : 'EKSİK');
+                    const statusClass = sgkStatus === 'TAM'
+                      ? 'bg-green-100 text-green-700'
+                      : sgkStatus === 'ONAY_BEKLIYOR'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-red-100 text-red-700';
+                    const statusLabel = sgkStatus === 'ONAY_BEKLIYOR' ? 'Onay Bekliyor' : sgkStatus;
+                    return (
+                      <tr key={emp.id} className="border-b hover:bg-gray-50">
                       <td className="p-4">
                         <div>
                           <p className="font-medium">{emp.cari_title}</p>
@@ -368,13 +378,14 @@ export function AdminEmployeeReport() {
                       <td className="p-4">{emp.phone}</td>
                       <td className="p-4">{emp.position}</td>
                       <td className="p-4">
-                        {emp.sgk_last_check_period ? (
-                          <span className={emp.sgk_is_active_last_period ? 'text-green-600' : 'text-red-600'}>
-                            {emp.sgk_last_check_period}
+                        <div className="flex flex-col gap-1">
+                          <span className={emp.sgk_last_check_period ? 'text-gray-800 font-medium' : 'text-gray-400'}>
+                            {emp.sgk_last_check_period ? formatPeriod(emp.sgk_last_check_period) : '-'}
                           </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
+                          <span className={`w-fit px-1.5 py-0.5 rounded text-[11px] font-medium ${statusClass}`}>
+                            {statusLabel}
+                          </span>
+                        </div>
                       </td>
                       <td className="p-4">
                         {emp.documents.length > 0 ? (
@@ -399,8 +410,9 @@ export function AdminEmployeeReport() {
                           {emp.is_active ? 'Aktif' : 'Pasif'}
                         </span>
                       </td>
-                    </tr>
-                  ))}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
