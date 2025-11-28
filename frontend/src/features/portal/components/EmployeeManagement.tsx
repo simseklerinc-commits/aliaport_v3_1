@@ -16,9 +16,8 @@ import axios from 'axios';
 import { SgkUploadDialog } from './SgkUploadDialog';
 import { checkSgkPeriodStatus, formatPeriod, getMonthNameTR } from '../utils/sgkPeriodCheck';
 import type { SgkPeriodStatus } from '../utils/sgkPeriodCheck';
+import { PORTAL_API_BASE } from '../config';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-
-const API_BASE_URL = 'http://localhost:8000';
 
 // Pozisyon seçenekleri
 const POSITION_OPTIONS = [
@@ -235,7 +234,7 @@ export function EmployeeManagement() {
   const fetchEmployees = useCallback(async () => {
     const token = portalTokenStorage.getToken();
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/v1/portal/employees`, {
+      const response = await axios.get(`${PORTAL_API_BASE}/employees`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setEmployees(response.data);
@@ -294,14 +293,14 @@ export function EmployeeManagement() {
     try {
       if (editingEmployee) {
         await axios.put(
-          `${API_BASE_URL}/api/v1/portal/employees/${editingEmployee.id}`,
+          `${PORTAL_API_BASE}/employees/${editingEmployee.id}`,
           formData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         toast.success('Çalışan güncellendi');
       } else {
         await axios.post(
-          `${API_BASE_URL}/api/v1/portal/employees`,
+          `${PORTAL_API_BASE}/employees`,
           formData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -320,7 +319,7 @@ export function EmployeeManagement() {
     
     const token = portalTokenStorage.getToken();
     try {
-      await axios.delete(`${API_BASE_URL}/api/v1/portal/employees/${id}`, {
+      await axios.delete(`${PORTAL_API_BASE}/employees/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success('Çalışan silindi');
@@ -340,7 +339,7 @@ export function EmployeeManagement() {
 
     try {
       await axios.post(
-        `${API_BASE_URL}/api/v1/portal/employees/${employeeId}/documents`,
+        `${PORTAL_API_BASE}/employees/${employeeId}/documents`,
         formData,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -377,7 +376,7 @@ export function EmployeeManagement() {
     const token = portalTokenStorage.getToken();
     try {
       await axios.delete(
-        `${API_BASE_URL}/api/v1/portal/employees/${employeeId}/documents/${documentId}`,
+        `${PORTAL_API_BASE}/employees/${employeeId}/documents/${documentId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success('Belge silindi');

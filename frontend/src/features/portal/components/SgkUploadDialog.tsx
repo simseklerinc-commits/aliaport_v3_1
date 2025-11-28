@@ -7,8 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Upload, FileText, CheckCircle2, XCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { portalTokenStorage } from '../utils/portalTokenStorage';
-
-const PORTAL_API_BASE = 'http://localhost:8000/api/v1/portal';
+import { PORTAL_API_BASE } from '../config';
 
 interface SgkUploadDialogProps {
   open: boolean;

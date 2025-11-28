@@ -76,7 +76,22 @@ def compute_employee_sgk_status(
     employee: PortalEmployee,
     reference_date: Optional[datetime] = None,
 ) -> EmployeeSgkStatus:
-    """Combine SGK hizmet listesi ve işe giriş bildirgelerini baz alarak statü üret."""
+    """Return SGK compliance status for a portal employee without changing business rules.
+
+    1. Önce güncel zorunlu dönem (_current_required_period) için SGK hizmet listesi sonuçları
+       değerlendirilir ve `_compute_base_status` ile "base_status" üretilir. Bu adım, çalışan
+       kayıtlarında bulunan `sgk_last_check_period` ve `sgk_is_active_last_period` alanlarının
+       mevcut mantığına tamamen sadıktır.
+    2. Eğer `base_status` zaten ``EmployeeSgkStatus.TAM`` ise, ek kontrol yapılmadan değer aynen
+       döndürülür.
+    3. Base statü TAM değilse `_resolve_hire_declarations` yardımıyla çalışanın SGK işe giriş
+       bildirgesi (``SGK_ISE_GIRIS`` / ``SGK_GIRIS``) belgeleri incelenir:
+         * APPROVED/OK durumundaki en güncel işe giriş belgesi varsa sonuç ``TAM`` olur.
+         * PENDING/UPLOADED durumunda en güncel belge varsa sonuç ``ONAY_BEKLIYOR`` olur.
+         * Belge bulunamazsa veya başka bir statüdeyse başlangıçtaki `base_status` aynen döner.
+
+    Böylece var olan SGK hizmet listesi doğrulaması korunur, ancak işe giriş bildirgesi bulunan
+    yeni çalışanlar hizmet listesi güncellenene kadar geçici olarak uyumlu kabul edilir."""
 
     required_period = _current_required_period(reference_date)
     base_status = _compute_base_status(employee, required_period)

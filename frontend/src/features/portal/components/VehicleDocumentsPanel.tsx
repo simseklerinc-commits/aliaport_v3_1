@@ -9,8 +9,7 @@ import { Upload, FileText, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { portalTokenStorage } from '../utils/portalTokenStorage';
 import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:8000';
+import { PORTAL_API_BASE } from '../config';
 
 interface VehicleDocumentsPanelProps {
   vehicleId: number | null;
@@ -74,7 +73,7 @@ export function VehicleDocumentsPanel({ vehicleId, open, onClose }: VehicleDocum
     try {
       const token = portalTokenStorage.getToken();
       const response = await axios.get<DocumentsResponse>(
-        `${API_BASE_URL}/api/v1/portal/vehicles/${vehicleId}/documents`,
+        `${PORTAL_API_BASE}/vehicles/${vehicleId}/documents`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -120,7 +119,7 @@ export function VehicleDocumentsPanel({ vehicleId, open, onClose }: VehicleDocum
       }
 
       await axios.post(
-        `${API_BASE_URL}/api/v1/portal/vehicles/${vehicleId}/documents/${docTypeCode}/upload`,
+        `${PORTAL_API_BASE}/vehicles/${vehicleId}/documents/${docTypeCode}/upload`,
         formData,
         {
           headers: {
