@@ -165,13 +165,21 @@ export function VehicleDocumentsPanel({ vehicleId, open, onClose }: VehicleDocum
   };
 
   // Evrakları gruplara ayır - HER belge için yükleme butonu gösterilecek
-  const missingDocs = documents.filter(
+  const allowedDocCodes = ['RUHSAT', 'MUAYENE', 'TRAFIK', 'KASKO'];
+
+  const filteredDocs = documents.filter(d =>
+    allowedDocCodes.includes(d.doc_type_code)
+  );
+
+  const missingDocs = filteredDocs.filter(
     d => ['MISSING', 'EXPIRED', 'REJECTED'].includes(d.status)
   );
-  const approvedDocs = documents.filter(d => d.status === 'APPROVED');
-  const pendingDocs = documents.filter(d => d.status === 'PENDING');
+  const approvedDocs = filteredDocs.filter(d => d.status === 'APPROVED');
+  const pendingDocs = filteredDocs.filter(d => d.status === 'PENDING');
+
   const docOrder = ['RUHSAT', 'MUAYENE', 'TRAFIK', 'KASKO'];
-  const allDocs = [...documents].sort((a, b) => {
+
+  const allDocs = [...filteredDocs].sort((a, b) => {
     const aIndex = docOrder.indexOf(a.doc_type_code);
     const bIndex = docOrder.indexOf(b.doc_type_code);
     if (aIndex === -1 && bIndex === -1) return a.doc_type_name.localeCompare(b.doc_type_name);

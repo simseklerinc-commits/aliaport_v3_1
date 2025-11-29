@@ -314,6 +314,32 @@ class PortalEmployee(Base):
     # İlişkiler
     cari = relationship("Cari", foreign_keys=[cari_id])
     documents = relationship("PortalEmployeeDocument", foreign_keys="PortalEmployeeDocument.employee_id", back_populates="employee")
+    sgk_periods = relationship("PortalEmployeeSgkPeriod", back_populates="employee")
+    sgk_periods = relationship("PortalEmployeeSgkPeriod", back_populates="employee")
+
+
+class PortalEmployeeSgkPeriod(Base):
+    """
+    PORTAL ÇALIŞAN SGK DÖNEM KAYITLARI
+    Çalışanların dönemsel SGK aktiflik durumlarını saklar.
+    Kaynak: HIZMET_LISTESI (SGK hizmet dökümü), MANUEL (yönetici girişi)
+    """
+    __tablename__ = "portal_employee_sgk_periods"
+    __table_args__ = (
+        Index('ix_portal_emp_sgk_period_emp_period', 'employee_id', 'period_code'),
+        {"extend_existing": True}
+    )
+
+    id = Column(Integer, primary_key=True)
+    employee_id = Column(Integer, ForeignKey("portal_employee.id"), nullable=False, index=True)
+    period_code = Column(String(7), nullable=False)  # "2025-10" formatı
+    is_active = Column(Boolean, nullable=False, default=True)
+    source = Column(String(20), nullable=False, default="HIZMET_LISTESI")  # HIZMET_LISTESI, MANUEL
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # İlişki
+    employee = relationship("PortalEmployee", back_populates="sgk_periods")
 
 
 class PortalEmployeeDocument(Base):

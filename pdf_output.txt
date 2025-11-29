@@ -1,0 +1,88 @@
+================================================================================
+PDF ¦ÃER¦º¦ (¦lk 80 sat²r):
+================================================================================
+  1: T.C. ÃALIÌMA ve SOSYAL G▄VENL¦K BAKANLIºI
+  2: SOSYAL G▄VENL¦K KURUMU BAÌKANLIºI
+  3: S¦GORTA PR¦MLER¦ GENEL M▄D▄RL▄º▄
+  4: 
+  5: S¦GORTALI H¦ZMET L¦STES¦
+  6: 
+  7: 24.11.2025 17:29:51
+  8: 
+  9: 256220808117507503432-79/000
+ 10: Ì¦MÌEKLERGENEL KUMANYACILIK VE DIÌ T¦C.VE SAN.A.Ì.
+ 11: 
+ 12: :
+ 13: :
+ 14: : SGK TUZLA SOSYAL G▄VENL¦K MERKEZ¦
+ 15: 
+ 16: AYDINLI MAH.BIÃKIN SK. D²■ kap² no:11/B ¦ kap² no:0¦STANBULTUZLA
+ 17: 
+ 18: :
+ 19: 
+ 20: 2025/10
+ 21: 01
+ 22: ASIL
+ 23: 05510
+ 24: 
+ 25: :
+ 26: :
+ 27: :
+ 28: :
+ 29: : 24.11.2025
+ 30: :
+ 31: 
+ 32: 95d45d-113d96d7d-90d-2d2d-82d-52d-14d-93d-43d-3d90d104d85d42d33d-
+ 33: 35d-17d-40d-52d79d-84d-45d-34d-94d103d-
+ 34: 
+ 35: ¦■yeri Sicil No
+ 36: ¦■yeri ▄nvan²
+ 37: SGM(kod-ad)
+ 38: 
+ 39: ¦■yeri Adresi
+ 40: 
+ 41: Y²l - Ay
+ 42: Belge Ãe■idi
+ 43: Mahiyet
+ 44: Kanun
+ 45: Onay Tarihi
+ 46: 
+ 47: Sno
+ 48: 
+ 49: S.G³venlik No
+ 50: 
+ 51: Ad²
+ 52: 
+ 53: Soyad²
+ 54: 
+ 55: ¦lkSoyad²
+ 56: 
+ 57: ▄cret
+ 58: TL
+ 59: 
+ 60: ¦kramiye
+ 61: TL
+ 62: 
+ 63: G³n UÃG
+ 64: 
+ 65: Eksik
+ 66: g³n
+ 67: 
+ 68: Gg³n Ãg³n ¦ÃN EGN Meslek Kod
+ 69: 
+ 70: 1
+ 71: 
+ 72: 2
+ 73: 
+ 74: 3
+ 75: 
+ 76: 4
+ 77: 
+ 78: 5
+ 79: 
+ 80: 6
+
+================================================================================
+TC NUMARASI ¦ÃEREN SATIRLAR:
+================================================================================
+124: 10394395958

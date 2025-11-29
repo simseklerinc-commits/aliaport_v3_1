@@ -137,11 +137,8 @@ def setup_logging(
     
     # 2. API Request Log (JSON, Daily Rotation)
     api_log_file = log_dir / "api.log"
-    api_handler = TimedRotatingFileHandler(
+    api_handler = logging.FileHandler(
         filename=api_log_file,
-        when="midnight",
-        interval=1,
-        backupCount=30,
         encoding="utf-8"
     )
     api_handler.setLevel(logging.INFO)

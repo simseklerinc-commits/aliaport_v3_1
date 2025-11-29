@@ -1,0 +1,13 @@
+====================================================================================================
+SGK PDF EXTRACTION TEST
+====================================================================================================
+PDF: Ì¦MÌEKLER AÌ 202510 - EK¦M TUZLA H¦ZMET L¦STES¦_251128_183430.pdf
+
+Traceback (most recent call last):
+  File "C:\Aliaport\Aliaport_v3_1\test_sgk_extraction.py", line 147, in <module>
+    print(f"\U0001f4e6 Dosya boyutu: {len(file_bytes):,} bytes\n")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4e6' in position 0: character maps to <undefined>

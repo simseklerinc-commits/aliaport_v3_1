@@ -7,12 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { Car, Plus, Edit, Trash2, Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { VehicleDocumentsPanel } from './VehicleDocumentsPanel';
-
-const API_BASE_URL = 'http://localhost:8000';
+import { PORTAL_API_BASE } from '../config';
 
 interface Vehicle {
   id: number;
@@ -56,7 +56,7 @@ export function VehicleManagement() {
   const fetchVehicles = async () => {
     const token = portalTokenStorage.getToken();
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/v1/portal/vehicles`, {
+      const response = await axios.get(`${PORTAL_API_BASE}/vehicles`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       // Plakaya göre alfabetik sırala
@@ -78,14 +78,14 @@ export function VehicleManagement() {
     try {
       if (editingVehicle) {
         await axios.put(
-          `${API_BASE_URL}/api/v1/portal/vehicles/${editingVehicle.id}`,
+          `${PORTAL_API_BASE}/vehicles/${editingVehicle.id}`,
           formData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         toast.success('Araç güncellendi');
       } else {
         await axios.post(
-          `${API_BASE_URL}/api/v1/portal/vehicles`,
+          `${PORTAL_API_BASE}/vehicles`,
           formData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -106,7 +106,7 @@ export function VehicleManagement() {
     
     const token = portalTokenStorage.getToken();
     try {
-      await axios.delete(`${API_BASE_URL}/api/v1/portal/vehicles/${id}`, {
+      await axios.delete(`${PORTAL_API_BASE}/vehicles/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success('Araç silindi');
@@ -117,9 +117,10 @@ export function VehicleManagement() {
   };
 
   return (
-    <div className="p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+    <TooltipProvider>
+      <div className="p-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Araç Tanımlamaları</h1>
             <p className="text-gray-600">Limana/sahaya gelecek araçları yönetin</p>
@@ -267,15 +268,24 @@ export function VehicleManagement() {
                         }
 
                         return (
-                          <Badge 
-                            className={`${colorClass} cursor-pointer`}
-                            onClick={() => {
-                              setSelectedVehicleId(veh.id);
-                              setIsDocumentsPanelOpen(true);
-                            }}
-                          >
-                            {label}
-                          </Badge>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge 
+                                className={`${colorClass} cursor-pointer`}
+                                onClick={() => {
+                                  setSelectedVehicleId(veh.id);
+                                  setIsDocumentsPanelOpen(true);
+                                }}
+                              >
+                                {label}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs text-sm">
+                              {rawStatus === "AKTİF" && "Tüm zorunlu evraklar onaylı ve süresi geçerli."}
+                              {rawStatus === "ONAY_BEKLIYOR" && "Evraklar yüklenmiş, onay süreci devam ediyor."}
+                              {rawStatus === "EKSİK_EVRAK" && "Ruhsat, muayene, trafik sigortası veya kasko belgelerinde eksik veya süresi geçmiş evrak var."}
+                            </TooltipContent>
+                          </Tooltip>
                         );
                       })()}
                     </td>
@@ -307,5 +317,6 @@ export function VehicleManagement() {
         />
       </div>
     </div>
+    </TooltipProvider>
   );
 }

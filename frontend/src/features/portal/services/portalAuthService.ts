@@ -3,7 +3,8 @@ import { PortalLoginCredentials, PortalTokenResponse, PortalUser } from '../type
 import { PORTAL_API_BASE, PORTAL_API_ORIGIN } from '../config';
 
 if (import.meta.env.DEV) {
-  console.debug('[PortalAuthService] API origin resolved to', PORTAL_API_ORIGIN);
+  const resolvedOrigin = PORTAL_API_ORIGIN || '[vite-proxy]/api';
+  console.debug('[PortalAuthService] API origin resolved to', resolvedOrigin);
 }
 
 class PortalAuthService {

@@ -31,8 +31,20 @@ const fromBrowserContext = () => {
 };
 
 const resolvePortalApiOrigin = () => {
-  return fromApiBaseEnv() || fromBrowserContext() || 'http://localhost:8000';
+  const envOverride = fromApiBaseEnv();
+  if (envOverride) {
+    return envOverride;
+  }
+
+  // Vite geliştirme sunucusunda proxy kullanarak CORS'u tamamen devreden çıkar
+  if (import.meta.env?.DEV && import.meta.env?.VITE_PORTAL_DIRECT_API !== '1') {
+    return '';
+  }
+
+  return fromBrowserContext() || 'http://localhost:8000';
 };
 
 export const PORTAL_API_ORIGIN = resolvePortalApiOrigin();
-export const PORTAL_API_BASE = `${PORTAL_API_ORIGIN}/api/v1/portal`;
+export const PORTAL_API_BASE = PORTAL_API_ORIGIN
+  ? `${PORTAL_API_ORIGIN}/api/v1/portal`
+  : '/api/v1/portal';

@@ -4,15 +4,25 @@ Firma çalışanları ve araç tanımlamaları için endpoints
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from typing import List, Optional
 from datetime import datetime, date
 import uuid
 import os
+import time
 from pathlib import Path
+from sqlalchemy import event
 
 from ...config.database import get_db
-from .models import PortalEmployee, PortalVehicle, PortalUser, PortalEmployeeDocument, VehicleDocument, VehicleDocumentType
+from .models import (
+    PortalEmployee,
+    PortalVehicle,
+    PortalUser,
+    PortalEmployeeDocument,
+    PortalEmployeeSgkPeriod,
+    VehicleDocument,
+    VehicleDocumentType,
+)
 from .portal_router import get_current_portal_user
 from .vehicle_documents import compute_vehicle_status, create_default_vehicle_documents
 from .sgk_status import (
@@ -20,8 +30,11 @@ from .sgk_status import (
     compute_employee_sgk_status,
 )
 from pydantic import BaseModel, Field
+from ...core.logging_config import get_logger
 
 router = APIRouter(prefix="/portal", tags=["Portal Employees & Vehicles"])
+logger = get_logger(__name__)
+IS_DEV_ENV = os.getenv("APP_ENV", "production").lower() == "development" or os.getenv("DEBUG", "False").lower() == "true"
 
 
 # ============================================
@@ -65,6 +78,9 @@ class PortalEmployeeResponse(PortalEmployeeBase):
     sgk_last_check_period: Optional[str] = Field(None, description="YYYYMM formatında son SGK kontrol dönemi")
     sgk_status: Optional[EmployeeSgkStatus] = Field(None, description="TAM / EKSİK / ONAY_BEKLIYOR")
     documents: List['PortalEmployeeDocumentResponse'] = []
+    
+    # Override to allow empty string for legacy data (SGK PDF isimsiz kayıtlar)
+    full_name: str = Field(..., max_length=200)
     
     class Config:
         from_attributes = True
@@ -156,6 +172,8 @@ class VehicleDocumentsResponse(BaseModel):
 # EMPLOYEE ENDPOINTS
 # ============================================
 
+# Perf log (EMP-PERF-1): İlk ölçüm ~30 sorgu / ~28 sn (29 kayıt, N+1 problemli)
+# Perf log (EMP-PERF-2): selectinload + SGK helper prefetch edildi => 35 kayıt / 4 sorgu / ~34 sn (IO gecikmesi Holiday API)
 @router.get("/employees", response_model=List[PortalEmployeeResponse])
 def get_employees(
     current_user: PortalUser = Depends(get_current_portal_user),
@@ -164,20 +182,55 @@ def get_employees(
 ):
     """Firma çalışanları listesi"""
     query = db.query(PortalEmployee).options(
-        joinedload(PortalEmployee.documents)
+        selectinload(PortalEmployee.documents),
+        selectinload(PortalEmployee.sgk_periods)
     ).filter(
         PortalEmployee.cari_id == current_user.cari_id
     )
     
     if is_active is not None:
         query = query.filter(PortalEmployee.is_active == is_active)
-    
-    employees = query.order_by(PortalEmployee.full_name).all()
 
-    for emp in employees:
-        emp.sgk_status = compute_employee_sgk_status(db, emp)
-    
-    return employees
+    employees: List[PortalEmployee] = []
+    query_counter = {"value": 0}
+    bind = db.get_bind()
+    listener = None
+
+    if IS_DEV_ENV and bind is not None:
+        def after_cursor_execute(*_):
+            query_counter["value"] += 1
+
+        listener = after_cursor_execute
+        event.listen(bind, "after_cursor_execute", listener)
+
+    start = time.perf_counter()
+    try:
+        employees = query.order_by(PortalEmployee.full_name).all()
+
+        for emp in employees:
+            emp.sgk_status = compute_employee_sgk_status(
+                db,
+                emp,
+                prefetched_periods=getattr(emp, "sgk_periods", None),
+                prefetched_documents=getattr(emp, "documents", None),
+            )
+        
+        return employees
+    finally:
+        duration_ms = (time.perf_counter() - start) * 1000
+        if IS_DEV_ENV:
+            logger.info(
+                "portal.get_employees perf",
+                extra={
+                    "type": "perf",
+                    "endpoint": "/portal/employees",
+                    "employee_count": len(employees),
+                    "queries": query_counter["value"],
+                    "duration_ms": round(duration_ms, 2),
+                }
+            )
+        if listener is not None and bind is not None:
+            event.remove(bind, "after_cursor_execute", listener)
 
 
 @router.get("/employees/{employee_id}", response_model=PortalEmployeeResponse)
@@ -291,7 +344,7 @@ def delete_employee(
     current_user: PortalUser = Depends(get_current_portal_user),
     db: Session = Depends(get_db)
 ):
-    """Çalışan sil (soft delete)"""
+    """Çalışan sil (hard delete - kalıcı olarak sil)"""
     employee = db.query(PortalEmployee).filter(
         PortalEmployee.id == employee_id,
         PortalEmployee.cari_id == current_user.cari_id
@@ -300,13 +353,21 @@ def delete_employee(
     if not employee:
         raise HTTPException(status_code=404, detail="Çalışan bulunamadı")
     
-    employee.is_active = False
-    employee.updated_by = current_user.id
-    employee.updated_at = datetime.utcnow()
+    # İlişkili belgeleri de sil
+    db.query(PortalEmployeeDocument).filter(
+        PortalEmployeeDocument.employee_id == employee_id
+    ).delete()
+
+    # SGK dönem kayıtlarını temizle (FK kısıtını engellemek için)
+    db.query(PortalEmployeeSgkPeriod).filter(
+        PortalEmployeeSgkPeriod.employee_id == employee_id
+    ).delete()
     
+    # Çalışanı kalıcı olarak sil
+    db.delete(employee)
     db.commit()
     
-    return {"message": "Çalışan silindi"}
+    return {"message": "Çalışan kalıcı olarak silindi"}
 
 
 @router.post("/employees/{employee_id}/upload-identity")

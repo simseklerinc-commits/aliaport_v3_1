@@ -13,11 +13,14 @@ import jwt
 import os
 from pathlib import Path
 import re
+import logging
 from io import BytesIO
 from pdfminer.high_level import extract_text
 
+logger = logging.getLogger(__name__)
+
 from ...config.database import get_db
-from .models import PortalUser, ArchiveDocument, Notification, DocumentStatus, DocumentCategory, DocumentType, PortalEmployee
+from .models import PortalUser, ArchiveDocument, Notification, DocumentStatus, DocumentCategory, DocumentType, PortalEmployee, PortalEmployeeSgkPeriod
 from ...config.storage import get_base_sgk_dir
 from ...core.error_codes import ErrorCode
 from ...core.responses import success_response, error_response
@@ -79,6 +82,119 @@ def _extract_tc_numbers(file_bytes: bytes) -> Set[str]:
     if not text:
         return set()
     return set(TC_REGEX.findall(text))
+
+
+def _extract_sgk_employees(file_bytes: bytes) -> dict[str, str]:
+    """
+    SGK PDF'inden çalışan bilgilerini çıkar - INDEX BAZLI EŞLEŞTİRME.
+    Returns: {tc_no: full_name} dict
+    
+    Yaklaşım:
+    1. Tüm TC numaralarını topla (sırayla)
+    2. TC'den 2 satır sonrasındaki tüm kelimeleri topla (AD listesi)
+    3. INDEX bazlı eşleştir: TC[i] => AD[i] + SOYAD[i]
+    """
+    try:
+        text = extract_text(BytesIO(file_bytes))
+    except Exception as e:
+        logger.error(f"PDF extract HATA: {e}")
+        return {}
+    
+    if not text:
+        logger.warning("PDF boş text döndü")
+        return {}
+    
+    lines = [line.strip() for line in text.split('\n')]
+    logger.info(f"SGK PDF parsing: {len(lines)} satır bulundu")
+    
+    # 1. ADIM: Tüm TC'leri topla ve pozisyonlarını kaydet
+    tc_list = []
+    tc_positions = {}  # {line_index: tc_no}
+    
+    for i, line in enumerate(lines):
+        if not line:
+            continue
+        tc_match = TC_REGEX.search(line)
+        if tc_match:
+            tc_no = tc_match.group(0)
+            tc_list.append(tc_no)
+            tc_positions[i] = tc_no
+    
+    logger.info(f"📋 {len(tc_list)} TC numarası bulundu")
+    
+    # 2. ADIM: Her TC için +2 offset'teki satırı al (AD)
+    ad_list = []
+    for i, line in enumerate(lines):
+        if i in tc_positions:
+            # TC bulundu, +2 satır sonraki kelimeleri al
+            ad_line = lines[i + 2] if i + 2 < len(lines) else ""
+            ad_words = [w for w in ad_line.split() if w.isalpha() and len(w) >= 2]
+            ad = " ".join(ad_words) if ad_words else ""
+            ad_list.append(ad)
+    
+    # 3. ADIM: Her TC için +4 veya sonraki satırlarda soyad ara
+    soyad_list = []
+    tc_indices = sorted(tc_positions.keys())
+    
+    for idx_pos, tc_idx in enumerate(tc_indices):
+        # Sonraki TC'nin pozisyonu
+        next_tc_idx = tc_indices[idx_pos + 1] if idx_pos + 1 < len(tc_indices) else len(lines)
+        
+        # TC+4 ile NextTC arası first non-empty, non-TC kelime
+        soyad = ""
+        for offset in range(4, next_tc_idx - tc_idx):
+            check_idx = tc_idx + offset
+            if check_idx >= len(lines):
+                break
+            
+            check_line = lines[check_idx].strip()
+            if not check_line:
+                continue
+            
+            # TC ise atla
+            if TC_REGEX.search(check_line):
+                break
+            
+            # Kelime varsa al
+            words = [w for w in check_line.split() if w.isalpha() and len(w) >= 2]
+            if words:
+                soyad = " ".join(words)
+                break
+        
+        soyad_list.append(soyad)
+    
+    # 4. ADIM: Eşleştir
+    result = {}
+    for i, tc_no in enumerate(tc_list):
+        ad = ad_list[i] if i < len(ad_list) else ""
+        soyad = soyad_list[i] if i < len(soyad_list) else ""
+        
+        full_name = f"{ad} {soyad}".strip().upper()
+        
+        # Türkçe karakter düzeltmeleri
+        if full_name:
+            full_name = full_name.replace('î', 'İ').replace('Î', 'İ')
+            full_name = full_name.replace('û', 'Ü').replace('Û', 'Ü')
+            full_name = full_name.replace('Ü', 'Ü').replace('ü', 'ü')
+        
+        # İlk 5 kaydı logla
+        if i < 5:
+            logger.info(f"🔍 TC #{i+1}: {tc_no}")
+            logger.info(f"   AD: [{ad}]")
+            logger.info(f"   SOYAD: [{soyad}]")
+            logger.info(f"   ✅ TAM İSİM: [{full_name}]")
+        
+        # Kaydet
+        if len(full_name) >= 3:
+            result[tc_no] = full_name
+        else:
+            result[tc_no] = ""
+    
+    successful_names = sum(1 for v in result.values() if v)
+    success_rate = (successful_names * 100 // len(result)) if result else 0
+    logger.info(f"✅ SGK extraction: {len(result)} TC bulundu, {successful_names} tanesi isimli ({success_rate}%)")
+    
+    return result
 
 
 def _extract_period_from_pdf(file_bytes: bytes) -> Optional[str]:
@@ -681,7 +797,8 @@ async def upload_sgk_service_document(
     storage_key = "/".join([year_segment, firma_segment, normalized_period, filename])
     file_size = len(file_bytes)
     checksum = hashlib.sha256(file_bytes).hexdigest()
-    sgk_tc_set = _extract_tc_numbers(file_bytes)
+    sgk_employees = _extract_sgk_employees(file_bytes)  # {tc_no: full_name}
+    sgk_tc_set = set(sgk_employees.keys())
 
     if len(sgk_tc_set) < 3:
         failure_record = SgkPeriodCheck(
@@ -718,13 +835,20 @@ async def upload_sgk_service_document(
     # YENİ PERSONELLER: SGK'da olup sistemde olmayan TC'ler (yeni işe girenler)
     new_employee_tcs = sgk_tc_set - set(employee_tc_map.keys())
     new_employees_added = 0
-    
+
+    # Not: SGK hizmet dökümünde genellikle sadece TC listesi bulunuyor.
+    # İsim bilgisi çözülebilirse burada full_name alanını gerçek ad/soyad ile
+    # dolduracak şekilde güncellenebilir. Şimdilik kullanıcıya portal
+    # arayüzünden bu kayıtları güncelletiyoruz; isim alanını boş bırakıyoruz
+    # ve sadece TC üzerinden yeni çalışan ekliyoruz.
+
     if new_employee_tcs:
         # Yeni personelleri otomatik olarak ekle
         for tc_no in new_employee_tcs:
+            full_name = sgk_employees.get(tc_no, "").strip()
             new_employee = PortalEmployee(
                 cari_id=portal_user.cari_id,
-                full_name=f"Yeni Çalışan ({tc_no[-4:]})",  # Son 4 hane ile geçici isim
+                full_name=full_name or "",  # SGK listesinden okunan ad soyad (varsa)
                 tc_kimlik=tc_no,
                 nationality="TUR",
                 is_active=True,
@@ -733,20 +857,53 @@ async def upload_sgk_service_document(
                 created_at=datetime.utcnow()
             )
             db.add(new_employee)
+            employee_tc_map[tc_no] = new_employee  # Map'e ekle
             new_employees_added += 1
         
-        db.flush()  # Yeni personelleri flush et
+        db.flush()  # Yeni personelleri flush et (id almak için)
         
         # Matched count'u güncelle
         matched_tcs = matched_tcs.union(new_employee_tcs)
     
-    # Mevcut personellerin SGK durumunu güncelle
+    # Dönem kodunu tire ile formatla (YYYY-MM)
+    period_code_with_dash = f"{normalized_period[:4]}-{normalized_period[4:]}"
+    
+    # TÜM matched personeller için SGK period kaydı oluştur/güncelle
+    for tc_no in matched_tcs:
+        employee = employee_tc_map.get(tc_no)
+        if not employee:
+            continue
+            
+        # Bu çalışan için bu dönem kaydı var mı kontrol et
+        period_record = db.query(PortalEmployeeSgkPeriod).filter(
+            PortalEmployeeSgkPeriod.employee_id == employee.id,
+            PortalEmployeeSgkPeriod.period_code == period_code_with_dash
+        ).first()
+        
+        if not period_record:
+            # Yeni kayıt oluştur
+            period_record = PortalEmployeeSgkPeriod(
+                employee_id=employee.id,
+                period_code=period_code_with_dash,
+                is_active=True,
+                source="HIZMET_LISTESI",
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+            db.add(period_record)
+        else:
+            # Mevcut kaydı güncelle
+            period_record.is_active = True
+            period_record.source = "HIZMET_LISTESI"
+            period_record.updated_at = datetime.utcnow()
+    
+    # Mevcut personellerin eski alanlarını da güncelle (geriye dönük uyumluluk)
     for employee in employees:
         employee.sgk_last_check_period = normalized_period
         tc_value = (employee.tc_kimlik or "").strip()
         employee.sgk_is_active_last_period = tc_value in matched_tcs
 
-    employee_count = len(employees)
+    employee_count = len(employees) + new_employees_added
     matched_employee_count = len(matched_tcs)
     missing_employee_count = max(employee_count - matched_employee_count, 0)
     extra_in_sgk_count = max(len(sgk_tc_set - set(employee_tc_map.keys())) - new_employees_added, 0)  # Yeni eklenenleri çıkar

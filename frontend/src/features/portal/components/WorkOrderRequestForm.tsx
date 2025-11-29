@@ -51,7 +51,7 @@ export const WorkOrderRequestForm: React.FC = () => {
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(true);
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(true);
 
-  const [isHizmetAccordionOpen, setIsHizmetAccordionOpen] = useState(true);
+  const [isHizmetAccordionOpen, setIsHizmetAccordionOpen] = useState(false);
   const [isEmployeeAccordionOpen, setIsEmployeeAccordionOpen] = useState(false);
   const [isVehicleAccordionOpen, setIsVehicleAccordionOpen] = useState(false);
 
@@ -178,16 +178,104 @@ export const WorkOrderRequestForm: React.FC = () => {
     return Boolean(emp.sgk_is_active_last_period);
   };
 
+  const isDriverPosition = (position?: string | null) => {
+    if (!position) return false;
+    const p = position.toLowerCase();
+    return p.includes('şoför') || p.includes('sofor') || p.includes('driver');
+  };
+
+  const checkEmployeeDocumentValid = (
+    emp: any,
+    documentType: string,
+    options?: { label?: string }
+  ): { ok: boolean; reason?: string } => {
+    const docs = emp.documents || [];
+    const doc = docs.find((d: any) => d.document_type === documentType);
+
+    const label = options?.label || documentType;
+
+    if (!doc) {
+      return { ok: false, reason: `${label} belgesi yüklenme miş.` };
+    }
+
+    if (doc.expires_at) {
+      const expiry = new Date(doc.expires_at);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (expiry < today) {
+        return { ok: false, reason: `${label} belgesinin geçerlilik süresi dolmuş.` };
+      }
+    }
+
+    return { ok: true };
+  };
+
   const handleEmployeeToggle = (id: number) => {
-    setSelectedEmployeeIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
+    const isAlreadySelected = selectedEmployeeIds.includes(id);
+
+    // Seçili olanı kaldırmaya izin ver (her zaman serbest)
+    if (isAlreadySelected) {
+      setSelectedEmployeeIds((prev) => prev.filter((item) => item !== id));
+      return;
+    }
+
+    const emp = employees.find((e) => e.id === id);
+    if (!emp) {
+      return;
+    }
+
+    // 1) SGK uygun değilse seçim yasak
+    if (!isEmployeeSgkCompliant(emp)) {
+      toast.error('SGK durumu uygun olmayan çalışan iş emrine atanamaz.');
+      return;
+    }
+
+    // 2) Pozisyon boş ise seçim yasak
+    if (!emp.position || !String(emp.position).trim()) {
+      toast.error('Pozisyon tanımlanmamış çalışan iş emrine atanamaz.');
+      return;
+    }
+
+    // 3) Şoför ise ehliyet + SRC5 kontrolü
+    if (isDriverPosition(emp.position)) {
+      const licenseCheck = checkEmployeeDocumentValid(emp, 'EHLIYET', { label: 'Ehliyet' });
+      if (!licenseCheck.ok) {
+        toast.error(licenseCheck.reason || 'Şoför için geçerli ehliyet belgesi bulunmuyor.');
+        return;
+      }
+
+      const srcCheck = checkEmployeeDocumentValid(emp, 'SRC5', { label: 'SRC belgesi' });
+      if (!srcCheck.ok) {
+        toast.error(srcCheck.reason || 'Şoför için geçerli SRC belgesi bulunmuyor.');
+        return;
+      }
+    }
+
+    // Tüm kontrollerden geçtiyse seçime izin ver
+    setSelectedEmployeeIds((prev) => [...prev, id]);
   };
 
   const handleVehicleToggle = (id: number) => {
-    setSelectedVehicleIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
+    const isAlreadySelected = selectedVehicleIds.includes(id);
+
+    // Seçili olanı kaldırmaya izin ver (her zaman serbest)
+    if (isAlreadySelected) {
+      setSelectedVehicleIds((prev) => prev.filter((item) => item !== id));
+      return;
+    }
+
+    const veh = vehicles.find((v) => v.id === id);
+    if (!veh) {
+      return;
+    }
+
+    // Sadece EKSİK_EVRAK durumunda engelle
+    if (veh.vehicle_status === 'EKSİK_EVRAK') {
+      toast.error('Eksik veya süresi dolmuş evrakı olan araç iş emrine atanamaz. Lütfen araç evraklarını güncelleyin.');
+      return;
+    }
+
+    setSelectedVehicleIds((prev) => [...prev, id]);
   };
 
   const filteredHizmetler = hizmetler.filter((hizmet) => {
@@ -201,9 +289,6 @@ export const WorkOrderRequestForm: React.FC = () => {
   });
 
   const filteredEmployees = employees.filter((emp) => {
-    // Sadece SGK uyumlu çalışanları göster
-    if (!isEmployeeSgkCompliant(emp)) return false;
-    
     const search = employeeSearchTerm.trim().toLowerCase();
     if (!search) return true;
     return (
@@ -328,11 +413,11 @@ export const WorkOrderRequestForm: React.FC = () => {
   }
 
   return (
-    <div className="p-6">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Yeni İş Emri Talebi</h1>
+        <div className="mb-6 text-center">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">Yeni İş Emri Talebi</h1>
           <p className="text-gray-600">
             Lütfen talep etmek istediğiniz hizmeti seçin ve detayları doldurun.
           </p>
@@ -340,18 +425,18 @@ export const WorkOrderRequestForm: React.FC = () => {
 
         {/* Cari Bilgisi (Read-only) */}
         {user && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl p-5 mb-6 shadow-lg">
             <div className="flex items-start gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <FileText className="w-5 h-5 text-blue-600" />
+              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                <FileText className="w-5 h-5 text-white" />
               </div>
               <div>
-                <p className="text-sm font-medium text-blue-900 mb-1">Talep Eden Firma</p>
-                <p className="text-lg font-semibold text-gray-900">{user.cari_unvan || 'Firma Bilgisi Yok'}</p>
+                <p className="text-sm font-medium text-blue-100 mb-1">Talep Eden Firma</p>
+                <p className="text-xl font-semibold text-white">{user.cari_unvan || 'Firma Bilgisi Yok'}</p>
                 {user.cari_code && (
-                  <p className="text-sm text-gray-600">Cari Kodu: {user.cari_code}</p>
+                  <p className="text-sm text-blue-100">Cari Kodu: {user.cari_code}</p>
                 )}
-                <p className="text-sm text-gray-600 mt-1">Talep Eden: {user.full_name}</p>
+                <p className="text-sm text-blue-100 mt-1">Talep Eden: {user.full_name}</p>
               </div>
             </div>
           </div>
@@ -385,22 +470,22 @@ export const WorkOrderRequestForm: React.FC = () => {
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 space-y-6">
           {/* Hizmet Kartları - Accordion */}
-          <div ref={hizmetAccordionRef} className="border border-gray-200 rounded-xl">
+          <div ref={hizmetAccordionRef} className="border-2 border-blue-200 rounded-xl overflow-hidden shadow-sm">
             <button
               type="button"
               onClick={() => setIsHizmetAccordionOpen((prev) => !prev)}
-              className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-blue-50 rounded-t-xl transition-colors"
+              className="w-full flex items-center justify-between px-5 py-4 text-left bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all"
             >
               <div>
-                <p className="text-sm font-medium text-gray-800">
-                  Hizmet Kartları <span className="text-red-500">*</span>
+                <p className="text-sm font-semibold text-blue-900">
+                  Hizmet Kartları <span className="text-red-500">★</span>
                 </p>
-                <p className="text-xs text-gray-500">Seçilen: {selectedServiceCodes.length} hizmet</p>
+                <p className="text-xs text-blue-700">Seçilen: {selectedServiceCodes.length} hizmet</p>
               </div>
               <ChevronDown
-                className={`w-4 h-4 text-gray-500 transition-transform ${isHizmetAccordionOpen ? 'rotate-180' : ''}`}
+                className={`w-5 h-5 text-blue-600 transition-transform ${isHizmetAccordionOpen ? 'rotate-180' : ''}`}
               />
             </button>
             {isHizmetAccordionOpen && (
@@ -482,18 +567,18 @@ export const WorkOrderRequestForm: React.FC = () => {
           </div>
 
           {/* Firma Çalışanı Seçimi - Accordion */}
-          <div ref={employeeAccordionRef} className="border border-gray-200 rounded-xl">
+          <div ref={employeeAccordionRef} className="border-2 border-green-200 rounded-xl overflow-hidden shadow-sm">
             <button
               type="button"
               onClick={() => setIsEmployeeAccordionOpen((prev) => !prev)}
-              className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-green-50 rounded-t-xl transition-colors"
+              className="w-full flex items-center justify-between px-5 py-4 text-left bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 transition-all"
             >
               <div>
-                <p className="text-sm font-medium text-gray-800">Firma Çalışanı Seçimi</p>
-                <p className="text-xs text-gray-500">Seçilen: {selectedEmployeeIds.length} çalışan (Sadece SGK aktif personeller gösterilir)</p>
+                <p className="text-sm font-semibold text-green-900">Firma Çalışanı Seçimi</p>
+                <p className="text-xs text-green-700">Seçilen: {selectedEmployeeIds.length} çalışan (Sadece SGK aktif personeller gösterilir)</p>
               </div>
               <ChevronDown
-                className={`w-4 h-4 text-gray-500 transition-transform ${isEmployeeAccordionOpen ? 'rotate-180' : ''}`}
+                className={`w-5 h-5 text-green-600 transition-transform ${isEmployeeAccordionOpen ? 'rotate-180' : ''}`}
               />
             </button>
             {isEmployeeAccordionOpen && (
@@ -596,18 +681,18 @@ export const WorkOrderRequestForm: React.FC = () => {
           </div>
 
           {/* Araç Seçimi - Accordion */}
-          <div ref={vehicleAccordionRef} className="border border-gray-200 rounded-xl">
+          <div ref={vehicleAccordionRef} className="border-2 border-purple-200 rounded-xl overflow-hidden shadow-sm">
             <button
               type="button"
               onClick={() => setIsVehicleAccordionOpen((prev) => !prev)}
-              className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-purple-50 rounded-t-xl transition-colors"
+              className="w-full flex items-center justify-between px-5 py-4 text-left bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 transition-all"
             >
               <div>
-                <p className="text-sm font-medium text-gray-800">Araç Seçimi</p>
-                <p className="text-xs text-gray-500">Seçilen: {selectedVehicleIds.length} araç</p>
+                <p className="text-sm font-semibold text-purple-900">Araç Seçimi</p>
+                <p className="text-xs text-purple-700">Seçilen: {selectedVehicleIds.length} araç</p>
               </div>
               <ChevronDown
-                className={`w-4 h-4 text-gray-500 transition-transform ${isVehicleAccordionOpen ? 'rotate-180' : ''}`}
+                className={`w-5 h-5 text-purple-600 transition-transform ${isVehicleAccordionOpen ? 'rotate-180' : ''}`}
               />
             </button>
             {isVehicleAccordionOpen && (
@@ -760,36 +845,36 @@ export const WorkOrderRequestForm: React.FC = () => {
             </select>
           </div>
 
-          {/* Gate Required */}
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <input
-              id="gate_required"
-              type="checkbox"
-              className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              {...register('gate_required')}
-            />
-            <label htmlFor="gate_required" className="text-sm text-gray-700 cursor-pointer">
-              <span className="font-medium">Kapı Girişi Gerekli</span>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Talep için liman kapısından giriş yapılması gerekiyorsa işaretleyin
-              </p>
-            </label>
-          </div>
-
-          {/* Belge Upload (Placeholder) */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
+          {/* Belgeler */}
+          <div className="space-y-3">
+            <label className="block text-sm font-semibold text-gray-800">
               Belgeler
             </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
-              <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-sm text-gray-600 mb-1">
-                Belge yüklemek için tıklayın veya sürükleyin
-              </p>
-              <p className="text-xs text-gray-500">
-                PDF, DOCX, JPG, PNG (Maks. 10MB)
-              </p>
+            <div className="grid gap-3 md:grid-cols-2">
+              <button
+                type="button"
+                className="flex items-center gap-3 border-2 border-orange-200 rounded-xl px-5 py-4 bg-gradient-to-r from-orange-50 to-amber-50 hover:from-orange-100 hover:to-amber-100 transition-all shadow-sm text-left"
+              >
+                <FileText className="w-6 h-6 text-orange-600" />
+                <div>
+                  <p className="text-sm font-semibold text-orange-900">Gümrük Yazısı Yükle</p>
+                  <p className="text-xs text-orange-700">PDF, maksimum 10 MB</p>
+                </div>
+              </button>
+              <button
+                type="button"
+                className="flex items-center gap-3 border-2 border-teal-200 rounded-xl px-5 py-4 bg-gradient-to-r from-teal-50 to-cyan-50 hover:from-teal-100 hover:to-cyan-100 transition-all shadow-sm text-left"
+              >
+                <FileText className="w-6 h-6 text-teal-600" />
+                <div>
+                  <p className="text-sm font-semibold text-teal-900">Sevk İrsaliyesi Yükle</p>
+                  <p className="text-xs text-teal-700">PDF, maksimum 10 MB</p>
+                </div>
+              </button>
             </div>
+            <p className="text-xs text-gray-500">
+              Not: Dosya yükleme akışı ileride Dijital Arşiv ile entegre edilecektir. Şimdilik bu alan bilgilendirme amaçlıdır.
+            </p>
           </div>
 
           {/* Actions */}

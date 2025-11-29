@@ -1,7 +1,6 @@
 // frontend/src/features/portal/components/EmployeeManagement.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { usePortalAuth } from '../context/PortalAuthContext';
-import { portalTokenStorage } from '../utils/portalTokenStorage';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,14 +9,19 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Users, Plus, Edit, Trash2, Upload, User, FileText, AlertTriangle, Info, CheckCircle2, Loader2 } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Upload, User, FileText, AlertTriangle, Info, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
 import { SgkUploadDialog } from './SgkUploadDialog';
 import { checkSgkPeriodStatus, formatPeriod, getMonthNameTR } from '../utils/sgkPeriodCheck';
 import type { SgkPeriodStatus } from '../utils/sgkPeriodCheck';
-import { PORTAL_API_BASE } from '../config';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  fetchEmployees as fetchEmployeesApi,
+  deleteEmployee as deleteEmployeeApi,
+  saveEmployee as saveEmployeeApi,
+  uploadEmployeeDocument,
+  deleteEmployeeDocument,
+} from '../services/portalEmployeeService';
 
 // Pozisyon seçenekleri
 const POSITION_OPTIONS = [
@@ -42,6 +46,7 @@ interface Employee {
   sgk_last_check_period?: string | null;
   sgk_is_active_last_period?: boolean | null;
   sgk_status?: 'TAM' | 'EKSİK' | 'ONAY_BEKLIYOR';
+  sgk_period_text?: string | null;
   documents?: EmployeeDocument[];
 }
 
@@ -78,16 +83,17 @@ const createEmptyEmployeeForm = (): EmployeeFormState => ({
 export function EmployeeManagement() {
   const { user } = usePortalAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [isEmployeeFormOpen, setIsEmployeeFormOpen] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [showSgkDialog, setShowSgkDialog] = useState(false);
   const [sgkStatus, setSgkStatus] = useState<SgkPeriodStatus | null>(null);
-  const [sgkHireDialogEmployee, setSgkHireDialogEmployee] = useState<Employee | null>(null);
-  const [sgkHireFile, setSgkHireFile] = useState<File | null>(null);
-  const [isSgkHireUploading, setIsSgkHireUploading] = useState(false);
+  
+  // Yeni çalışan için işe giriş belgesi
+  const [hireDocFile, setHireDocFile] = useState<File | null>(null);
   
   // Belge tarihleri
   const [ehliyetIssueDate, setEhliyetIssueDate] = useState('');
@@ -98,12 +104,6 @@ export function EmployeeManagement() {
   const [formData, setFormData] = useState<EmployeeFormState>(() => createEmptyEmployeeForm());
 
   const resetFormData = () => setFormData(createEmptyEmployeeForm());
-
-  const closeSgkHireDialog = () => {
-    setSgkHireDialogEmployee(null);
-    setSgkHireFile(null);
-    setIsSgkHireUploading(false);
-  };
 
   const openEmployeeForm = (employee?: Employee | null) => {
     if (employee) {
@@ -127,6 +127,7 @@ export function EmployeeManagement() {
     setIsEmployeeFormOpen(false);
     setEditingEmployee(null);
     resetFormData();
+    setHireDocFile(null);
   };
 
   const formatSgkPeriod = (value?: string | null) => {
@@ -151,97 +152,36 @@ export function EmployeeManagement() {
   };
 
   // Güncel dönem hesaplama (bugün için yüklenmesi gereken son dönem)
-  const getCurrentRequiredPeriod = (): string => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1; // 1-12
-    const currentDay = now.getDate();
-
-    // Eğer ayın 26'sı geçtiyse, bu ay için yükleme yapılmalı
-    // Değilse geçen ay için yükleme yapılmalı
-    if (currentDay >= 26) {
-      return `${currentYear}${String(currentMonth).padStart(2, '0')}`;
-    } else {
-      // Geçen ay
-      const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
-      const lastYear = currentMonth === 1 ? currentYear - 1 : currentYear;
-      return `${lastYear}${String(lastMonth).padStart(2, '0')}`;
-    }
-  };
-
-  const getSgkStatusMeta = (employee: Employee) => {
-    const resolvedStatus = employee.sgk_status || (employee.sgk_is_active_last_period ? 'TAM' : 'EKSİK');
-    const hasPeriod = Boolean(employee.sgk_last_check_period);
-    const currentRequired = getCurrentRequiredPeriod();
-    const isOutdated = hasPeriod && employee.sgk_last_check_period! < currentRequired;
-    const hasHireDeclaration = employee.documents?.some((doc) => doc.document_type === 'SGK_ISE_GIRIS') ?? false;
-    const periodLabel = employee.sgk_last_check_period ? formatSgkPeriod(employee.sgk_last_check_period) : 'Kontrol Yok';
-    const serviceBasedGreen = Boolean(employee.sgk_is_active_last_period && hasPeriod && !isOutdated);
-    const viaHireDeclaration = resolvedStatus === 'TAM' && !serviceBasedGreen && hasHireDeclaration;
-
-    if (resolvedStatus === 'TAM') {
-      if (viaHireDeclaration) {
-        return {
-          status: resolvedStatus,
-          label: 'İşe Giriş Bildirildi',
-          className: 'border-emerald-500/50 bg-emerald-500/10 text-emerald-600',
-          tooltip: 'İşe giriş bildirgesi yüklendi. SGK hizmet listesi bir sonraki dönemde otomatik doğrulanana kadar personel yeşil kabul edilir.',
-        };
-      }
-      return {
-        status: resolvedStatus,
-        label: 'Uyumlu',
-        className: 'border-green-500/40 bg-green-500/10 text-green-700',
-        tooltip: `${periodLabel} döneminde SGK listesinde doğrulandı.`,
-      };
-    }
-
-    if (resolvedStatus === 'ONAY_BEKLIYOR') {
-      return {
-        status: resolvedStatus,
-        label: 'Onay Bekliyor',
-        className: 'border-amber-500/40 bg-amber-500/10 text-amber-700',
-        tooltip: 'İşe giriş bildirgesi alındı ve kontrol edilmek üzere sırada. Onaylanınca durum otomatik yeşile döner.',
-      };
-    }
-
-    if (hasPeriod && !employee.sgk_is_active_last_period) {
-      return {
-        status: resolvedStatus,
-        label: 'Listede Yok',
-        className: 'border-amber-500/40 bg-amber-500/10 text-amber-700',
-        tooltip: `${periodLabel} döneminde SGK listesinden eşleşme bulunamadı.`,
-      };
-    }
-
-    if (isOutdated) {
-      return {
-        status: resolvedStatus,
-        label: 'Güncelle',
-        className: 'border-red-500/40 bg-red-500/10 text-red-700',
-        tooltip: `Son kontrol ${periodLabel}. Güncel dönem (${formatSgkPeriod(currentRequired)}) yüklenmeli.`,
-      };
-    }
-
-    return {
-      status: resolvedStatus,
+  const SGK_BADGE_META: Record<'TAM' | 'ONAY_BEKLIYOR' | 'EKSİK', { label: string; className: string; tooltip: (periodLabel: string) => string }> = {
+    TAM: {
+      label: 'Uyumlu',
+      className: 'border-green-500/40 bg-green-500/10 text-green-700',
+      tooltip: (periodLabel) => `${periodLabel} döneminde SGK listesinde doğrulandı.`,
+    },
+    ONAY_BEKLIYOR: {
+      label: 'Onay Bekliyor',
+      className: 'border-amber-500/40 bg-amber-500/10 text-amber-700',
+      tooltip: () => 'İşe giriş bildirgesi alındı; kontrol tamamlandığında otomatik yeşile döner.',
+    },
+    EKSİK: {
       label: 'Bekleniyor',
       className: 'border-red-500/40 bg-red-500/10 text-red-700',
-      tooltip: 'Bu çalışan için henüz SGK hizmet listesi yüklenmedi.',
-    };
+      tooltip: () => 'Bu çalışan için henüz SGK hizmet listesi yüklenmedi.',
+    },
   };
 
   const fetchEmployees = useCallback(async () => {
-    const token = portalTokenStorage.getToken();
+    setLoading(true);
     try {
-      const response = await axios.get(`${PORTAL_API_BASE}/employees`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setEmployees(response.data);
-    } catch (error) {
-      toast.error('Çalışanlar yüklenemedi');
+      const data = await fetchEmployeesApi();
+      console.log('📥 Fetched employees count:', data?.length || 0);
+      setEmployees(Array.isArray(data) ? data : []);
+    } catch (error: any) {
+      console.error('❌ Failed to fetch employees:', error);
+      toast.error('Çalışanlar yüklenemedi: ' + (error.response?.data?.detail || error.message));
+      setEmployees((prev) => (prev.length ? prev : []));
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }, []);
 
@@ -250,7 +190,9 @@ export function EmployeeManagement() {
   }, [fetchEmployees]);
 
   useEffect(() => {
-    const handlePortalRefresh = () => fetchEmployees();
+    const handlePortalRefresh = () => {
+      fetchEmployees();
+    };
     window.addEventListener('portal:employees:refresh', handlePortalRefresh);
     return () => window.removeEventListener('portal:employees:refresh', handlePortalRefresh);
   }, [fetchEmployees]);
@@ -289,22 +231,26 @@ export function EmployeeManagement() {
       return;
     }
 
-    const token = portalTokenStorage.getToken();
     try {
-      if (editingEmployee) {
-        await axios.put(
-          `${PORTAL_API_BASE}/employees/${editingEmployee.id}`,
-          formData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        toast.success('Çalışan güncellendi');
+      const result = await saveEmployeeApi({
+        id: editingEmployee?.id,
+        ...formData,
+      });
+      
+      // Yeni çalışan oluşturuldu ve işe giriş belgesi seçilmişse yükle
+      if (!editingEmployee && hireDocFile && result?.id) {
+        try {
+          await uploadEmployeeDocument({
+            employeeId: result.id,
+            documentType: 'SGK_ISE_GIRIS',
+            file: hireDocFile,
+          });
+          toast.success('Çalışan eklendi ve işe giriş belgesi yüklendi');
+        } catch (docError: any) {
+          toast.warning('Çalışan eklendi ancak belge yüklenemedi: ' + (docError.response?.data?.detail || 'Bilinmeyen hata'));
+        }
       } else {
-        await axios.post(
-          `${PORTAL_API_BASE}/employees`,
-          formData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        toast.success('Çalışan eklendi');
+        toast.success(editingEmployee ? 'Çalışan güncellendi' : 'Çalışan eklendi');
       }
       
       closeEmployeeForm();
@@ -317,32 +263,33 @@ export function EmployeeManagement() {
   const handleDelete = async (id: number) => {
     if (!confirm('Çalışanı silmek istediğinize emin misiniz?')) return;
     
-    const token = portalTokenStorage.getToken();
+    // Optimistic update - hemen listeden kaldır
+    const previousEmployees = [...employees];
+    setEmployees(employees.filter(emp => emp.id !== id));
+    
     try {
-      await axios.delete(`${PORTAL_API_BASE}/employees/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await deleteEmployeeApi(id);
       toast.success('Çalışan silindi');
+      // Backend'den güncel listeyi al
       fetchEmployees();
-    } catch (error) {
-      toast.error('Silme işlemi başarısız');
+    } catch (error: any) {
+      // Hata olursa eski listeyi geri yükle
+      setEmployees(previousEmployees);
+      console.error('Delete error:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Silme işlemi başarısız';
+      toast.error(errorMessage);
     }
   };
 
   const handleUploadDocument = async (employeeId: number, documentType: string, file: File, issueDate?: string, expiresAt?: string) => {
-    const token = portalTokenStorage.getToken();
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('document_type', documentType);
-    if (issueDate) formData.append('issue_date', issueDate);
-    if (expiresAt) formData.append('expires_at', expiresAt);
-
     try {
-      await axios.post(
-        `${PORTAL_API_BASE}/employees/${employeeId}/documents`,
-        formData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await uploadEmployeeDocument({
+        employeeId,
+        documentType,
+        file,
+        issueDate,
+        expiresAt,
+      });
       if (documentType === 'SGK_ISE_GIRIS') {
         toast.success('SGK işe giriş belgesi yüklendi - Personel artık SGK aktif olarak işaretlendi');
       } else {
@@ -357,28 +304,11 @@ export function EmployeeManagement() {
     }
   };
 
-  const handleSgkHireUpload = async () => {
-    if (!sgkHireDialogEmployee || !sgkHireFile) {
-      toast.error('Lütfen SGK işe giriş bildirgesi için PDF seçin');
-      return;
-    }
-    setIsSgkHireUploading(true);
-    const success = await handleUploadDocument(sgkHireDialogEmployee.id, 'SGK_ISE_GIRIS', sgkHireFile);
-    setIsSgkHireUploading(false);
-    if (success) {
-      closeSgkHireDialog();
-    }
-  };
-
   const handleDeleteDocument = async (employeeId: number, documentId: number) => {
     if (!confirm('Belgeyi silmek istediğinize emin misiniz?')) return;
     
-    const token = portalTokenStorage.getToken();
     try {
-      await axios.delete(
-        `${PORTAL_API_BASE}/employees/${employeeId}/documents/${documentId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await deleteEmployeeDocument(employeeId, documentId);
       toast.success('Belge silindi');
       fetchEmployees();
     } catch (error: any) {
@@ -454,6 +384,20 @@ export function EmployeeManagement() {
           </div>
         </div>
 
+        {/* Arama Filtresi */}
+        <div className="flex items-center gap-2 mb-4">
+          <Label htmlFor="employee-search" className="text-sm font-medium text-gray-700">
+            Arama:
+          </Label>
+          <Input
+            id="employee-search"
+            placeholder="İsim, TCKN veya pozisyon ile ara..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="max-w-sm"
+          />
+        </div>
+
         {/* SGK Upload Dialog */}
         <SgkUploadDialog
           open={showSgkDialog}
@@ -463,73 +407,6 @@ export function EmployeeManagement() {
             fetchEmployees();
           }}
         />
-        <Dialog open={Boolean(sgkHireDialogEmployee)} onOpenChange={(open) => { if (!open) closeSgkHireDialog(); }}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>SGK İşe Giriş Bildirgesi</DialogTitle>
-              <DialogDescription>
-                Yeni başlayan personeller için SGK hizmet listesi gelmeden önce işe giriş bildirgesini yükleyerek SGK durumunu yeşile çekin.
-              </DialogDescription>
-            </DialogHeader>
-            {sgkHireDialogEmployee && (
-              <div className="space-y-4">
-                <div className="rounded border p-3 bg-slate-50">
-                  <p className="text-sm font-medium text-slate-800">{sgkHireDialogEmployee.full_name}</p>
-                  <p className="text-xs text-slate-500">{sgkHireDialogEmployee.position || 'Pozisyon belirtilmemiş'}</p>
-                </div>
-                {sgkHireDialogEmployee.documents?.some((doc) => doc.document_type === 'SGK_ISE_GIRIS') && (
-                  <div className="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-                    <p className="font-semibold">Mevcut Bildirge</p>
-                    <p>{sgkHireDialogEmployee.documents.find((doc) => doc.document_type === 'SGK_ISE_GIRIS')?.file_name}</p>
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="sgk-hire-file" className="text-sm font-medium text-slate-700">PDF Dosyası</Label>
-                  <Input
-                    id="sgk-hire-file"
-                    type="file"
-                    accept="application/pdf"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (!file) {
-                        setSgkHireFile(null);
-                        return;
-                      }
-                      if (file.type !== 'application/pdf') {
-                        toast.error('Sadece PDF belgeleri yükleyebilirsiniz');
-                        event.target.value = '';
-                        return;
-                      }
-                      setSgkHireFile(file);
-                    }}
-                  />
-                  <p className="text-xs text-slate-500">Maksimum 10 MB, sadece PDF.</p>
-                  {sgkHireFile && (
-                    <p className="text-xs text-slate-600">Seçilen dosya: {sgkHireFile.name}</p>
-                  )}
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={closeSgkHireDialog} disabled={isSgkHireUploading}>
-                    İptal
-                  </Button>
-                  <Button onClick={handleSgkHireUpload} disabled={!sgkHireFile || isSgkHireUploading}>
-                    {isSgkHireUploading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Yükleniyor...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-4 w-4 mr-2" />
-                        Bildirge Yükle
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
         <Dialog open={isEmployeeFormOpen} onOpenChange={(open) => { if (!open) closeEmployeeForm(); }}>
           <DialogContent className="max-w-3xl">
             <DialogHeader>
@@ -624,6 +501,42 @@ export function EmployeeManagement() {
                   </div>
                 </div>
               </div>
+              
+              {/* İşe Giriş Belgesi - Sadece yeni çalışan eklerken */}
+              {!editingEmployee && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+                  <p className="text-xs uppercase tracking-wide text-amber-700 font-semibold">SGK İşe Giriş Bildirgesi (Opsiyonel)</p>
+                  <p className="text-sm text-amber-800">
+                    Yeni başlayan çalışanlar için işe giriş bildirgesini yükleyebilirsiniz. Bu belge, SGK hizmet listesi gelene kadar personelin SGK durumunu yeşil gösterir.
+                  </p>
+                  <div>
+                    <Label htmlFor="hire-doc-file" className="text-xs text-amber-700">PDF Dosyası</Label>
+                    <Input
+                      id="hire-doc-file"
+                      type="file"
+                      accept=".pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) {
+                          setHireDocFile(null);
+                          return;
+                        }
+                        if (file.type !== 'application/pdf') {
+                          toast.error('Sadece PDF belgeleri yükleyebilirsiniz');
+                          e.target.value = '';
+                          return;
+                        }
+                        setHireDocFile(file);
+                      }}
+                      className="mt-1"
+                    />
+                    {hireDocFile && (
+                      <p className="text-xs text-amber-600 mt-1">Seçilen: {hireDocFile.name}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              
               <div className="flex items-center justify-end gap-2 border-t border-slate-200 pt-4">
                 <Button type="button" variant="outline" onClick={closeEmployeeForm}>
                   İptal
@@ -652,8 +565,47 @@ export function EmployeeManagement() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {employees.map((emp) => {
-                    const sgkMeta = getSgkStatusMeta(emp);
+                  {(() => {
+                    const filteredEmployees = employees.filter((emp) => {
+                      if (!searchTerm) return true;
+                      const term = searchTerm.toLowerCase();
+                      const fullName = emp.full_name ? emp.full_name.toLowerCase() : '';
+                      const passport = emp.pasaport ? emp.pasaport.toLowerCase() : '';
+                      const position = emp.position ? emp.position.toLowerCase() : '';
+                      return (
+                        fullName.includes(term) ||
+                        (emp.tc_kimlik && emp.tc_kimlik.includes(term)) ||
+                        passport.includes(term) ||
+                        position.includes(term)
+                      );
+                    });
+
+                    if (loading) {
+                      return (
+                        <tr>
+                          <td colSpan={7} className="p-6 text-center text-slate-300">
+                            <div className="p-6 text-sm text-gray-400">
+                              Firma çalışanları yükleniyor...
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    if (!filteredEmployees.length) {
+                      return (
+                        <tr>
+                          <td colSpan={7} className="p-6 text-center text-slate-400">
+                            {searchTerm ? 'Arama kriterlerinize uygun çalışan bulunamadı.' : 'Bu firmaya ait çalışan kaydı bulunmuyor.'}
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return filteredEmployees.map((emp) => {
+                    const sgkStatusKey: 'TAM' | 'ONAY_BEKLIYOR' | 'EKSİK' = (emp.sgk_status ?? 'EKSİK');
+                    const periodLabel = emp.sgk_period_text || (emp.sgk_last_check_period ? formatSgkPeriod(emp.sgk_last_check_period) : 'Kontrol bekleniyor');
+                    const sgkMeta = SGK_BADGE_META[sgkStatusKey];
                     return (
                       <tr key={emp.id} className="border-b border-transparent hover:bg-slate-900/40 transition-colors">
                         <td className="p-4 font-semibold text-base text-white">{emp.full_name}</td>
@@ -703,18 +655,14 @@ export function EmployeeManagement() {
                         <td className="p-4">
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <button
-                                type="button"
-                                className="focus:outline-none"
-                                onClick={() => setSgkHireDialogEmployee(emp)}
-                              >
+                              <div className="inline-block">
                                 <Badge variant="outline" className={sgkMeta.className}>
                                   {sgkMeta.label}
                                 </Badge>
-                              </button>
+                              </div>
                             </TooltipTrigger>
                             <TooltipContent className="max-w-xs text-sm">
-                              {sgkMeta.tooltip}
+                              {sgkMeta.tooltip(periodLabel)}
                             </TooltipContent>
                           </Tooltip>
                           <p className="mt-1 text-xs text-gray-500">
@@ -723,17 +671,6 @@ export function EmployeeManagement() {
                         </td>
                         <td className="p-4">
                           <div className="flex items-center justify-end gap-2">
-                          {(!emp.sgk_is_active_last_period || emp.sgk_status !== 'TAM') && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setSgkHireDialogEmployee(emp)}
-                              className="gap-1"
-                            >
-                              <FileText className="h-3 w-3" />
-                              İşe Giriş
-                            </Button>
-                          )}
                           {emp.position === 'Şoför' && (
                             <Button 
                               size="sm" 
@@ -754,7 +691,8 @@ export function EmployeeManagement() {
                         </td>
                       </tr>
                     );
-                  })}
+                    });
+                  })()}
                 </tbody>
               </table>
             </TooltipProvider>
@@ -774,29 +712,29 @@ export function EmployeeManagement() {
             }
           }}
         >
-          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{selectedEmployee?.full_name} - Belge Yönetimi</DialogTitle>
+              <DialogTitle className="text-xl font-bold">{selectedEmployee?.full_name} - Belge Yönetimi</DialogTitle>
             </DialogHeader>
             {selectedEmployee && (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {/* SGK İşe Giriş Belgesi - Sadece SGK'da olmayan personeller için */}
                 {!selectedEmployee.sgk_is_active_last_period && (
-                  <Alert className="border-amber-500 bg-amber-50">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                    <AlertTitle className="text-amber-900">SGK İşe Giriş Belgesi Gerekli</AlertTitle>
+                  <Alert className="border-amber-500 bg-amber-50 p-5">
+                    <AlertTriangle className="h-5 w-5 text-amber-600" />
+                    <AlertTitle className="text-amber-900 text-lg font-semibold">SGK İşe Giriş Belgesi (Yeni Çalışanlar İçin)</AlertTitle>
                     <AlertDescription className="text-amber-800">
-                      <p className="mb-3">Bu personel SGK sisteminde görünmüyor. İş emirlerinde görev alabilmesi için SGK işe giriş belgesini yükleyin.</p>
-                      <p className="mb-3 text-sm text-amber-900/80">
+                      <p className="mb-3 text-base">Bu personel SGK sisteminde görünmüyor. <strong>Yeni işe başlayan çalışanlar için</strong> işe giriş bildirgesi yükleyerek SGK durumunu yeşile çevirebilirsiniz.</p>
+                      <p className="mb-4 text-sm text-amber-900/80 leading-relaxed">
                         ⏱️ SGK hizmet dökümleri bir ay geriden geldiğinden yeni işe başlayan personellerin son dönem kontrolü hemen yeşile dönmüyor. Bu alana yüklediğiniz <strong>İşe Giriş Bildirgesi</strong>, sistemde anında yeşil durum gösterecek ve bir sonraki ay resmi dökümle otomatik eşleşecek.
                       </p>
                       {selectedEmployee.documents?.find(d => d.document_type === 'SGK_ISE_GIRIS') ? (
-                        <div className="flex items-center justify-between bg-white rounded p-3 border border-amber-200">
+                        <div className="flex items-center justify-between bg-white rounded-lg p-4 border border-amber-200">
                           <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-900">
+                            <p className="text-base font-medium text-gray-900">
                               {selectedEmployee.documents.find(d => d.document_type === 'SGK_ISE_GIRIS')?.file_name}
                             </p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-sm text-gray-500 mt-1">
                               Yüklendi: {new Date(selectedEmployee.documents.find(d => d.document_type === 'SGK_ISE_GIRIS')!.uploaded_at).toLocaleDateString('tr-TR')}
                             </p>
                           </div>
@@ -842,20 +780,20 @@ export function EmployeeManagement() {
 
                 {/* Ehliyet - Sadece şoför pozisyonu için */}
                 {selectedEmployee.position === 'Şoför' && (
-                <div className="border rounded p-4">
-                  <h3 className="font-medium mb-2">Sürücü Belgesi (Ehliyet)</h3>
+                <div className="border rounded-lg p-5 bg-slate-50">
+                  <h3 className="font-semibold text-lg mb-3">Sürücü Belgesi (Ehliyet)</h3>
                   {selectedEmployee.documents?.find(d => d.document_type === 'EHLIYET') ? (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <p className="text-sm text-gray-600">
+                          <p className="text-base font-medium text-gray-900">
                             {selectedEmployee.documents.find(d => d.document_type === 'EHLIYET')?.file_name}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-sm text-gray-500 mt-1">
                             Yüklendi: {new Date(selectedEmployee.documents.find(d => d.document_type === 'EHLIYET')!.uploaded_at).toLocaleDateString('tr-TR')}
                           </p>
                           {selectedEmployee.documents.find(d => d.document_type === 'EHLIYET')?.expires_at && (
-                            <p className="text-xs text-gray-500">
+                            <p className="text-sm text-gray-500 mt-1">
                               Son Geçerlilik: {new Date(selectedEmployee.documents.find(d => d.document_type === 'EHLIYET')!.expires_at!).toLocaleDateString('tr-TR')}
                             </p>
                           )}
@@ -883,24 +821,24 @@ export function EmployeeManagement() {
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs font-medium mb-1">Düzenleme Tarihi</label>
+                          <label className="block text-sm font-medium mb-2">Düzenleme Tarihi</label>
                           <Input
                             type="date"
                             value={ehliyetIssueDate}
                             onChange={(e) => setEhliyetIssueDate(e.target.value)}
-                            className="text-sm"
+                            className="text-base"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium mb-1">Son Geçerlilik Tarihi *</label>
+                          <label className="block text-sm font-medium mb-2">Son Geçerlilik Tarihi *</label>
                           <Input
                             type="date"
                             value={ehliyetExpiresAt}
                             onChange={(e) => setEhliyetExpiresAt(e.target.value)}
-                            className="text-sm"
+                            className="text-base"
                           />
                         </div>
                       </div>
@@ -937,20 +875,20 @@ export function EmployeeManagement() {
 
                 {/* SRC-5 - Sadece şoför pozisyonu için */}
                 {selectedEmployee.position === 'Şoför' && (
-                <div className="border rounded p-4">
-                  <h3 className="font-medium mb-2">SRC-5 Belgesi</h3>
+                <div className="border rounded-lg p-5 bg-slate-50">
+                  <h3 className="font-semibold text-lg mb-3">SRC-5 Belgesi</h3>
                   {selectedEmployee.documents?.find(d => d.document_type === 'SRC5') ? (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <p className="text-sm text-gray-600">
+                          <p className="text-base font-medium text-gray-900">
                             {selectedEmployee.documents.find(d => d.document_type === 'SRC5')?.file_name}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-sm text-gray-500 mt-1">
                             Yüklendi: {new Date(selectedEmployee.documents.find(d => d.document_type === 'SRC5')!.uploaded_at).toLocaleDateString('tr-TR')}
                           </p>
                           {selectedEmployee.documents.find(d => d.document_type === 'SRC5')?.expires_at && (
-                            <p className="text-xs text-gray-500">
+                            <p className="text-sm text-gray-500 mt-1">
                               Son Geçerlilik: {new Date(selectedEmployee.documents.find(d => d.document_type === 'SRC5')!.expires_at!).toLocaleDateString('tr-TR')}
                             </p>
                           )}
@@ -978,24 +916,24 @@ export function EmployeeManagement() {
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs font-medium mb-1">Düzenleme Tarihi</label>
+                          <label className="block text-sm font-medium mb-2">Düzenleme Tarihi</label>
                           <Input
                             type="date"
                             value={src5IssueDate}
                             onChange={(e) => setSrc5IssueDate(e.target.value)}
-                            className="text-sm"
+                            className="text-base"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium mb-1">Son Geçerlilik Tarihi *</label>
+                          <label className="block text-sm font-medium mb-2">Son Geçerlilik Tarihi *</label>
                           <Input
                             type="date"
                             value={src5ExpiresAt}
                             onChange={(e) => setSrc5ExpiresAt(e.target.value)}
-                            className="text-sm"
+                            className="text-base"
                           />
                         </div>
                       </div>

@@ -1,0 +1,252 @@
+PDF: Ì¦MÌEKLER AÌ 202510 - EK¦M TUZLA H¦ZMET L¦STES¦_251128_183430.pdf
+Exists: True
+
+TOPLAM SATIR SAYISI: 897
+
+====================================================================================================
+¦LK 100 SATIR:
+====================================================================================================
+   1: T.C. ÃALIÌMA ve SOSYAL G▄VENL¦K BAKANLIºI
+   2: SOSYAL G▄VENL¦K KURUMU BAÌKANLIºI
+   3: S¦GORTA PR¦MLER¦ GENEL M▄D▄RL▄º▄
+   5: S¦GORTALI H¦ZMET L¦STES¦
+   7: 24.11.2025 17:29:51
+   9: 256220808117507503432-79/000
+  10: Ì¦MÌEKLERGENEL KUMANYACILIK VE DIÌ T¦C.VE SAN.A.Ì.
+  12: :
+  13: :
+  14: : SGK TUZLA SOSYAL G▄VENL¦K MERKEZ¦
+  16: AYDINLI MAH.BIÃKIN SK. D²■ kap² no:11/B ¦ kap² no:0¦STANBULTUZLA
+  18: :
+  20: 2025/10
+  21: 01
+  22: ASIL
+  23: 05510
+  25: :
+  26: :
+  27: :
+  28: :
+  29: : 24.11.2025
+  30: :
+  32: 95d45d-113d96d7d-90d-2d2d-82d-52d-14d-93d-43d-3d90d104d85d42d33d-
+  33: 35d-17d-40d-52d79d-84d-45d-34d-94d103d-
+  35: ¦■yeri Sicil No
+  36: ¦■yeri ▄nvan²
+  37: SGM(kod-ad)
+  39: ¦■yeri Adresi
+  41: Y²l - Ay
+  42: Belge Ãe■idi
+  43: Mahiyet
+  44: Kanun
+  45: Onay Tarihi
+  47: Sno
+  49: S.G³venlik No
+  51: Ad²
+  53: Soyad²
+  55: ¦lkSoyad²
+  57: ▄cret
+  58: TL
+  60: ¦kramiye
+  61: TL
+  63: G³n UÃG
+  65: Eksik
+  66: g³n
+  68: Gg³n Ãg³n ¦ÃN EGN Meslek Kod
+  70: 1
+  72: 2
+  74: 3
+  76: 4
+  78: 5
+  80: 6
+  82: 7
+  84: 8
+  86: 9
+  88: 10
+  90: 11
+  92: 12
+  94: 13
+  96: 14
+  98: 15
+ 100: 16
+
+====================================================================================================
+TC NUMARALI SATIRLAR (¦lk 25):
+====================================================================================================
+
+SATIR 124:
+  TAM: 10394395958
+  TC ÍNCESI: []
+  TC: 10394395958
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 130:
+  TAM: 10826544718
+  TC ÍNCESI: []
+  TC: 10826544718
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 134:
+  TAM: 11190026190
+  TC ÍNCESI: []
+  TC: 11190026190
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 138:
+  TAM: 12205952220
+  TC ÍNCESI: []
+  TC: 12205952220
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 142:
+  TAM: 16031796980
+  TC ÍNCESI: []
+  TC: 16031796980
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 154:
+  TAM: 16484363678
+  TC ÍNCESI: []
+  TC: 16484363678
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 160:
+  TAM: 16693777006
+  TC ÍNCESI: []
+  TC: 16693777006
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 166:
+  TAM: 17441724112
+  TC ÍNCESI: []
+  TC: 17441724112
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 172:
+  TAM: 24883610620
+  TC ÍNCESI: []
+  TC: 24883610620
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 178:
+  TAM: 25283063054
+  TC ÍNCESI: []
+  TC: 25283063054
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 184:
+  TAM: 26285445770
+  TC ÍNCESI: []
+  TC: 26285445770
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 190:
+  TAM: 26944784554
+  TC ÍNCESI: []
+  TC: 26944784554
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 194:
+  TAM: 29248612486
+  TC ÍNCESI: []
+  TC: 29248612486
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 198:
+  TAM: 30166683632
+  TC ÍNCESI: []
+  TC: 30166683632
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 202:
+  TAM: 30322902584
+  TC ÍNCESI: []
+  TC: 30322902584
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 206:
+  TAM: 34831884256
+  TC ÍNCESI: []
+  TC: 34831884256
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 220:
+  TAM: 34882827776
+  TC ÍNCESI: []
+  TC: 34882827776
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 226:
+  TAM: 34948079712
+  TC ÍNCESI: []
+  TC: 34948079712
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 230:
+  TAM: 36562772604
+  TC ÍNCESI: []
+  TC: 36562772604
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 234:
+  TAM: 39284153768
+  TC ÍNCESI: []
+  TC: 39284153768
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 238:
+  TAM: 43102936198
+  TC ÍNCESI: []
+  TC: 43102936198
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 242:
+  TAM: 43357084026
+  TC ÍNCESI: []
+  TC: 43357084026
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 256:
+  TAM: 43840523650
+  TC ÍNCESI: []
+  TC: 43840523650
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 262:
+  TAM: 46639956974
+  TC ÍNCESI: []
+  TC: 46639956974
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+SATIR 266:
+  TAM: 62293189886
+  TC ÍNCESI: []
+  TC: 62293189886
+  TC SONRASI: []
+  EXTRACTED NAME: []
+
+
+TOPLAM TC BULUNDU: 25
